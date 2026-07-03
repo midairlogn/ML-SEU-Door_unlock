@@ -8,9 +8,11 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
 import android.nfc.NfcAdapter;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -22,6 +24,8 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -39,10 +43,17 @@ import com.whxinna.userplatform.storage.CredentialCache;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "ZL_Main";
-    private static final int REQUEST_PERMISSIONS = 100;
     private static final String PREF_SELECTED_METHOD = "selected_method";
     private static final String METHOD_NFC = "nfc";
     private static final String METHOD_BLE = "ble";
+
+    private final ActivityResultLauncher<String[]> permissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                if (!hasAllPermissions() && !shouldShowRationale()) {
+                    showSettingsDialog();
+                }
+                updateStatusDisplay();
+            });
 
     // Views
     private ImageButton btnRefresh;
@@ -53,6 +64,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvStatusDetail;
     private com.google.android.material.button.MaterialButton btnEnableNfc;
     private com.google.android.material.button.MaterialButton btnBleUnlock;
+    private com.google.android.material.button.MaterialButton btnGrantPermissions;
     private com.google.android.material.button.MaterialButtonToggleGroup toggleGroup;
     private com.google.android.material.button.MaterialButton btnLogout;
 
@@ -114,6 +126,7 @@ public class MainActivity extends AppCompatActivity {
         tvStatusDetail = findViewById(R.id.tvStatusDetail);
         btnEnableNfc = findViewById(R.id.btnEnableNfc);
         btnBleUnlock = findViewById(R.id.btnBleUnlock);
+        btnGrantPermissions = findViewById(R.id.btnGrantPermissions);
         toggleGroup = findViewById(R.id.toggleGroup);
         btnLogout = findViewById(R.id.btnLogout);
 
@@ -150,6 +163,8 @@ public class MainActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
+        btnGrantPermissions.setOnClickListener(v -> requestPermissions());
+
         btnLogout.setOnClickListener(v -> new AlertDialog.Builder(this)
             .setMessage(R.string.logout_confirm)
             .setPositiveButton(R.string.yes, (d, w) -> {
@@ -179,6 +194,20 @@ public class MainActivity extends AppCompatActivity {
         android.graphics.drawable.LayerDrawable layerBg = (android.graphics.drawable.LayerDrawable) statusIconContainer.getBackground().mutate();
         ((GradientDrawable) layerBg.getDrawable(0)).setColor(ContextCompat.getColor(this, R.color.primary_container));
         ivStatusIcon.setColorFilter(ContextCompat.getColor(this, R.color.primary));
+
+        if (!hasAllPermissions()) {
+            ivStatusIcon.setImageResource(R.drawable.ic_warning);
+            tvStatusTitle.setText(R.string.permission_required);
+            tvStatusDetail.setText(R.string.permission_denied_detail);
+            btnEnableNfc.setVisibility(View.GONE);
+            btnBleUnlock.setVisibility(View.GONE);
+            btnGrantPermissions.setVisibility(View.VISIBLE);
+            statusIconContainer.setAlpha(0.7f);
+            stopBreathingAnimation();
+            return;
+        }
+
+        btnGrantPermissions.setVisibility(View.GONE);
 
         boolean isNfc = METHOD_NFC.equals(selectedMethod);
 
@@ -362,8 +391,19 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         if (cache.hasSession()) {
-            enableNfcReaderMode();
+            if (hasAllPermissions()) {
+                enableNfcReaderMode();
+            }
             updateStatusDisplay();
+        }
+    }
+
+    private boolean hasAllPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
+                   ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
+        } else {
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
         }
     }
 
@@ -462,47 +502,59 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void requestPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            String[] perms = {
-                Manifest.permission.BLUETOOTH_SCAN,
-                Manifest.permission.BLUETOOTH_CONNECT,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            };
-            boolean needed = false;
-            for (String p : perms) {
-                if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) {
-                    needed = true;
-                    break;
-                }
-            }
-            if (needed) {
-                ActivityCompat.requestPermissions(this, perms, REQUEST_PERMISSIONS);
-            }
+        if (hasAllPermissions()) return;
+
+        if (shouldShowRationale()) {
+            showPermissionRationaleDialog();
         } else {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                    != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_PERMISSIONS);
-            }
+            permissionLauncher.launch(getRequiredPermissions());
         }
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_PERMISSIONS) {
-            boolean allGranted = true;
-            for (int result : grantResults) {
-                if (result != PackageManager.PERMISSION_GRANTED) {
-                    allGranted = false;
-                    break;
-                }
-            }
-            if (!allGranted) {
-                Toast.makeText(this, "Some permissions denied. BLE/NFC may not work.", Toast.LENGTH_LONG).show();
-            }
-            updateStatusDisplay();
+    private String[] getRequiredPermissions() {
+        java.util.List<String> perms = new java.util.ArrayList<>();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED)
+                perms.add(Manifest.permission.BLUETOOTH_SCAN);
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED)
+                perms.add(Manifest.permission.BLUETOOTH_CONNECT);
+        } else {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
+                perms.add(Manifest.permission.ACCESS_FINE_LOCATION);
         }
+        return perms.toArray(new String[0]);
+    }
+
+    private boolean shouldShowRationale() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.BLUETOOTH_SCAN) ||
+                   ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.BLUETOOTH_CONNECT);
+        } else {
+            return ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_FINE_LOCATION);
+        }
+    }
+
+    private void showPermissionRationaleDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.permission_rationale_title)
+                .setMessage(R.string.permission_rationale_message)
+                .setPositiveButton(R.string.grant_permissions, (dialog, which) -> 
+                        permissionLauncher.launch(getRequiredPermissions()))
+                .setNegativeButton(R.string.btn_cancel, null)
+                .show();
+    }
+
+    private void showSettingsDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.permission_required)
+                .setMessage(R.string.permission_settings_message)
+                .setPositiveButton(R.string.btn_go_to_settings, (dialog, which) -> {
+                    Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.parse("package:" + getPackageName()));
+                    startActivity(intent);
+                })
+                .setNegativeButton(R.string.btn_cancel, null)
+                .show();
     }
 
     @Override

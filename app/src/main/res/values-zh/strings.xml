@@ -78,4 +78,13 @@
     <string name="enable_nfc_button">立即开启 NFC</string>
     <string name="login_welcome">欢迎回来</string>
     <string name="login_subtitle">东南大学九龙湖校区门锁控制</string>
+
+    <!-- 权限 -->
+    <string name="permission_required">需要权限</string>
+    <string name="grant_permissions">授予权限</string>
+    <string name="permission_denied_detail">点击下方按钮授予所需权限</string>
+    <string name="permission_rationale_title">为什么需要权限？</string>
+    <string name="permission_rationale_message">蓝牙和位置权限用于搜索并连接附近的门锁。我们不会追踪您的位置信息。</string>
+    <string name="permission_settings_message">所需权限已被永久拒绝。请在“应用设置”中手动开启，以便使用蓝牙开门功能。</string>
+    <string name="btn_go_to_settings">前往设置</string>
 </resources>
