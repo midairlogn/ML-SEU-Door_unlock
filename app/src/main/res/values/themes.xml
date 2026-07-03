@@ -1,19 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Theme.SEUDoorLock" parent="Theme.Material3.Light.NoActionBar">
         <item name="colorPrimary">@color/primary</item>
-        <item name="colorPrimaryContainer">@color/primary_light</item>
-        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorPrimaryContainer">@color/primary_container</item>
+        <item name="colorOnPrimary">@color/on_primary</item>
         <item name="colorSecondary">@color/secondary</item>
-        <item name="android:statusBarColor">@color/primary</item>
+        <item name="colorSecondaryContainer">@color/secondary_container</item>
+        <item name="colorTertiary">@color/secondary</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="android:colorBackground">@color/surface</item>
+        <item name="colorSurfaceVariant">@color/surface_container</item>
+        <item name="colorOutline">@color/outline</item>
+        <item name="colorOutlineVariant">@color/outline_variant</item>
+        <item name="android:statusBarColor">@color/surface</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@color/surface</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item>
     </style>
 
     <style name="Theme.SEUDoorLock.Dark" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryContainer">@color/primary_dark</item>
-        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorOnPrimary">@color/on_primary</item>
         <item name="colorSecondary">@color/secondary</item>
-        <item name="android:statusBarColor">@color/primary_dark</item>
+        <item name="colorSurface">#1B1B21</item>
+        <item name="android:colorBackground">#1B1B21</item>
+        <item name="colorSurfaceVariant">#2E2E38</item>
+        <item name="android:statusBarColor">#1B1B21</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">#1B1B21</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">false</item>
     </style>
 
     <style name="Theme.SEUDoorLock.Transparent">

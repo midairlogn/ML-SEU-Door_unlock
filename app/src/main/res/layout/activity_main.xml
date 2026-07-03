@@ -1,116 +1,183 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:attr/colorBackground">
+    android:background="@color/surface"
+    android:orientation="vertical">
 
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/toolbar"
-        android:layout_width="0dp"
-        android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
-        app:titleTextColor="@android:color/white"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
-
-    <TextView
-        android:id="@+id/tvUserInfo"
-        android:layout_width="0dp"
+    <!-- Top App Bar -->
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="16dp"
-        android:textSize="14sp"
-        android:textColor="?android:attr/textColorSecondary"
-        app:layout_constraintTop_toBottomOf="@id/toolbar"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        android:background="@color/surface"
+        app:elevation="0dp">
 
-    <TextView
-        android:id="@+id/tvDoorStatus"
-        android:layout_width="wrap_content"
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:title="@string/app_name"
+            app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:paddingEnd="12dp"
+                android:orientation="horizontal">
+
+                <ImageButton
+                    android:id="@+id/btnRefresh"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/refresh"
+                    android:padding="12dp"
+                    android:src="@drawable/ic_refresh"
+                    app:tint="@color/on_surface_variant"/>
+
+                <ImageButton
+                    android:id="@+id/btnSettings"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/settings_title"
+                    android:padding="12dp"
+                    android:src="@drawable/ic_settings"
+                    app:tint="@color/on_surface_variant"/>
+            </LinearLayout>
+
+        </com.google.android.material.appbar.MaterialToolbar>
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <!-- Main Content -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:padding="20dp">
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/statusCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="28dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="@color/outline_variant"
+            app:cardBackgroundColor="@color/surface_container">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:padding="24dp">
+
+                <!-- Status Icon -->
+                <FrameLayout
+                    android:id="@+id/statusIconContainer"
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:background="@drawable/bg_status_icon">
+
+                    <ImageView
+                        android:id="@+id/ivStatusIcon"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_lock_outline"
+                        app:tint="@color/primary"/>
+                </FrameLayout>
+
+                <!-- Status Title -->
+                <TextView
+                    android:id="@+id/tvStatusTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall"
+                    android:gravity="center"
+                    android:textColor="@color/on_surface"
+                    tools:text="Hold near the door lock"/>
+
+                <!-- Status Detail -->
+                <TextView
+                    android:id="@+id/tvStatusDetail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:background="@drawable/bg_status_detail"
+                    android:fontFamily="monospace"
+                    android:minHeight="100dp"
+                    android:padding="16dp"
+                    android:textColor="@color/on_surface_variant"
+                    android:textSize="14sp"
+                    tools:text="Phone: 138****1234\nLock: Building A\nBattery: 85%"/>
+
+                <!-- BLE Unlock Button -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnBleUnlock"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_marginTop="24dp"
+                    android:text="@string/main_ble_hint"
+                    app:cornerRadius="28dp"
+                    android:visibility="gone"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </ScrollView>
+
+    <!-- Segmented Toggle Group -->
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        android:id="@+id/toggleGroup"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/main_status_title"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:textColor="?android:attr/textColorPrimary"
-        app:layout_constraintTop_toBottomOf="@id/tvUserInfo"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="24dp"/>
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="16dp"
+        app:singleSelection="true"
+        app:selectionRequired="true"
+        app:checkedButton="@+id/btnTabNfc">
 
-    <TextView
-        android:id="@+id/tvBattery"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="14sp"
-        android:textColor="?android:attr/textColorSecondary"
-        app:layout_constraintTop_toBottomOf="@id/tvDoorStatus"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="8dp"/>
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnTabNfc"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:text="@string/settings_method_nfc"
+            app:icon="@drawable/ic_nfc"
+            app:iconTint="@null" />
 
-    <ImageView
-        android:id="@+id/ivNfcIcon"
-        android:layout_width="120dp"
-        android:layout_height="120dp"
-        android:layout_marginTop="32dp"
-        android:src="@android:drawable/ic_dialog_info"
-        android:contentDescription="NFC"
-        app:tint="?attr/colorPrimary"
-        app:layout_constraintTop_toBottomOf="@id/tvBattery"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnTabBle"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:text="@string/settings_method_ble"
+            app:icon="@drawable/ic_bluetooth"
+            app:iconTint="@null" />
 
-    <TextView
-        android:id="@+id/tvNfcHint"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/main_nfc_hint"
-        android:textSize="14sp"
-        android:textColor="?android:attr/textColorSecondary"
-        android:gravity="center"
-        app:layout_constraintTop_toBottomOf="@id/ivNfcIcon"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="12dp"/>
+    </com.google.android.material.button.MaterialButtonToggleGroup>
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnBleUnlock"
-        android:layout_width="0dp"
-        android:layout_height="56dp"
-        android:text="@string/main_ble_hint"
-        android:textSize="16sp"
-        app:cornerRadius="12dp"
-        app:backgroundTint="?attr/colorSecondary"
-        app:layout_constraintBottom_toTopOf="@id/btnLogout"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_margin="32dp"
-        android:layout_marginBottom="16dp"/>
-
+    <!-- Logout Button -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnLogout"
-        style="@style/Widget.Material3.Button.OutlinedButton"
-        android:layout_width="0dp"
-        android:layout_height="48dp"
-        android:text="@string/main_logout"
-        app:cornerRadius="12dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_margin="32dp"
-        android:layout_marginBottom="24dp"/>
-
-    <ProgressBar
-        android:id="@+id/progressBar"
-        android:layout_width="wrap_content"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@id/tvNfcHint"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="24dp"/>
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="12dp"
+        android:text="@string/main_logout"
+        android:textColor="@color/error"/>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+</LinearLayout>

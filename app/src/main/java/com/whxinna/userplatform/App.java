@@ -2,10 +2,10 @@ package com.whxinna.userplatform;
 
 import android.app.Application;
 import android.content.SharedPreferences;
-import android.content.res.Configuration;
 import android.util.Log;
 
-import java.util.Locale;
+import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.os.LocaleListCompat;
 
 public class App extends Application {
 
@@ -14,25 +14,37 @@ public class App extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
-        applyLanguage();
+        applySettings();
         Log.d(TAG, "Application started");
     }
 
-    private void applyLanguage() {
+    private void applySettings() {
         SharedPreferences prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, MODE_PRIVATE);
+        
+        // Language
         String lang = prefs.getString(SettingsActivity.KEY_LANGUAGE, SettingsActivity.LANG_SYSTEM);
-
-        Locale locale;
+        LocaleListCompat appLocale;
         if (SettingsActivity.LANG_ZH.equals(lang)) {
-            locale = Locale.CHINESE;
+            appLocale = LocaleListCompat.forLanguageTags("zh");
         } else if (SettingsActivity.LANG_EN.equals(lang)) {
-            locale = Locale.ENGLISH;
+            appLocale = LocaleListCompat.forLanguageTags("en");
         } else {
-            locale = Locale.getDefault();
+            appLocale = LocaleListCompat.getEmptyLocaleList();
         }
+        AppCompatDelegate.setApplicationLocales(appLocale);
 
-        Configuration config = new Configuration(getResources().getConfiguration());
-        config.setLocale(locale);
-        getResources().updateConfiguration(config, getResources().getDisplayMetrics());
+        // Theme
+        String theme = prefs.getString(SettingsActivity.KEY_THEME, SettingsActivity.THEME_SYSTEM);
+        switch (theme) {
+            case SettingsActivity.THEME_LIGHT:
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+                break;
+            case SettingsActivity.THEME_DARK:
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+                break;
+            default:
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
+                break;
+        }
     }
 }

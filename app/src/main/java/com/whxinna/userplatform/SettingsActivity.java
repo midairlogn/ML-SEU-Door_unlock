@@ -8,10 +8,10 @@ import android.widget.RadioGroup;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.os.LocaleListCompat;
 
 import com.google.android.material.appbar.MaterialToolbar;
-
-import java.util.Locale;
 
 public class SettingsActivity extends AppCompatActivity {
 
@@ -94,7 +94,7 @@ public class SettingsActivity extends AppCompatActivity {
 
             getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
                 .edit().putString(KEY_LANGUAGE, lang).apply();
-            recreate();
+            applyLanguage();
         });
 
         rgTheme.setOnCheckedChangeListener((group, checkedId) -> {
@@ -105,7 +105,7 @@ public class SettingsActivity extends AppCompatActivity {
 
             getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
                 .edit().putString(KEY_THEME, theme).apply();
-            recreate();
+            applyTheme();
         });
 
         rgDefaultMethod.setOnCheckedChangeListener((group, checkedId) -> {
@@ -120,19 +120,13 @@ public class SettingsActivity extends AppCompatActivity {
         String theme = prefs.getString(KEY_THEME, THEME_SYSTEM);
         switch (theme) {
             case THEME_LIGHT:
-                setTheme(R.style.Theme_SEUDoorLock);
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
                 break;
             case THEME_DARK:
-                setTheme(R.style.Theme_SEUDoorLock_Dark);
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
                 break;
             default:
-                int nightMode = getResources().getConfiguration().uiMode
-                    & Configuration.UI_MODE_NIGHT_MASK;
-                if (nightMode == Configuration.UI_MODE_NIGHT_YES) {
-                    setTheme(R.style.Theme_SEUDoorLock_Dark);
-                } else {
-                    setTheme(R.style.Theme_SEUDoorLock);
-                }
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
                 break;
         }
     }
@@ -141,18 +135,15 @@ public class SettingsActivity extends AppCompatActivity {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String lang = prefs.getString(KEY_LANGUAGE, LANG_SYSTEM);
 
-        Locale locale;
-        if (LANG_SYSTEM.equals(lang)) {
-            locale = Locale.getDefault();
-        } else if (LANG_ZH.equals(lang)) {
-            locale = Locale.CHINESE;
+        LocaleListCompat appLocale;
+        if (LANG_ZH.equals(lang)) {
+            appLocale = LocaleListCompat.forLanguageTags("zh");
+        } else if (LANG_EN.equals(lang)) {
+            appLocale = LocaleListCompat.forLanguageTags("en");
         } else {
-            locale = Locale.ENGLISH;
+            appLocale = LocaleListCompat.getEmptyLocaleList();
         }
-
-        Configuration config = new Configuration(getResources().getConfiguration());
-        config.setLocale(locale);
-        getResources().updateConfiguration(config, getResources().getDisplayMetrics());
+        AppCompatDelegate.setApplicationLocales(appLocale);
     }
 
     public static String getDefaultMethod(SharedPreferences prefs) {

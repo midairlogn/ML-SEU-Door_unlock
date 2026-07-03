@@ -5,31 +5,31 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="24dp">
 
     <TextView
         android:id="@+id/tvCaptchaLabel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Please enter the captcha shown below"
-        android:textSize="14sp"
-        android:textColor="?android:attr/textColorSecondary"
-        android:layout_marginBottom="12dp"/>
+        android:text="@string/captcha_verify"
+        android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+        android:textColor="@color/on_surface"
+        android:layout_marginBottom="16dp"/>
 
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:cardCornerRadius="8dp"
-        app:cardElevation="2dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="0dp"
         app:strokeWidth="1dp"
-        app:strokeColor="?attr/colorOutline">
+        app:strokeColor="@color/outline_variant"
+        app:cardBackgroundColor="@android:color/white">
 
         <WebView
             android:id="@+id/ivCaptcha"
             android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:background="@android:color/white"
-            android:padding="4dp"/>
+            android:layout_height="80dp"
+            android:padding="8dp"/>
 
     </com.google.android.material.card.MaterialCardView>
 
@@ -38,9 +38,10 @@
         style="@style/Widget.Material3.Button.TextButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Refresh captcha"
+        android:text="@string/captcha_refresh"
         android:layout_gravity="end"
-        android:layout_marginTop="4dp"/>
+        android:layout_marginTop="4dp"
+        app:icon="@drawable/ic_refresh"/>
 
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/tilCaptcha"
@@ -50,7 +51,8 @@
         android:hint="@string/hint_captcha"
         android:layout_marginTop="8dp"
         app:counterEnabled="true"
-        app:counterMaxLength="4">
+        app:counterMaxLength="4"
+        app:startIconDrawable="@drawable/ic_check_circle">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etCaptcha"
@@ -58,9 +60,9 @@
             android:layout_height="wrap_content"
             android:inputType="textCapCharacters|textVisiblePassword"
             android:maxLength="4"
-            android:textSize="18sp"
+            android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
             android:gravity="center"
-            android:letterSpacing="0.3"/>
+            android:letterSpacing="0.2"/>
 
     </com.google.android.material.textfield.TextInputLayout>
 

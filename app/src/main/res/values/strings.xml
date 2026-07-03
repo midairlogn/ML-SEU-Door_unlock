@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">SEU Door Lock</string>
+    <string name="refresh">Refresh</string>
     <string name="login_title">SEU Door Lock Login</string>
     <string name="hint_phone">Phone number</string>
     <string name="hint_password">6-digit password</string>
@@ -56,4 +57,24 @@
     <string name="settings_method_ble">Bluetooth</string>
     <string name="settings_about">About</string>
     <string name="settings_version">Version %s</string>
+
+    <!-- Main Page -->
+    <string name="select_method">Select unlock method</string>
+    <string name="nfc_ready">Ready to scan</string>
+    <string name="nfc_not_supported">NFC not supported</string>
+    <string name="nfc_disabled">NFC disabled</string>
+    <string name="ble_ready">Ready to connect</string>
+    <string name="ble_not_supported">BLE not supported</string>
+    <string name="ble_disabled">Bluetooth disabled</string>
+    <string name="tap_to_unlock">Tap to unlock</string>
+    <string name="press_to_unlock">Press to unlock</string>
+    <string name="enable_nfc_prompt">Please enable NFC in system settings</string>
+    <string name="enable_ble_prompt">Please enable Bluetooth in system settings</string>
+
+    <!-- Captcha & New UI -->
+    <string name="captcha_verify">Verify you are human</string>
+    <string name="captcha_refresh">Try another code</string>
+    <string name="settings_version_label">Version %s</string>
+    <string name="login_welcome">Welcome Back</string>
+    <string name="login_subtitle">SEU Jiulonghu Campus Door Lock</string>
 </resources>

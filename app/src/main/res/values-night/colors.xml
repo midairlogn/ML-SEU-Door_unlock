@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material 3 Indigo Dark -->
+    <color name="primary">#BFC2FF</color>
+    <color name="primary_container">#3F4FA4</color>
+    <color name="primary_dark">#2E3E93</color>
+    <color name="secondary">#FFB900</color>
+    <color name="secondary_container">#554400</color>
+
+    <!-- Surfaces -->
+    <color name="surface">#1B1B21</color>
+    <color name="surface_card">#23232A</color>
+    <color name="surface_container">#2E2E38</color>
+    <color name="surface_dialog">#23232A</color>
+
+    <!-- Text -->
+    <color name="on_surface">#E4E1E6</color>
+    <color name="on_surface_variant">#C8C5D0</color>
+    <color name="on_primary">#1B1B21</color>
+    <color name="on_secondary_container">#E4E1E6</color>
+
+    <!-- Tab -->
+    <color name="tab_selected_bg">#3F4FA4</color>
+    <color name="tab_selected_text">#E4E1E6</color>
+    <color name="tab_unselected_text">#91909A</color>
+
+    <!-- Outline -->
+    <color name="outline">#91909A</color>
+    <color name="outline_variant">#46464F</color>
+</resources>

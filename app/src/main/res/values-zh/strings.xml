@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">SEU 门锁</string>
+    <string name="refresh">刷新</string>
     <string name="login_title">SEU 门锁登录</string>
     <string name="hint_phone">手机号</string>
     <string name="hint_password">6位密码</string>
@@ -56,4 +57,24 @@
     <string name="settings_method_ble">蓝牙</string>
     <string name="settings_about">关于</string>
     <string name="settings_version">版本 %s</string>
+
+    <!-- 主页面 -->
+    <string name="select_method">选择开门方式</string>
+    <string name="nfc_ready">准备扫描</string>
+    <string name="nfc_not_supported">设备不支持NFC</string>
+    <string name="nfc_disabled">NFC已关闭</string>
+    <string name="ble_ready">准备连接</string>
+    <string name="ble_not_supported">设备不支持蓝牙</string>
+    <string name="ble_disabled">蓝牙已关闭</string>
+    <string name="tap_to_unlock">轻触开门</string>
+    <string name="press_to_unlock">点击开门</string>
+    <string name="enable_nfc_prompt">请在系统设置中开启NFC</string>
+    <string name="enable_ble_prompt">请在系统设置中开启蓝牙</string>
+
+    <!-- 验证码 & 新 UI -->
+    <string name="captcha_verify">请完成身份验证</string>
+    <string name="captcha_refresh">换一张</string>
+    <string name="settings_version_label">版本 %s</string>
+    <string name="login_welcome">欢迎回来</string>
+    <string name="login_subtitle">东南大学九龙湖校区门锁控制</string>
 </resources>

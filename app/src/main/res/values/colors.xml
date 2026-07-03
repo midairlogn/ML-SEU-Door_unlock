@@ -1,11 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary">#1565C0</color>
-    <color name="primary_light">#BBDEFB</color>
-    <color name="primary_dark">#0D47A1</color>
+    <!-- Material 3 Indigo Brand -->
+    <color name="primary">#4F5FC4</color>
+    <color name="primary_container">#DFE0FF</color>
+    <color name="primary_dark">#3F4FA4</color>
     <color name="secondary">#FF6F00</color>
-    <color name="secondary_light">#FFE0B2</color>
+    <color name="secondary_container">#FFE0B2</color>
+
+    <!-- Surfaces -->
+    <color name="surface">#FBF8FF</color>
+    <color name="surface_card">#FFFFFF</color>
+    <color name="surface_container">#EFEDF6</color>
+    <color name="surface_dialog">#F4F2FB</color>
+
+    <!-- Text -->
+    <color name="on_surface">#1B1B21</color>
+    <color name="on_surface_variant">#46464F</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="on_secondary_container">#181A2C</color>
+
+    <!-- Tab -->
+    <color name="tab_selected_bg">#E0E1F9</color>
+    <color name="tab_selected_text">#181A2C</color>
+    <color name="tab_unselected_text">#46464F</color>
+
+    <!-- Outline -->
+    <color name="outline">#777680</color>
+    <color name="outline_variant">#C8C5D0</color>
+
+    <!-- Semantic -->
     <color name="success">#2E7D32</color>
-    <color name="error">#C62828</color>
-    <color name="surface">#FAFAFA</color>
+    <color name="success_container">#C6F0C8</color>
+    <color name="error">#BA1A1A</color>
+    <color name="error_container">#FFDAD6</color>
+
+    <!-- Button -->
+    <color name="button_primary_text">#FFFFFF</color>
+    <color name="button_disabled_bg">#E2E0E9</color>
 </resources>

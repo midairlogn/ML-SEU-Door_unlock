@@ -1,11 +1,13 @@
 package com.whxinna.userplatform.ui;
 
 import android.Manifest;
-import android.bluetooth.BluetoothAdapter;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.content.res.Configuration;
+import android.graphics.drawable.GradientDrawable;
 import android.nfc.NfcAdapter;
 import android.os.Build;
 import android.os.Bundle;
@@ -13,8 +15,10 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
+import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -24,43 +28,46 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import com.google.android.material.appbar.MaterialToolbar;
-import com.google.android.material.button.MaterialButton;
 import com.whxinna.userplatform.R;
 import com.whxinna.userplatform.SettingsActivity;
-import com.whxinna.userplatform.api.AuthApi;
 import com.whxinna.userplatform.api.CredentialApi;
 import com.whxinna.userplatform.ble.BleUnlockManager;
 import com.whxinna.userplatform.model.DoorLockInfo;
 import com.whxinna.userplatform.nfc.NfcUnlockManager;
 import com.whxinna.userplatform.storage.CredentialCache;
 
-import java.util.Locale;
-
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "ZL_Main";
     private static final int REQUEST_PERMISSIONS = 100;
+    private static final String PREF_SELECTED_METHOD = "selected_method";
+    private static final String METHOD_NFC = "nfc";
+    private static final String METHOD_BLE = "ble";
 
-    private MaterialToolbar toolbar;
-    private TextView tvUserInfo;
-    private TextView tvDoorStatus;
-    private TextView tvBattery;
-    private TextView tvNfcHint;
-    private ImageView ivNfcIcon;
-    private MaterialButton btnBleUnlock;
-    private MaterialButton btnLogout;
-    private ProgressBar progressBar;
+    // Views
+    private ImageButton btnRefresh;
+    private ImageButton btnSettings;
+    private View statusIconContainer;
+    private ImageView ivStatusIcon;
+    private TextView tvStatusTitle;
+    private TextView tvStatusDetail;
+    private com.google.android.material.button.MaterialButton btnBleUnlock;
+    private com.google.android.material.button.MaterialButtonToggleGroup toggleGroup;
+    private com.google.android.material.button.MaterialButton btnLogout;
 
+    // Managers
     private CredentialCache cache;
     private NfcUnlockManager nfcManager;
     private BleUnlockManager bleManager;
     private CredentialApi credentialApi;
+    private SharedPreferences prefs;
+    private String selectedMethod;
+
+    // Animation
+    private AnimatorSet iconAnimator;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        applyTheme();
-        applyLanguage();
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -68,6 +75,7 @@ public class MainActivity extends AppCompatActivity {
         nfcManager = new NfcUnlockManager(this, cache);
         bleManager = new BleUnlockManager(this, cache);
         credentialApi = new CredentialApi(cache);
+        prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, MODE_PRIVATE);
 
         if (!cache.hasSession()) {
             navigateToLogin();
@@ -79,46 +87,6 @@ public class MainActivity extends AppCompatActivity {
         requestPermissions();
         refreshCredentials();
         handleNfcIntent(getIntent());
-    }
-
-    private void applyTheme() {
-        SharedPreferences prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, MODE_PRIVATE);
-        String theme = prefs.getString(SettingsActivity.KEY_THEME, SettingsActivity.THEME_SYSTEM);
-        switch (theme) {
-            case SettingsActivity.THEME_LIGHT:
-                setTheme(R.style.Theme_SEUDoorLock);
-                break;
-            case SettingsActivity.THEME_DARK:
-                setTheme(R.style.Theme_SEUDoorLock_Dark);
-                break;
-            default:
-                int nightMode = getResources().getConfiguration().uiMode
-                    & Configuration.UI_MODE_NIGHT_MASK;
-                if (nightMode == Configuration.UI_MODE_NIGHT_YES) {
-                    setTheme(R.style.Theme_SEUDoorLock_Dark);
-                } else {
-                    setTheme(R.style.Theme_SEUDoorLock);
-                }
-                break;
-        }
-    }
-
-    private void applyLanguage() {
-        SharedPreferences prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, MODE_PRIVATE);
-        String lang = prefs.getString(SettingsActivity.KEY_LANGUAGE, SettingsActivity.LANG_SYSTEM);
-
-        Locale locale;
-        if (SettingsActivity.LANG_ZH.equals(lang)) {
-            locale = Locale.CHINESE;
-        } else if (SettingsActivity.LANG_EN.equals(lang)) {
-            locale = Locale.ENGLISH;
-        } else {
-            locale = Locale.getDefault();
-        }
-
-        Configuration config = new Configuration(getResources().getConfiguration());
-        config.setLocale(locale);
-        getResources().updateConfiguration(config, getResources().getDisplayMetrics());
     }
 
     @Override
@@ -137,40 +105,44 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initViews() {
-        toolbar = findViewById(R.id.toolbar);
-        tvUserInfo = findViewById(R.id.tvUserInfo);
-        tvDoorStatus = findViewById(R.id.tvDoorStatus);
-        tvBattery = findViewById(R.id.tvBattery);
-        tvNfcHint = findViewById(R.id.tvNfcHint);
-        ivNfcIcon = findViewById(R.id.ivNfcIcon);
+        btnRefresh = findViewById(R.id.btnRefresh);
+        btnSettings = findViewById(R.id.btnSettings);
+        statusIconContainer = findViewById(R.id.statusIconContainer);
+        ivStatusIcon = findViewById(R.id.ivStatusIcon);
+        tvStatusTitle = findViewById(R.id.tvStatusTitle);
+        tvStatusDetail = findViewById(R.id.tvStatusDetail);
         btnBleUnlock = findViewById(R.id.btnBleUnlock);
+        toggleGroup = findViewById(R.id.toggleGroup);
         btnLogout = findViewById(R.id.btnLogout);
-        progressBar = findViewById(R.id.progressBar);
 
-        toolbar.setTitle("SEU Door Lock");
-        setSupportActionBar(toolbar);
-
-        SharedPreferences prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, MODE_PRIVATE);
         String defaultMethod = SettingsActivity.getDefaultMethod(prefs);
-        boolean showBleButton = SettingsActivity.METHOD_BLE.equals(defaultMethod);
-        btnBleUnlock.setVisibility(showBleButton ? View.VISIBLE : View.GONE);
-
-        String phone = cache.getPhone();
-        String masked = phone.length() >= 7
-            ? phone.substring(0, 3) + "****" + phone.substring(7)
-            : phone;
-        tvUserInfo.setText("Phone: " + masked);
-
-        if (cache.hasDoorLock()) {
-            tvBattery.setText(String.format(getString(R.string.battery_level), (int) cache.getBatteryLevel()));
-            tvDoorStatus.setText("Lock: " + cache.getBuildingName());
-        } else {
-            tvDoorStatus.setText("Syncing door lock info...");
-            tvBattery.setText("");
-        }
+        selectedMethod = prefs.getString(PREF_SELECTED_METHOD, defaultMethod);
+        updateTabSelection();
+        updateStatusDisplay();
     }
 
     private void setupListeners() {
+        btnRefresh.setOnClickListener(v -> {
+            refreshCredentials();
+            startRefreshAnimation();
+        });
+
+        btnSettings.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
+
+        toggleGroup.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+            if (isChecked) {
+                if (checkedId == R.id.btnTabNfc) {
+                    selectedMethod = METHOD_NFC;
+                } else if (checkedId == R.id.btnTabBle) {
+                    selectedMethod = METHOD_BLE;
+                }
+                prefs.edit().putString(PREF_SELECTED_METHOD, selectedMethod).apply();
+                updateStatusDisplay();
+            }
+        });
+
+        btnBleUnlock.setOnClickListener(v -> attemptBleUnlock());
+
         btnLogout.setOnClickListener(v -> {
             new AlertDialog.Builder(this)
                 .setMessage(R.string.logout_confirm)
@@ -183,43 +155,183 @@ public class MainActivity extends AppCompatActivity {
                 .setNegativeButton(R.string.no, null)
                 .show();
         });
+    }
 
-        btnBleUnlock.setOnClickListener(v -> attemptBleUnlock());
+    private void updateTabSelection() {
+        if (METHOD_NFC.equals(selectedMethod)) {
+            toggleGroup.check(R.id.btnTabNfc);
+        } else {
+            toggleGroup.check(R.id.btnTabBle);
+        }
+    }
+
+    private void updateStatusDisplay() {
+        boolean isNfc = METHOD_NFC.equals(selectedMethod);
+
+        if (isNfc) {
+            ivStatusIcon.setImageResource(R.drawable.ic_nfc);
+            btnBleUnlock.setVisibility(View.GONE);
+
+            if (!nfcManager.isNfcSupported()) {
+                tvStatusTitle.setText(R.string.nfc_not_supported);
+                tvStatusDetail.setText("");
+                statusIconContainer.setAlpha(0.5f);
+            } else if (!nfcManager.isNfcEnabled()) {
+                tvStatusTitle.setText(R.string.nfc_disabled);
+                tvStatusDetail.setText(R.string.enable_nfc_prompt);
+                statusIconContainer.setAlpha(0.7f);
+                startBreathingAnimation();
+            } else {
+                tvStatusTitle.setText(R.string.nfc_ready);
+                tvStatusDetail.setText(R.string.main_nfc_hint);
+                statusIconContainer.setAlpha(1.0f);
+                startBreathingAnimation();
+            }
+        } else {
+            ivStatusIcon.setImageResource(R.drawable.ic_bluetooth);
+            btnBleUnlock.setVisibility(View.VISIBLE);
+
+            if (!bleManager.isBleSupported()) {
+                tvStatusTitle.setText(R.string.ble_not_supported);
+                tvStatusDetail.setText("");
+                statusIconContainer.setAlpha(0.5f);
+                stopBreathingAnimation();
+            } else if (!bleManager.isBleEnabled()) {
+                tvStatusTitle.setText(R.string.ble_disabled);
+                tvStatusDetail.setText(R.string.enable_ble_prompt);
+                statusIconContainer.setAlpha(0.7f);
+                stopBreathingAnimation();
+            } else {
+                tvStatusTitle.setText(R.string.ble_ready);
+                tvStatusDetail.setText(R.string.main_ble_hint);
+                statusIconContainer.setAlpha(1.0f);
+                stopBreathingAnimation();
+            }
+        }
+
+        updateDetailInfo();
+    }
+
+    private void updateDetailInfo() {
+        StringBuilder detail = new StringBuilder();
+        String phone = cache.getPhone();
+        if (phone != null && phone.length() >= 7) {
+            detail.append("Phone: ").append(phone.substring(0, 3)).append("****").append(phone.substring(7));
+        } else if (phone != null) {
+            detail.append("Phone: ").append(phone);
+        }
+
+        if (cache.hasDoorLock()) {
+            if (detail.length() > 0) detail.append("\n");
+            detail.append("Lock: ").append(cache.getBuildingName());
+            if (detail.length() > 0) detail.append("\n");
+            detail.append("Battery: ").append((int) cache.getBatteryLevel()).append("%");
+        }
+
+        if (detail.length() > 0) {
+            tvStatusDetail.setText(detail.toString());
+        }
+    }
+
+    private void startBreathingAnimation() {
+        stopBreathingAnimation();
+        ObjectAnimator scaleX = ObjectAnimator.ofFloat(statusIconContainer, "scaleX", 1.0f, 1.06f);
+        ObjectAnimator scaleY = ObjectAnimator.ofFloat(statusIconContainer, "scaleY", 1.0f, 1.06f);
+        scaleX.setRepeatCount(ValueAnimator.INFINITE);
+        scaleX.setRepeatMode(ValueAnimator.REVERSE);
+        scaleY.setRepeatCount(ValueAnimator.INFINITE);
+        scaleY.setRepeatMode(ValueAnimator.REVERSE);
+        scaleX.setDuration(1500);
+        scaleY.setDuration(1500);
+        iconAnimator = new AnimatorSet();
+        iconAnimator.playTogether(scaleX, scaleY);
+        iconAnimator.start();
+    }
+
+    private void stopBreathingAnimation() {
+        if (iconAnimator != null && iconAnimator.isRunning()) {
+            iconAnimator.cancel();
+            statusIconContainer.setScaleX(1.0f);
+            statusIconContainer.setScaleY(1.0f);
+        }
+    }
+
+    private void startRefreshAnimation() {
+        ObjectAnimator rotation = ObjectAnimator.ofFloat(btnRefresh, "rotation", 0f, 360f);
+        rotation.setDuration(800);
+        rotation.setInterpolator(new DecelerateInterpolator());
+        rotation.start();
+    }
+
+    private void showSuccessState() {
+        ivStatusIcon.setImageResource(R.drawable.ic_check_circle);
+        tvStatusTitle.setText(R.string.door_opened);
+        statusIconContainer.setAlpha(1.0f);
+        stopBreathingAnimation();
+
+        statusIconContainer.setScaleX(0.8f);
+        statusIconContainer.setScaleY(0.8f);
+        statusIconContainer.animate()
+            .scaleX(1.0f)
+            .scaleY(1.0f)
+            .setDuration(400)
+            .setInterpolator(new OvershootInterpolator())
+            .start();
+
+        GradientDrawable bg = (GradientDrawable) statusIconContainer.getBackground();
+        bg.setColor(ContextCompat.getColor(this, R.color.success_container));
+        ivStatusIcon.setColorFilter(ContextCompat.getColor(this, R.color.success));
+    }
+
+    private void showErrorState(String message) {
+        ivStatusIcon.setImageResource(R.drawable.ic_warning);
+        tvStatusTitle.setText(R.string.unlock_failed);
+        tvStatusDetail.setText(message);
+        statusIconContainer.setAlpha(1.0f);
+        stopBreathingAnimation();
+
+        ObjectAnimator shake = ObjectAnimator.ofFloat(statusIconContainer, "translationX", 0, 15, -15, 10, -10, 5, -5, 0);
+        shake.setDuration(500);
+        shake.start();
+
+        GradientDrawable bg = (GradientDrawable) statusIconContainer.getBackground();
+        bg.setColor(ContextCompat.getColor(this, R.color.error_container));
+        ivStatusIcon.setColorFilter(ContextCompat.getColor(this, R.color.error));
     }
 
     private void attemptBleUnlock() {
         if (!bleManager.isBleSupported()) {
-            Toast.makeText(this, "BLE not supported", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.ble_not_supported, Toast.LENGTH_SHORT).show();
             return;
         }
         if (!bleManager.isBleEnabled()) {
-            Toast.makeText(this, "Please enable Bluetooth", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.ble_disabled, Toast.LENGTH_SHORT).show();
             return;
         }
 
-        setLoading(true);
-        tvNfcHint.setText(getString(R.string.ble_connecting));
+        tvStatusTitle.setText(R.string.ble_connecting);
+        tvStatusDetail.setText("");
+        btnBleUnlock.setEnabled(false);
 
         bleManager.unlock(new BleUnlockManager.BleCallback() {
             @Override
             public void onSuccess(String message) {
-                setLoading(false);
-                tvNfcHint.setText(getString(R.string.door_opened));
+                showSuccessState();
+                btnBleUnlock.setEnabled(true);
                 Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
             }
 
             @Override
             public void onError(String message) {
-                setLoading(false);
-                tvNfcHint.setText(getString(R.string.main_nfc_hint));
-                Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
+                showErrorState(message);
+                btnBleUnlock.setEnabled(true);
             }
 
             @Override
             public void onExpired() {
-                setLoading(false);
-                tvNfcHint.setText("Credential expired, refreshing...");
+                tvStatusTitle.setText(R.string.session_expired);
                 refreshCredentials();
+                btnBleUnlock.setEnabled(true);
             }
         });
     }
@@ -229,6 +341,7 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         if (cache.hasSession()) {
             enableNfcReaderMode();
+            updateStatusDisplay();
         }
     }
 
@@ -251,28 +364,28 @@ public class MainActivity extends AppCompatActivity {
             || NfcAdapter.ACTION_TECH_DISCOVERED.equals(action)
             || NfcAdapter.ACTION_NDEF_DISCOVERED.equals(action)) {
 
-            setLoading(true);
-            tvNfcHint.setText(getString(R.string.unlocking));
+            if (!METHOD_NFC.equals(selectedMethod)) {
+                return;
+            }
+
+            tvStatusTitle.setText(R.string.unlocking);
+            tvStatusDetail.setText("");
 
             nfcManager.enableReaderMode(this, new NfcUnlockManager.NfcCallback() {
                 @Override
                 public void onSuccess(com.whxinna.userplatform.model.DoorResponse response) {
-                    setLoading(false);
-                    tvNfcHint.setText(getString(R.string.door_opened));
-                    Toast.makeText(MainActivity.this, getString(R.string.unlock_success), Toast.LENGTH_SHORT).show();
+                    showSuccessState();
+                    Toast.makeText(MainActivity.this, R.string.unlock_success, Toast.LENGTH_SHORT).show();
                 }
 
                 @Override
                 public void onError(String message) {
-                    setLoading(false);
-                    tvNfcHint.setText(getString(R.string.main_nfc_hint));
-                    Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
+                    showErrorState(message);
                 }
 
                 @Override
                 public void onExpired() {
-                    setLoading(false);
-                    tvNfcHint.setText("Credential expired, refreshing...");
+                    tvStatusTitle.setText(R.string.session_expired);
                     refreshCredentials();
                 }
             });
@@ -281,37 +394,25 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void enableNfcReaderMode() {
-        if (!nfcManager.isNfcSupported()) {
-            ivNfcIcon.setAlpha(0.3f);
-            tvNfcHint.setText("NFC not supported");
-            return;
-        }
-        if (!nfcManager.isNfcEnabled()) {
-            ivNfcIcon.setAlpha(0.3f);
-            tvNfcHint.setText("NFC disabled");
+        if (!nfcManager.isNfcSupported() || !nfcManager.isNfcEnabled()) {
             return;
         }
 
-        ivNfcIcon.setAlpha(1.0f);
         nfcManager.enableReaderMode(this, new NfcUnlockManager.NfcCallback() {
             @Override
             public void onSuccess(com.whxinna.userplatform.model.DoorResponse response) {
-                setLoading(false);
-                tvNfcHint.setText(getString(R.string.door_opened));
-                Toast.makeText(MainActivity.this, getString(R.string.unlock_success), Toast.LENGTH_SHORT).show();
+                showSuccessState();
+                Toast.makeText(MainActivity.this, R.string.unlock_success, Toast.LENGTH_SHORT).show();
             }
 
             @Override
             public void onError(String message) {
-                setLoading(false);
-                tvNfcHint.setText(getString(R.string.main_nfc_hint));
-                Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
+                showErrorState(message);
             }
 
             @Override
             public void onExpired() {
-                setLoading(false);
-                tvNfcHint.setText("Credential expired, refreshing...");
+                tvStatusTitle.setText(R.string.session_expired);
                 refreshCredentials();
             }
         });
@@ -321,12 +422,7 @@ public class MainActivity extends AppCompatActivity {
         credentialApi.syncDoorLockInfo(new CredentialApi.SyncCallback() {
             @Override
             public void onSuccess(DoorLockInfo info) {
-                if (info.doorLock != null) {
-                    tvBattery.setText(String.format(getString(R.string.battery_level), (int) info.doorLock.batteryLevel));
-                }
-                if (info.accommodation != null) {
-                    tvDoorStatus.setText("Lock: " + info.accommodation.getDisplayName());
-                }
+                runOnUiThread(() -> updateDetailInfo());
             }
 
             @Override
@@ -341,11 +437,6 @@ public class MainActivity extends AppCompatActivity {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
-    }
-
-    private void setLoading(boolean loading) {
-        progressBar.setVisibility(loading ? View.VISIBLE : View.GONE);
-        btnBleUnlock.setEnabled(!loading);
     }
 
     private void requestPermissions() {
@@ -388,12 +479,14 @@ public class MainActivity extends AppCompatActivity {
             if (!allGranted) {
                 Toast.makeText(this, "Some permissions denied. BLE/NFC may not work.", Toast.LENGTH_LONG).show();
             }
+            updateStatusDisplay();
         }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        stopBreathingAnimation();
         nfcManager.onDestroy();
         bleManager.onDestroy();
     }
