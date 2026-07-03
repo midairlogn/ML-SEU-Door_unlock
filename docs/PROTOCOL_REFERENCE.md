@@ -769,29 +769,29 @@ https://uc-zhuli.whxinna.com?d={device_id}
 ### 9.2 AndroidManifest NFC Configuration
 
 ```xml
-<uses-feature android:name="android.hardware.nfc" android:required="true"/>
-<uses-permission android:name="android.permission.NFC"/>
 
-<activity android:name="com.whxinna.nfc.NfcPendingActivity"
-          android:launchMode="singleInstance"
-          android:theme="@style/ZhuLiLifeTheme.Transparent">
-    <!-- NDEF Discovery (URL-based) -->
-    <intent-filter>
-        <action android:name="android.nfc.action.NDEF_DISCOVERED"/>
-        <category android:name="android.intent.category.DEFAULT"/>
-        <data android:host="uc-zhuli.whxinna.com" android:scheme="https"/>
-    </intent-filter>
-    <!-- TECH Discovery -->
-    <intent-filter>
-        <action android:name="android.nfc.action.TECH_DISCOVERED"/>
-    </intent-filter>
-    <meta-data android:name="android.nfc.action.TECH_DISCOVERED"
-               android:resource="@xml/nfc_tech_filter"/>
-    <!-- TAG Discovery (fallback) -->
-    <intent-filter>
-        <action android:name="android.nfc.action.TAG_DISCOVERED"/>
-        <category android:name="android.intent.category.DEFAULT"/>
-    </intent-filter>
+<uses-feature android:name="android.hardware.nfc" android:required="true" /><uses-permission
+android:name="android.permission.NFC" />
+
+<activity android:name="com.midairlogn.nfc.NfcPendingActivity" android:launchMode="singleInstance"
+android:theme="@style/ZhuLiLifeTheme.Transparent">
+<!-- NDEF Discovery (URL-based) -->
+<intent-filter>
+    <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <data android:host="uc-zhuli.whxinna.com" android:scheme="https" />
+</intent-filter>
+<!-- TECH Discovery -->
+<intent-filter>
+    <action android:name="android.nfc.action.TECH_DISCOVERED" />
+</intent-filter>
+<meta-data android:name="android.nfc.action.TECH_DISCOVERED"
+    android:resource="@xml/nfc_tech_filter" />
+<!-- TAG Discovery (fallback) -->
+<intent-filter>
+    <action android:name="android.nfc.action.TAG_DISCOVERED" />
+    <category android:name="android.intent.category.DEFAULT" />
+</intent-filter>
 </activity>
 ```
 

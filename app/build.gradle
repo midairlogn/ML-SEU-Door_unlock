@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace 'com.whxinna.userplatform'
+    namespace 'com.midairlogn.seudoorunlock'
     compileSdk 34
 
     defaultConfig {
