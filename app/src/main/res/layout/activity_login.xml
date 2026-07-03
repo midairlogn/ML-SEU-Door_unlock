@@ -7,34 +7,38 @@
     android:fillViewport="true"
     android:background="@color/surface">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
         android:padding="24dp">
 
-        <ImageButton
-            android:id="@+id/btnSettings"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/settings_title"
-            android:padding="12dp"
-            android:src="@drawable/ic_settings"
-            app:tint="@color/on_surface_variant"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <ImageButton
+                android:id="@+id/btnSettings"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="end"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/settings_title"
+                android:padding="12dp"
+                android:src="@drawable/ic_settings"
+                app:tint="@color/on_surface_variant"/>
+
+        </FrameLayout>
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/ivLogo"
             android:layout_width="80dp"
             android:layout_height="80dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="24dp"
             app:cardCornerRadius="20dp"
             app:cardElevation="0dp"
-            app:strokeWidth="0dp"
-            app:layout_constraintTop_toBottomOf="@id/btnSettings"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="24dp">
+            app:strokeWidth="0dp">
 
             <ImageView
                 android:layout_width="match_parent"
@@ -49,37 +53,33 @@
             android:id="@+id/tvTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="12dp"
             android:text="@string/login_welcome"
             android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall"
-            android:textColor="@color/on_surface"
-            app:layout_constraintTop_toBottomOf="@id/ivLogo"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="12dp"/>
+            android:textColor="@color/on_surface"/>
 
         <TextView
             android:id="@+id/tvSubtitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="4dp"
             android:text="@string/login_subtitle"
             android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
-            android:textColor="@color/on_surface_variant"
-            app:layout_constraintTop_toBottomOf="@id/tvTitle"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="4dp"/>
+            android:textColor="@color/on_surface_variant"/>
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1"/>
 
         <LinearLayout
             android:id="@+id/llLoginMethods"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="center"
-            app:layout_constraintTop_toBottomOf="@id/tvSubtitle"
-            app:layout_constraintBottom_toTopOf="@id/tvVersion"
-            app:layout_constraintVertical_bias="0.2"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
             android:layout_marginTop="32dp">
 
             <com.google.android.material.button.MaterialButton
@@ -116,11 +116,14 @@
             android:id="@+id/progressBar"
             android:layout_width="32dp"
             android:layout_height="32dp"
-            android:visibility="gone"
-            app:layout_constraintTop_toBottomOf="@id/llLoginMethods"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="8dp"/>
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:visibility="gone"/>
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="4"/>
 
         <TextView
             android:id="@+id/tvVersion"
@@ -130,10 +133,9 @@
             android:textAppearance="@style/TextAppearance.Material3.BodySmall"
             android:textColor="@color/on_surface_variant"
             android:lineSpacingExtra="2dp"
-            app:layout_constraintBottom_toBottomOf="parent"
             android:layout_marginBottom="8dp"
             tools:text="Version v1.4.2 | Author: Midairlogn"/>
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+    </LinearLayout>
 
 </androidx.core.widget.NestedScrollView>

@@ -6,14 +6,11 @@
     <string name="hint_phone">手机号</string>
     <string name="hint_password">6位密码</string>
     <string name="btn_login">登录</string>
-    <string name="btn_forgot_password">忘记密码？</string>
-    <string name="btn_register">注册</string>
     <string name="login_progress">登录中…</string>
     <string name="captcha_title">输入验证码</string>
     <string name="hint_captcha">验证码</string>
     <string name="btn_submit">提交</string>
     <string name="btn_cancel">取消</string>
-    <string name="main_open_door">开门</string>
     <string name="main_nfc_hint">请将手机靠近NFC标签开门</string>
     <string name="main_ble_hint">点击按钮通过蓝牙连接</string>
     <string name="main_logout">退出登录</string>
@@ -24,7 +21,6 @@
     <string name="unlock_success">开门成功</string>
     <string name="unlock_failed">开门失败</string>
     <string name="nfc_error">NFC通信错误</string>
-    <string name="ble_scanning">搜索门锁…</string>
     <string name="ble_connecting">连接中…</string>
     <string name="ble_error">蓝牙连接失败</string>
     <string name="network_error">网络错误，请重试</string>
@@ -62,7 +58,6 @@
     <string name="settings_version">版本 %s</string>
 
     <!-- 主页面 -->
-    <string name="select_method">选择开门方式</string>
     <string name="nfc_ready">准备扫描</string>
     <string name="nfc_not_supported">设备不支持NFC</string>
     <string name="nfc_disabled">NFC已关闭</string>

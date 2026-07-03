@@ -1,10 +1,9 @@
 # OkHttp
 -dontwarn okhttp3.**
 -dontwarn okio.**
--keep class okhttp3.** { *; }
 
-# Crypto
--keep class com.whxinna.userplatform.crypto.** { *; }
-
-# Models (Gson)
--keep class com.whxinna.userplatform.model.** { *; }
+# Crypto - keep constants used by NFC/BLE protocol
+-keepclassmembers class com.whxinna.userplatform.crypto.** {
+    public static final int *;
+    public static final byte *;
+}
