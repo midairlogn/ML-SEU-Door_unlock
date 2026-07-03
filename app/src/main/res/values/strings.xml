@@ -36,6 +36,10 @@
     <string name="error_password">Password must be 6 digits</string>
     <string name="error_captcha">Captcha must be 4 characters</string>
     <string name="remember_me">Remember me</string>
+    <string name="or_login_with">or</string>
+    <string name="btn_alipay_login">Sign in with Alipay</string>
+    <string name="alipay_loading">Connecting to Alipay…</string>
+    <string name="alipay_not_installed">Alipay is not installed</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>

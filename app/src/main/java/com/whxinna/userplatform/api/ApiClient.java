@@ -179,7 +179,7 @@ public class ApiClient {
         return decodeData(data);
     }
 
-    private static boolean isSuccess(JSONObject root) {
+    static boolean isSuccess(JSONObject root) {
         if (root.has("success") && !root.optBoolean("success", true)) {
             return false;
         }
@@ -194,7 +194,7 @@ public class ApiClient {
         return "0".equals(code) || "1".equals(code) || "200".equals(code);
     }
 
-    private static String extractServerMessage(JSONObject root) {
+    static String extractServerMessage(JSONObject root) {
         String msg = root.optString("err_msg", "");
         if (msg.isEmpty()) msg = root.optString("msg", "");
         if (msg.isEmpty()) msg = root.optString("message", "");
@@ -233,5 +233,14 @@ public class ApiClient {
     public static String normalizeServerUrl(String raw) {
         if (raw == null) return "";
         return raw.trim().replaceAll("/+$", "");
+    }
+
+    public static String base64UrlEncode(String input) {
+        try {
+            byte[] encoded = Base64.encode(input.getBytes("UTF-8"), Base64.NO_WRAP);
+            return new String(encoded, "UTF-8").replace('+', '-').replace('/', '_');
+        } catch (Exception e) {
+            return "";
+        }
     }
 }

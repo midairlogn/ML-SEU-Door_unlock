@@ -31,6 +31,11 @@ public class AuthApi {
         void onError(String message);
     }
 
+    public interface AlipayCallback {
+        void onSuccess(LoginResponse response);
+        void onError(String message);
+    }
+
     private final ApiClient api;
     private final CredentialCache cache;
     private final ExecutorService executor;
@@ -184,5 +189,131 @@ public class AuthApi {
             return;
         }
         login(phone, password, callback);
+    }
+
+    public String fetchAlipayAuthInfo() throws Exception {
+        HttpUrl.Builder urlBuilder = HttpUrl.parse(api.getAuthBaseUrl() + "/webapi/oauth/alipay/auth_info")
+            .newBuilder();
+
+        String responseJson = api.executeAuthRequest(urlBuilder);
+
+        // Parse raw response manually (like reference app's authGetRaw)
+        org.json.JSONObject outer = new org.json.JSONObject(responseJson);
+        if (!ApiClient.isSuccess(outer)) {
+            String msg = ApiClient.extractServerMessage(outer);
+            throw new Exception(msg != null ? msg : "Failed to fetch Alipay auth_info");
+        }
+
+        String dataRaw = outer.optString("data", "");
+        if (dataRaw.isEmpty()) {
+            throw new Exception("Server returned empty auth_info data");
+        }
+
+        // data is base64-encoded, decode it
+        String decoded = ApiClient.base64Decode(dataRaw).trim();
+        if (decoded.isEmpty()) {
+            throw new Exception("Failed to decode auth_info");
+        }
+
+        // decoded is a JSON string literal (with quotes), strip them
+        String authInfo = unquoteJsonString(decoded);
+        if (authInfo.isEmpty()) {
+            throw new Exception("Server returned empty auth_info");
+        }
+        return authInfo;
+    }
+
+    private static String unquoteJsonString(String value) {
+        String trimmed = value.trim();
+        if (!trimmed.startsWith("\"")) return trimmed;
+        try {
+            org.json.JSONArray arr = new org.json.JSONArray("[" + trimmed + "]");
+            return arr.getString(0);
+        } catch (Exception e) {
+            return trimmed.replaceAll("^\"|\"$", "");
+        }
+    }
+
+    public void oauthLogin(String authCode, AlipayCallback callback) {
+        executor.execute(() -> {
+            try {
+                String systemInfoJson = new org.json.JSONObject()
+                    .put("appVersion", "1.0.0")
+                    .put("systemType", "android")
+                    .put("systemVersion", android.os.Build.VERSION.RELEASE)
+                    .put("deviceModel", android.os.Build.MODEL)
+                    .put("deviceToken", "")
+                    .toString();
+
+                String authInfoJson = new org.json.JSONObject()
+                    .put("auth_code", authCode)
+                    .put("oauth_type", "alipay_app")
+                    .put("sign_type", "RSA")
+                    .toString();
+
+                String b64Sys = ApiClient.base64UrlEncode(systemInfoJson);
+                String b64Auth = ApiClient.base64UrlEncode(authInfoJson);
+
+                HttpUrl.Builder urlBuilder = HttpUrl.parse(api.getAuthBaseUrl() + "/webapi/oauth/login")
+                    .newBuilder()
+                    .addQueryParameter("base64_systemInfo", b64Sys)
+                    .addQueryParameter("base64_authInfo", b64Auth)
+                    .addQueryParameter("app_version", "1.0.0");
+
+                String responseJson = api.executeAuthRequest(urlBuilder);
+                Log.d(TAG, "OAuth login response length: " + responseJson.length());
+
+                if (ApiClient.isCaptchaRequired(responseJson)) {
+                    mainHandler.post(() -> callback.onError("Captcha required for OAuth login"));
+                    return;
+                }
+
+                String dataStr;
+                try {
+                    dataStr = ApiClient.extractDataField(responseJson);
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to extract data from OAuth response", e);
+                    mainHandler.post(() -> callback.onError("Server response error: " + e.getMessage()));
+                    return;
+                }
+
+                LoginResponse loginResponse;
+                try {
+                    loginResponse = LoginResponse.fromJson(dataStr);
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to parse OAuth login response", e);
+                    mainHandler.post(() -> callback.onError("Failed to parse server response: " + e.getMessage()));
+                    return;
+                }
+
+                if (loginResponse.userInfo == null || loginResponse.userInfo.id.isEmpty()) {
+                    mainHandler.post(() -> callback.onError("Server did not return user info"));
+                    return;
+                }
+
+                if (loginResponse.serverInfo == null || loginResponse.serverInfo.serverAddr.isEmpty()) {
+                    mainHandler.post(() -> callback.onError("Server did not return server info"));
+                    return;
+                }
+
+                String phone = loginResponse.userInfo.phone != null ? loginResponse.userInfo.phone : "";
+
+                cache.saveSession(
+                    phone, "",
+                    loginResponse.userInfo.id,
+                    loginResponse.userInfo.identityCode,
+                    loginResponse.platformToken,
+                    loginResponse.serverInfo.sessionSecret,
+                    loginResponse.serverInfo.serverAddr
+                );
+
+                Log.d(TAG, "OAuth session saved");
+                mainHandler.post(() -> callback.onSuccess(loginResponse));
+
+            } catch (Exception e) {
+                Log.e(TAG, "OAuth login error", e);
+                mainHandler.post(() -> callback.onError("Error: " + e.getMessage()));
+            }
+        });
     }
 }

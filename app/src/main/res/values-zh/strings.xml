@@ -36,6 +36,10 @@
     <string name="error_password">密码必须是6位数字</string>
     <string name="error_captcha">验证码必须是4个字符</string>
     <string name="remember_me">记住账号密码</string>
+    <string name="or_login_with">或</string>
+    <string name="btn_alipay_login">支付宝登录</string>
+    <string name="alipay_loading">正在连接支付宝…</string>
+    <string name="alipay_not_installed">未安装支付宝</string>
 
     <!-- 设置 -->
     <string name="settings_title">设置</string>

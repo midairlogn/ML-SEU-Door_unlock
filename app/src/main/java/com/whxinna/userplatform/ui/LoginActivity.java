@@ -20,11 +20,15 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.whxinna.userplatform.R;
 import com.whxinna.userplatform.SettingsActivity;
+import com.whxinna.userplatform.alipay.AlipayAuth;
 import com.whxinna.userplatform.api.AuthApi;
+import com.whxinna.userplatform.api.CredentialApi;
 import com.whxinna.userplatform.model.LoginResponse;
 import com.whxinna.userplatform.storage.CredentialCache;
 
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -39,12 +43,14 @@ public class LoginActivity extends AppCompatActivity {
     private TextInputEditText etPhone;
     private TextInputEditText etPassword;
     private MaterialButton btnLogin;
+    private MaterialButton btnAlipay;
     private ProgressBar progressBar;
     private MaterialCheckBox cbRemember;
 
     private AuthApi authApi;
     private CredentialCache cache;
     private SharedPreferences rememberPrefs;
+    private final ExecutorService alipayExecutor = Executors.newSingleThreadExecutor();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -113,6 +119,7 @@ public class LoginActivity extends AppCompatActivity {
         etPhone = findViewById(R.id.etPhone);
         etPassword = findViewById(R.id.etPassword);
         btnLogin = findViewById(R.id.btnLogin);
+        btnAlipay = findViewById(R.id.btnAlipay);
         progressBar = findViewById(R.id.progressBar);
         cbRemember = findViewById(R.id.cbRemember);
 
@@ -188,6 +195,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private void setupListeners() {
         btnLogin.setOnClickListener(v -> attemptLogin());
+        btnAlipay.setOnClickListener(v -> startAlipayLogin());
     }
 
     private void attemptLogin() {
@@ -224,6 +232,70 @@ public class LoginActivity extends AppCompatActivity {
             public void onError(String message) {
                 setLoading(false);
                 Toast.makeText(LoginActivity.this, message, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void startAlipayLogin() {
+        Toast.makeText(this, R.string.alipay_loading, Toast.LENGTH_SHORT).show();
+        setLoading(true);
+
+        alipayExecutor.execute(() -> {
+            try {
+                String authInfo = authApi.fetchAlipayAuthInfo();
+                Log.d(TAG, "Got auth_info, launching Alipay...");
+
+                String authCode = AlipayAuth.authorize(LoginActivity.this, authInfo);
+                Log.d(TAG, "Got auth_code: " + authCode.substring(0, Math.min(8, authCode.length())) + "...");
+
+                runOnUiThread(() -> {
+                    Toast.makeText(LoginActivity.this, "Completing login...", Toast.LENGTH_SHORT).show();
+                });
+
+                authApi.oauthLogin(authCode, new AuthApi.AlipayCallback() {
+                    @Override
+                    public void onSuccess(LoginResponse response) {
+                        setLoading(false);
+                        saveRemembered("", "");
+                        Toast.makeText(LoginActivity.this, "Login successful", Toast.LENGTH_SHORT).show();
+                        syncDoorLockAndNavigate();
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        setLoading(false);
+                        Toast.makeText(LoginActivity.this, message, Toast.LENGTH_LONG).show();
+                    }
+                });
+
+            } catch (AlipayAuth.AlipayAuthException e) {
+                Log.e(TAG, "Alipay auth failed", e);
+                runOnUiThread(() -> {
+                    setLoading(false);
+                    Toast.makeText(LoginActivity.this, e.getMessage(), Toast.LENGTH_LONG).show();
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Alipay login failed", e);
+                runOnUiThread(() -> {
+                    setLoading(false);
+                    Toast.makeText(LoginActivity.this, "Alipay login error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
+            }
+        });
+    }
+
+    private void syncDoorLockAndNavigate() {
+        CredentialApi credentialApi = new CredentialApi(cache);
+        credentialApi.syncDoorLockInfo(new CredentialApi.SyncCallback() {
+            @Override
+            public void onSuccess(com.whxinna.userplatform.model.DoorLockInfo info) {
+                navigateToMain();
+            }
+
+            @Override
+            public void onError(String message) {
+                Log.w(TAG, "Door lock sync failed after Alipay login: " + message);
+                navigateToMain();
             }
         });
     }
@@ -269,6 +341,7 @@ public class LoginActivity extends AppCompatActivity {
     private void setLoading(boolean loading) {
         progressBar.setVisibility(loading ? View.VISIBLE : View.GONE);
         btnLogin.setEnabled(!loading);
+        btnAlipay.setEnabled(!loading);
         etPhone.setEnabled(!loading);
         etPassword.setEnabled(!loading);
     }
