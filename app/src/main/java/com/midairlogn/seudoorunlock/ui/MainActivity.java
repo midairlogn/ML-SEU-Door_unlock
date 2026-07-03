@@ -15,6 +15,7 @@ import android.content.pm.PackageManager;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.nfc.NfcAdapter;
+import android.nfc.Tag;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -83,27 +84,32 @@ public class MainActivity extends AppCompatActivity {
     private SharedPreferences prefs;
     private String selectedMethod;
 
-    // NFC state receiver
+    // NFC state
     private BroadcastReceiver nfcStateReceiver;
     private long lastNfcStateChangeTime = 0;
     private static final long NFC_STATE_DEBOUNCE_MS = 500;
+    private boolean isResumed = false;
+    private boolean isBusy = false;
 
     private final NfcUnlockManager.NfcCallback nfcCallback = new NfcUnlockManager.NfcCallback() {
         @Override
         public void onSuccess(com.midairlogn.seudoorunlock.model.DoorResponse response) {
             showSuccessState();
             Toast.makeText(MainActivity.this, R.string.unlock_success, Toast.LENGTH_SHORT).show();
+            setBusy(false);
         }
 
         @Override
         public void onError(String message) {
             showErrorState(message);
+            setBusy(false);
         }
 
         @Override
         public void onExpired() {
             tvStatusTitle.setText(R.string.session_expired);
             refreshCredentials();
+            setBusy(false);
         }
     };
 
@@ -183,9 +189,7 @@ public class MainActivity extends AppCompatActivity {
             if (isChecked) {
                 if (checkedId == R.id.btnTabNfc) {
                     selectedMethod = METHOD_NFC;
-                    if (hasAllPermissions()) {
-                        enableNfcReaderMode();
-                    }
+                    enableNfcReaderModeIfIdle();
                 } else if (checkedId == R.id.btnTabBle) {
                     selectedMethod = METHOD_BLE;
                     nfcManager.disableReaderMode(this);
@@ -243,9 +247,8 @@ public class MainActivity extends AppCompatActivity {
                     runOnUiThread(() -> {
                         updateStatusDisplay();
                         if (METHOD_NFC.equals(selectedMethod)
-                                && state == NfcAdapter.STATE_ON
-                                && hasAllPermissions()) {
-                            enableNfcReaderMode();
+                                && state == NfcAdapter.STATE_ON) {
+                            enableNfcReaderModeIfIdle();
                         } else {
                             nfcManager.disableReaderMode(MainActivity.this);
                         }
@@ -498,11 +501,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        isResumed = true;
         if (cache.hasSession()) {
             registerNfcStateReceiver();
-            if (METHOD_NFC.equals(selectedMethod) && hasAllPermissions()) {
-                enableNfcReaderMode();
-            }
+            enableNfcReaderModeIfIdle();
             updateStatusDisplay();
         }
     }
@@ -518,6 +520,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onPause() {
+        isResumed = false;
         super.onPause();
         unregisterNfcStateReceiver();
         nfcManager.disableReaderMode(this);
@@ -530,11 +533,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void handleNfcIntent(Intent intent) {
-        if (intent == null) return;
+        if (intent == null || isBusy) return;
         String action = intent.getAction();
         if (NfcAdapter.ACTION_TAG_DISCOVERED.equals(action)
             || NfcAdapter.ACTION_TECH_DISCOVERED.equals(action)
             || NfcAdapter.ACTION_NDEF_DISCOVERED.equals(action)) {
+
+            Tag tag = androidx.core.content.IntentCompat.getParcelableExtra(
+                    intent, NfcAdapter.EXTRA_TAG, Tag.class);
+            if (tag == null) return;
 
             if (!METHOD_NFC.equals(selectedMethod)) {
                 selectedMethod = METHOD_NFC;
@@ -544,8 +551,23 @@ public class MainActivity extends AppCompatActivity {
             tvStatusTitle.setText(R.string.unlocking);
             tvStatusDetail.setText("");
 
-            enableNfcReaderMode();
+            // Don't enable reader mode here — it resets the NFC controller and
+            // interrupts the NfcA session from the intent tag. Reader mode will
+            // be re-enabled after processing completes via setBusy(false).
+            setBusy(true);
             nfcManager.handleIntent(intent);
+        }
+    }
+
+    private void setBusy(boolean busy) {
+        isBusy = busy;
+        if (!busy) enableNfcReaderModeIfIdle();
+    }
+
+    private void enableNfcReaderModeIfIdle() {
+        if (!isResumed || isBusy) return;
+        if (METHOD_NFC.equals(selectedMethod) && hasAllPermissions()) {
+            enableNfcReaderMode();
         }
     }
 
