@@ -1,5 +1,9 @@
 benchmark
 backup
+.vscode
+
+# Google Services keys
+google-services.json
 
 # Built application
 *.apk
@@ -21,6 +25,7 @@ out/
 .gradle/
 build/
 app/build/
+/app/release
 
 # Local configuration file
 local.properties
@@ -34,10 +39,13 @@ local.properties
 obj/
 .externalNativeBuild/
 .cxx/
+/captures
 
 # Signing
 *.jks
 *.keystore
+*.pem
+*.p12
 
 # Log files
 *.log
