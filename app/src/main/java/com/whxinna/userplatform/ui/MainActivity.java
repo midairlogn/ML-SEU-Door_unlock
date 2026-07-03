@@ -62,6 +62,7 @@ public class MainActivity extends AppCompatActivity {
     // Views
     private ImageButton btnRefresh;
     private ImageButton btnSettings;
+    private ImageButton btnInfo;
     private View statusIconContainer;
     private ImageView ivStatusIcon;
     private TextView tvStatusTitle;
@@ -126,6 +127,7 @@ public class MainActivity extends AppCompatActivity {
     private void initViews() {
         btnRefresh = findViewById(R.id.btnRefresh);
         btnSettings = findViewById(R.id.btnSettings);
+        btnInfo = findViewById(R.id.btnInfo);
         statusIconContainer = findViewById(R.id.statusIconContainer);
         ivStatusIcon = findViewById(R.id.ivStatusIcon);
         tvStatusTitle = findViewById(R.id.tvStatusTitle);
@@ -150,6 +152,8 @@ public class MainActivity extends AppCompatActivity {
 
         btnSettings.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
 
+        btnInfo.setOnClickListener(v -> showCredentialInfoDialog());
+
         toggleGroup.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
             if (isChecked) {
                 if (checkedId == R.id.btnTabNfc) {
@@ -170,16 +174,6 @@ public class MainActivity extends AppCompatActivity {
         });
 
         btnGrantPermissions.setOnClickListener(v -> requestPermissions());
-
-        tvStatusDetail.setOnLongClickListener(v -> {
-            CharSequence text = tvStatusDetail.getText();
-            if (text != null && text.length() > 0) {
-                ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                clipboard.setPrimaryClip(ClipData.newPlainText("credential", text));
-                Toast.makeText(this, R.string.copied, Toast.LENGTH_SHORT).show();
-            }
-            return true;
-        });
 
         btnLogout.setOnClickListener(v -> new AlertDialog.Builder(this)
             .setMessage(R.string.logout_confirm)
@@ -298,15 +292,34 @@ public class MainActivity extends AppCompatActivity {
             detail.append(getString(R.string.detail_lock, cache.getBuildingName()));
             detail.append("\n");
             detail.append(getString(R.string.detail_battery, (int) cache.getBatteryLevel()));
-            detail.append("\n");
-            detail.append(getString(R.string.detail_credential, cache.getCredentialHex()));
-            detail.append("\n");
-            detail.append(getString(R.string.detail_credential_id, cache.getCredentialId()));
         }
 
         if (detail.length() > 0) {
             tvStatusDetail.setText(detail.toString());
         }
+    }
+
+    private void showCredentialInfoDialog() {
+        int credentialId = cache.getCredentialId();
+        String credential = cache.getCredentialHex();
+
+        if (credential.isEmpty() && credentialId == 0) {
+            Toast.makeText(this, R.string.err_credential_unavailable, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String message = getString(R.string.credential_info_content, credentialId, credential);
+
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.credential_info_title)
+            .setMessage(message)
+            .setPositiveButton(android.R.string.ok, null)
+            .setNeutralButton(R.string.btn_copy, (dialog, which) -> {
+                ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                clipboard.setPrimaryClip(ClipData.newPlainText("credential_info", message));
+                Toast.makeText(this, R.string.copied, Toast.LENGTH_SHORT).show();
+            })
+            .show();
     }
 
     private void startBreathingAnimation() {

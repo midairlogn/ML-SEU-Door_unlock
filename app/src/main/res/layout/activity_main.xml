@@ -111,19 +111,37 @@
                     tools:text="Hold near the door lock"/>
 
                 <!-- Status Detail -->
-                <TextView
-                    android:id="@+id/tvStatusDetail"
+                <FrameLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:background="@drawable/bg_status_detail"
-                    android:fontFamily="monospace"
-                    android:minHeight="160dp"
-                    android:padding="16dp"
-                    android:textColor="@color/on_surface_variant"
-                    android:textIsSelectable="true"
-                    android:textSize="14sp"
-                    tools:text="Phone: 138****1234\nLock: Building A\nBattery: 85%"/>
+                    android:layout_marginTop="20dp">
+
+                    <TextView
+                        android:id="@+id/tvStatusDetail"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_status_detail"
+                        android:fontFamily="monospace"
+                        android:gravity="center_vertical"
+                        android:minHeight="100dp"
+                        android:padding="16dp"
+                        android:textColor="@color/on_surface_variant"
+                        android:textSize="14sp"
+                        tools:text="Phone: 138****1234\nLock: Building A\nBattery: 85%"/>
+
+                    <ImageButton
+                        android:id="@+id/btnInfo"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:layout_gravity="top|end"
+                        android:layout_marginTop="4dp"
+                        android:layout_marginEnd="4dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/info_button"
+                        android:padding="6dp"
+                        android:src="@drawable/ic_info"
+                        app:tint="@color/on_surface_variant"/>
+                </FrameLayout>
 
                 <!-- Enable NFC Button -->
                 <com.google.android.material.button.MaterialButton

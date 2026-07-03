@@ -90,7 +90,10 @@
     <string name="detail_phone">Phone: %s</string>
     <string name="detail_lock">Lock: %s</string>
     <string name="detail_battery">Battery: %d%%</string>
-    <string name="detail_credential">Credential: %s</string>
-    <string name="detail_credential_id">Credential ID: %d</string>
     <string name="copied">Copied to clipboard</string>
+    <string name="info_button">Info</string>
+    <string name="btn_copy">Copy</string>
+    <string name="credential_info_title">Credential Info</string>
+    <string name="credential_info_content">Credential ID: %1$d\nCredential: %2$s</string>
+    <string name="err_credential_unavailable">No credential available</string>
 </resources>
