@@ -59,106 +59,36 @@
             app:layout_constraintEnd_toEndOf="parent"
             android:layout_marginTop="4dp"/>
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/tilPhone"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:hint="@string/hint_phone"
-            app:startIconDrawable="@drawable/ic_phone"
-            app:layout_constraintTop_toBottomOf="@id/tvSubtitle"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="24dp">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etPhone"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="phone"
-                android:maxLength="11"
-                android:textAppearance="@style/TextAppearance.Material3.BodyMedium"/>
-
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/tilPassword"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:hint="@string/hint_password"
-            app:endIconMode="password_toggle"
-            app:startIconDrawable="@drawable/ic_lock_outline"
-            app:layout_constraintTop_toBottomOf="@id/tilPhone"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="12dp">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etPassword"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="numberPassword"
-                android:maxLength="6"
-                android:textAppearance="@style/TextAppearance.Material3.BodyMedium"/>
-
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.checkbox.MaterialCheckBox
-            android:id="@+id/cbRemember"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/remember_me"
-            android:checked="true"
-            android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
-            app:layout_constraintTop_toBottomOf="@id/tilPassword"
-            app:layout_constraintStart_toStartOf="parent"
-            android:layout_marginTop="4dp"/>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnLogin"
-            android:layout_width="0dp"
-            android:layout_height="52dp"
-            android:text="@string/btn_login"
-            android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
-            app:cornerRadius="26dp"
-            app:layout_constraintTop_toBottomOf="@id/cbRemember"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="16dp"/>
-
-        <ProgressBar
-            android:id="@+id/progressBar"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:visibility="gone"
-            app:layout_constraintTop_toBottomOf="@id/btnLogin"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="8dp"/>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnForgotPassword"
-            style="@style/Widget.Material3.Button.TextButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/btn_forgot_password"
-            android:visibility="gone"
-            app:layout_constraintTop_toBottomOf="@id/progressBar"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="4dp"/>
-
         <LinearLayout
-            android:id="@+id/llSocial"
+            android:id="@+id/llLoginMethods"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="center"
-            app:layout_constraintTop_toBottomOf="@id/btnForgotPassword"
+            app:layout_constraintTop_toBottomOf="@id/tvSubtitle"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="16dp">
+            android:layout_marginTop="32dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAlipay"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_alipay_login"
+                app:cornerRadius="24dp"
+                app:icon="@drawable/ic_alipay"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnWechat"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/btn_wechat_login"
+                app:cornerRadius="24dp"
+                app:icon="@drawable/ic_wechat"
+                app:iconTint="@null"/>
 
             <TextView
                 android:id="@+id/tvOr"
@@ -166,19 +96,30 @@
                 android:layout_height="wrap_content"
                 android:text="@string/or_login_with"
                 android:textAppearance="@style/TextAppearance.Material3.LabelSmall"
-                android:textColor="@color/on_surface_variant"/>
+                android:textColor="@color/on_surface_variant"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp"/>
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnAlipay"
+                android:id="@+id/btnPhoneLogin"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="@string/btn_alipay_login"
+                android:text="@string/btn_phone_password_login"
                 app:cornerRadius="24dp"
-                app:icon="@drawable/ic_alipay"/>
+                app:icon="@drawable/ic_phone"/>
 
         </LinearLayout>
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/llLoginMethods"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp"/>
 
         <TextView
             android:id="@+id/tvVersion"
@@ -188,12 +129,11 @@
             android:textAppearance="@style/TextAppearance.Material3.BodySmall"
             android:textColor="@color/on_surface_variant"
             android:lineSpacingExtra="2dp"
-            app:layout_constraintTop_toBottomOf="@id/llSocial"
+            app:layout_constraintTop_toBottomOf="@id/progressBar"
             app:layout_constraintBottom_toBottomOf="parent"
             android:layout_marginTop="16dp"
             android:layout_marginBottom="8dp"
-            tools:text="Version v1.3.0 | Author: Midairlogn"/>
-
+            tools:text="Version v1.4.2 | Author: Midairlogn"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

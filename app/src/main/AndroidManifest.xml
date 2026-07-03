@@ -2,9 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Alipay package visibility for AIDL binding (Android 11+) -->
+    <!-- Package visibility for AIDL binding and OAuth (Android 11+) -->
     <queries>
         <package android:name="com.eg.android.AlipayGphone" />
+        <package android:name="com.tencent.mm" />
     </queries>
 
     <uses-feature android:name="android.hardware.nfc" android:required="true"/>
@@ -70,6 +71,13 @@
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".wxapi.WXEntryActivity"
+            android:exported="true"
+            android:taskAffinity=""
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.SEUDoorLock.Transparent"/>
 
     </application>
 

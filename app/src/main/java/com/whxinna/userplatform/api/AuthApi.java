@@ -36,6 +36,12 @@ public class AuthApi {
         void onError(String message);
     }
 
+    public interface OAuthCallback {
+        void onSuccess(LoginResponse response);
+        void onPhoneBindingRequired(String openId, String oauthType, String authCode);
+        void onError(String message);
+    }
+
     private final ApiClient api;
     private final CredentialCache cache;
     private final ExecutorService executor;
@@ -319,5 +325,155 @@ public class AuthApi {
                 mainHandler.post(() -> callback.onError("Error: " + e.getMessage()));
             }
         });
+    }
+
+    public void wechatLogin(String wxCode, OAuthCallback callback) {
+        executor.execute(() -> {
+            try {
+                // Step 1: Exchange WeChat code for access_token + openid
+                Log.d(TAG, "Exchanging WeChat code for token...");
+                WxTokenResult wxToken = exchangeWxCodeForToken(wxCode);
+
+                if (wxToken.accessToken == null || wxToken.accessToken.isEmpty()) {
+                    mainHandler.post(() -> callback.onError("Failed to get WeChat access token"));
+                    return;
+                }
+
+                Log.d(TAG, "WeChat token obtained, openid=" + wxToken.openId);
+
+                // Step 2: Use access_token as auth_code for server OAuth login
+                String systemInfoJson = new org.json.JSONObject()
+                    .put("appVersion", "1.0.0")
+                    .put("systemType", "android")
+                    .put("systemVersion", android.os.Build.VERSION.RELEASE)
+                    .put("deviceModel", android.os.Build.MODEL)
+                    .put("deviceToken", "")
+                    .toString();
+
+                String authInfoJson = new org.json.JSONObject()
+                    .put("auth_code", wxToken.accessToken)
+                    .put("oauth_type", "wechat_app")
+                    .put("sign_type", "RSA")
+                    .toString();
+
+                String b64Sys = ApiClient.base64UrlEncode(systemInfoJson);
+                String b64Auth = ApiClient.base64UrlEncode(authInfoJson);
+
+                HttpUrl.Builder urlBuilder = HttpUrl.parse(api.getAuthBaseUrl() + "/webapi/oauth/login")
+                    .newBuilder()
+                    .addQueryParameter("base64_systemInfo", b64Sys)
+                    .addQueryParameter("base64_authInfo", b64Auth)
+                    .addQueryParameter("app_version", "1.0.0");
+
+                String responseJson = api.executeAuthRequest(urlBuilder);
+                Log.d(TAG, "WeChat OAuth login response length: " + responseJson.length());
+
+                if (ApiClient.isCaptchaRequired(responseJson)) {
+                    mainHandler.post(() -> callback.onError("Captcha required for WeChat login"));
+                    return;
+                }
+
+                String dataStr;
+                try {
+                    dataStr = ApiClient.extractDataField(responseJson);
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to extract data from WeChat OAuth response", e);
+                    mainHandler.post(() -> callback.onError("Server response error: " + e.getMessage()));
+                    return;
+                }
+
+                // Check for phone binding required
+                try {
+                    org.json.JSONObject checkObj = new org.json.JSONObject(dataStr);
+                    String msg = checkObj.optString("err_msg", "");
+                    if (msg.contains("授权信息未找到") || msg.contains("openid错误")) {
+                        Log.d(TAG, "Phone binding required for WeChat login");
+                        mainHandler.post(() -> callback.onPhoneBindingRequired(wxToken.openId, "wechat_app", wxToken.accessToken));
+                        return;
+                    }
+                } catch (Exception ignored) {}
+
+                LoginResponse loginResponse;
+                try {
+                    loginResponse = LoginResponse.fromJson(dataStr);
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to parse WeChat login response", e);
+                    mainHandler.post(() -> callback.onError("Failed to parse server response: " + e.getMessage()));
+                    return;
+                }
+
+                if (loginResponse.userInfo == null || loginResponse.userInfo.id.isEmpty()) {
+                    mainHandler.post(() -> callback.onError("Server did not return user info"));
+                    return;
+                }
+
+                if (loginResponse.serverInfo == null || loginResponse.serverInfo.serverAddr.isEmpty()) {
+                    mainHandler.post(() -> callback.onError("Server did not return server info"));
+                    return;
+                }
+
+                String phone = loginResponse.userInfo.phone != null ? loginResponse.userInfo.phone : "";
+
+                cache.saveSession(
+                    phone, "",
+                    loginResponse.userInfo.id,
+                    loginResponse.userInfo.identityCode,
+                    loginResponse.platformToken,
+                    loginResponse.serverInfo.sessionSecret,
+                    loginResponse.serverInfo.serverAddr
+                );
+
+                Log.d(TAG, "WeChat OAuth session saved");
+                mainHandler.post(() -> callback.onSuccess(loginResponse));
+
+            } catch (Exception e) {
+                Log.e(TAG, "WeChat login error", e);
+                mainHandler.post(() -> callback.onError("WeChat login error: " + e.getMessage()));
+            }
+        });
+    }
+
+    private static class WxTokenResult {
+        final String accessToken;
+        final String openId;
+
+        WxTokenResult(String accessToken, String openId) {
+            this.accessToken = accessToken;
+            this.openId = openId;
+        }
+    }
+
+    private WxTokenResult exchangeWxCodeForToken(String code) throws Exception {
+        String url = "https://api.weixin.qq.com/sns/oauth2/access_token"
+            + "?appid=" + com.whxinna.userplatform.wechat.WechatAuth.APP_ID
+            + "&secret=" + com.whxinna.userplatform.wechat.WechatAuth.APP_SECRET
+            + "&code=" + code
+            + "&grant_type=authorization_code";
+
+        okhttp3.Request request = new okhttp3.Request.Builder()
+            .url(url)
+            .get()
+            .build();
+
+        okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .build();
+
+        try (okhttp3.Response response = client.newCall(request).execute()) {
+            String body = response.body() != null ? response.body().string() : "";
+            Log.d(TAG, "WeChat token response: " + body.substring(0, Math.min(200, body.length())));
+
+            org.json.JSONObject json = new org.json.JSONObject(body);
+            String accessToken = json.optString("access_token", "");
+            String openId = json.optString("openid", "");
+            String errMsg = json.optString("errmsg", "");
+
+            if (!errMsg.isEmpty()) {
+                throw new Exception("WeChat API error: " + errMsg + " (errcode=" + json.optInt("errcode", 0) + ")");
+            }
+
+            return new WxTokenResult(accessToken, openId);
+        }
     }
 }

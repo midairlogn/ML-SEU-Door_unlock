@@ -41,6 +41,12 @@
     <string name="btn_alipay_login">支付宝登录</string>
     <string name="alipay_loading">正在连接支付宝…</string>
     <string name="alipay_not_installed">未安装支付宝</string>
+    <string name="btn_wechat_login">微信登录</string>
+    <string name="wechat_loading">正在连接微信…</string>
+    <string name="wechat_not_installed">未安装微信</string>
+    <string name="btn_phone_password_login">手机号密码登录</string>
+    <string name="phone_login_title">手机号登录</string>
+    <string name="phone_login_subtitle">使用手机号和6位密码登录</string>
 
     <!-- 设置 -->
     <string name="settings_title">设置</string>

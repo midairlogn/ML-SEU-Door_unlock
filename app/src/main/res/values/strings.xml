@@ -41,6 +41,12 @@
     <string name="btn_alipay_login">Sign in with Alipay</string>
     <string name="alipay_loading">Connecting to Alipay…</string>
     <string name="alipay_not_installed">Alipay is not installed</string>
+    <string name="btn_wechat_login">Sign in with WeChat</string>
+    <string name="wechat_loading">Connecting to WeChat…</string>
+    <string name="wechat_not_installed">WeChat is not installed</string>
+    <string name="btn_phone_password_login">Phone &amp; Password</string>
+    <string name="phone_login_title">Phone Login</string>
+    <string name="phone_login_subtitle">Login with phone number and 6-digit password</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
