@@ -24,10 +24,12 @@ Single-module Gradle project. All source under `app/src/main/java/com/whxinna/us
 
 | Package | Key Files | Role |
 |---|---|---|
+| (root) | `App.java`, `SettingsActivity.java` | Application class, settings (language/theme/default method) |
 | `crypto/` | `CRC8.java`, `RC4.java`, `KeyDerivation.java` | Shared NFC/BLE crypto primitives |
 | `nfc/` | `NfcCommandBuilder.java`, `NfcUnlockManager.java`, `NfcPendingActivity.java` | 40-byte NFC frame + reader mode transceive |
 | `ble/` | `BleCommandBuilder.java`, `BleUnlockManager.java` | 20-byte BLE frame + GATT connect flow |
 | `api/` | `AuthApi.java`, `CredentialApi.java`, `ApiClient.java` | Login, captcha, door lock sync, request signing |
+| `alipay/` | `AlipayAuth.java` | Alipay AIDL payment authentication |
 | `storage/` | `SecurePrefs.java`, `CredentialCache.java` | Android Keystore + AES-GCM encrypted prefs |
 | `ui/` | `LoginActivity.java`, `MainActivity.java`, `CaptchaDialogFragment.java` | Phone+password login, main unlock screen |
 | `model/` | `LoginResponse.java`, `DoorLockInfo.java`, `DoorResponse.java`, `BleResponse.java` | Data classes |
@@ -40,6 +42,7 @@ Single-module Gradle project. All source under `app/src/main/java/com/whxinna/us
 - **Async**: `ExecutorService` + `Handler`, no RxJava/Coroutines
 - **NFC**: `NfcAdapter.enableReaderMode()` with `FLAG_READER_NFC_A`, NOT `enableForegroundDispatch`
 - **Logging**: `android.util.Log`, tag prefix `ZL_`
+- **i18n**: English default (`values/`), Chinese (`values-zh/`)
 
 ## Critical Constraints
 
@@ -57,4 +60,4 @@ Single-module Gradle project. All source under `app/src/main/java/com/whxinna/us
 
 ## Protocol Reference
 
-`docs/PROTOCOL_REFERENCE.md` is the source of truth for all crypto constants, frame formats, API endpoints, and signing logic. `PLAN.md` contains the original design (may be partially outdated). `docs/RESEARCH_FINDINGS.md` has reverse-engineering notes. `backup/` holds older copies.
+`docs/PROTOCOL_REFERENCE.md` is the source of truth for all crypto constants, frame formats, API endpoints, and signing logic. `docs/RESEARCH_FINDINGS.md` has reverse-engineering notes. `backup/` holds older copies.

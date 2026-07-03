@@ -7,8 +7,11 @@ Native Android app (Java) for Southeast University (SEU) Jiulonghu Campus door l
 - **Phone + Password Login** — 6-digit numeric password, session persisted locally via Android Keystore + AES-256-GCM
 - **NFC Door Unlock** — Tap phone on door lock NFC tag, `NfcA.transceive()` sends 40-byte encrypted command in one shot
 - **BLE Door Unlock** — Connect via Bluetooth Low Energy, cached MAC direct connect with scan fallback
+- **Alipay Auth** — AIDL-based Alipay payment authentication
 - **Credential Sync** — Automatic door lock info and credential synchronization from server
 - **Offline-capable** — Credentials cached locally, NFC unlock works without network after initial sync
+- **Settings** — Language (English/Chinese/system), theme (light/dark/system), default unlock method
+- **i18n** — English and Chinese localization
 
 ## Requirements
 
@@ -29,10 +32,12 @@ The `applicationId` is `com.whxinna.userplatform` — this must match the AAR em
 ## Architecture
 
 ```
+App.java, SettingsActivity.java   Application class, settings (language/theme/default method)
 crypto/       CRC8, RC4, KeyDerivation (shared NFC/BLE primitives)
 nfc/          NfcCommandBuilder (40-byte frame), NfcUnlockManager (reader mode + transceive)
 ble/          BleCommandBuilder (20-byte frame), BleUnlockManager (GATT connect + unlock flow)
 api/          AuthApi (login, captcha), CredentialApi (door lock sync), ApiClient (signing)
+alipay/       AlipayAuth (AIDL payment authentication)
 storage/      SecurePrefs (Keystore + AES-GCM), CredentialCache (typed accessors)
 ui/           LoginActivity, MainActivity, CaptchaDialogFragment
 model/        LoginResponse, DoorLockInfo, DoorResponse, BleResponse
