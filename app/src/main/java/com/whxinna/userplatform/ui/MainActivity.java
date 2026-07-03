@@ -193,7 +193,6 @@ public class MainActivity extends AppCompatActivity {
         // Reset background tint from success/error states
         android.graphics.drawable.LayerDrawable layerBg = (android.graphics.drawable.LayerDrawable) statusIconContainer.getBackground().mutate();
         ((GradientDrawable) layerBg.getDrawable(0)).setColor(ContextCompat.getColor(this, R.color.primary_container));
-        ivStatusIcon.setColorFilter(ContextCompat.getColor(this, R.color.primary));
 
         if (!hasAllPermissions()) {
             ivStatusIcon.setImageResource(R.drawable.ic_warning);
@@ -204,12 +203,14 @@ public class MainActivity extends AppCompatActivity {
             btnGrantPermissions.setVisibility(View.VISIBLE);
             statusIconContainer.setAlpha(0.7f);
             stopBreathingAnimation();
+            ivStatusIcon.setColorFilter(ContextCompat.getColor(this, R.color.primary));
             return;
         }
 
         btnGrantPermissions.setVisibility(View.GONE);
 
         boolean isNfc = METHOD_NFC.equals(selectedMethod);
+        boolean isReady = false;
 
         if (isNfc) {
             ivStatusIcon.setImageResource(R.drawable.ic_nfc);
@@ -231,8 +232,8 @@ public class MainActivity extends AppCompatActivity {
                     tvStatusDetail.setText(R.string.main_nfc_hint);
                     btnEnableNfc.setVisibility(View.GONE);
                     statusIconContainer.setAlpha(1.0f);
+                    isReady = true;
                 }
-                startBreathingAnimation();
             }
         } else {
             ivStatusIcon.setImageResource(R.drawable.ic_bluetooth);
@@ -243,7 +244,6 @@ public class MainActivity extends AppCompatActivity {
                 tvStatusTitle.setText(R.string.ble_not_supported);
                 tvStatusDetail.setText("");
                 statusIconContainer.setAlpha(0.5f);
-                stopBreathingAnimation();
             } else {
                 if (!bleManager.isBleEnabled()) {
                     tvStatusTitle.setText(R.string.ble_disabled);
@@ -253,11 +253,18 @@ public class MainActivity extends AppCompatActivity {
                     tvStatusTitle.setText(R.string.ble_ready);
                     tvStatusDetail.setText(R.string.main_ble_hint);
                     statusIconContainer.setAlpha(1.0f);
+                    isReady = true;
                 }
-                stopBreathingAnimation();
             }
         }
 
+        if (isReady) {
+            startBreathingAnimation();
+        } else {
+            stopBreathingAnimation();
+        }
+
+        ivStatusIcon.setColorFilter(ContextCompat.getColor(this, R.color.primary));
         updateDetailInfo();
     }
 

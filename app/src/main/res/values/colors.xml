@@ -4,8 +4,8 @@
     <color name="primary">#4F5FC4</color>
     <color name="primary_container">#DFE0FF</color>
     <color name="primary_dark">#3F4FA4</color>
-    <color name="secondary">#FF6F00</color>
-    <color name="secondary_container">#FFE0B2</color>
+    <color name="secondary">#475D92</color>
+    <color name="secondary_container">#D7E2FF</color>
 
     <!-- Surfaces -->
     <color name="surface">#FBF8FF</color>
