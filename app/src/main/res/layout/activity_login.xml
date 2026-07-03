@@ -9,7 +9,7 @@
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:padding="24dp">
 
         <ImageButton
@@ -24,16 +24,26 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-        <ImageView
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/ivLogo"
-            android:layout_width="64dp"
-            android:layout_height="64dp"
-            android:src="@mipmap/ic_launcher"
-            android:contentDescription="@null"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp"
             app:layout_constraintTop_toBottomOf="@id/btnSettings"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="24dp"/>
+            android:layout_marginTop="24dp">
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@mipmap/ic_launcher"
+                android:contentDescription="@null"
+                android:scaleType="centerCrop"/>
+
+        </com.google.android.material.card.MaterialCardView>
 
         <TextView
             android:id="@+id/tvTitle"
@@ -66,6 +76,8 @@
             android:orientation="vertical"
             android:gravity="center"
             app:layout_constraintTop_toBottomOf="@id/tvSubtitle"
+            app:layout_constraintBottom_toTopOf="@id/tvVersion"
+            app:layout_constraintVertical_bias="0.2"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             android:layout_marginTop="32dp">
@@ -119,7 +131,7 @@
             app:layout_constraintTop_toBottomOf="@id/llLoginMethods"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="16dp"/>
+            android:layout_marginTop="8dp"/>
 
         <TextView
             android:id="@+id/tvVersion"
@@ -129,9 +141,7 @@
             android:textAppearance="@style/TextAppearance.Material3.BodySmall"
             android:textColor="@color/on_surface_variant"
             android:lineSpacingExtra="2dp"
-            app:layout_constraintTop_toBottomOf="@id/progressBar"
             app:layout_constraintBottom_toBottomOf="parent"
-            android:layout_marginTop="16dp"
             android:layout_marginBottom="8dp"
             tools:text="Version v1.4.2 | Author: Midairlogn"/>
 
