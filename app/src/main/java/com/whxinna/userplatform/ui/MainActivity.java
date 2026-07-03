@@ -175,6 +175,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateStatusDisplay() {
+        // Reset background tint from success/error states
+        android.graphics.drawable.LayerDrawable layerBg = (android.graphics.drawable.LayerDrawable) statusIconContainer.getBackground().mutate();
+        ((GradientDrawable) layerBg.getDrawable(0)).setColor(ContextCompat.getColor(this, R.color.primary_container));
+        ivStatusIcon.setColorFilter(ContextCompat.getColor(this, R.color.primary));
+
         boolean isNfc = METHOD_NFC.equals(selectedMethod);
 
         if (isNfc) {
@@ -293,7 +298,8 @@ public class MainActivity extends AppCompatActivity {
             .setInterpolator(new OvershootInterpolator())
             .start();
 
-        GradientDrawable bg = (GradientDrawable) statusIconContainer.getBackground();
+        android.graphics.drawable.LayerDrawable layerBg = (android.graphics.drawable.LayerDrawable) statusIconContainer.getBackground().mutate();
+        GradientDrawable bg = (GradientDrawable) layerBg.getDrawable(0);
         bg.setColor(ContextCompat.getColor(this, R.color.success_container));
         ivStatusIcon.setColorFilter(ContextCompat.getColor(this, R.color.success));
     }
@@ -309,7 +315,8 @@ public class MainActivity extends AppCompatActivity {
         shake.setDuration(500);
         shake.start();
 
-        GradientDrawable bg = (GradientDrawable) statusIconContainer.getBackground();
+        android.graphics.drawable.LayerDrawable layerBg = (android.graphics.drawable.LayerDrawable) statusIconContainer.getBackground().mutate();
+        GradientDrawable bg = (GradientDrawable) layerBg.getDrawable(0);
         bg.setColor(ContextCompat.getColor(this, R.color.error_container));
         ivStatusIcon.setColorFilter(ContextCompat.getColor(this, R.color.error));
     }
