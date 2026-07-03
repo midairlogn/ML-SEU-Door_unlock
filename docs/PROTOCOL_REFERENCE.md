@@ -68,8 +68,8 @@ GET https://pm.whxinna.com/webapi/users/login
 | `pid` | Project ID: `21048` (SEU Jiulonghu Campus) |
 | `appid` | App ID: `20104` |
 | `timestamp` | Unix timestamp (seconds) |
-| `noncestr` | Random 32-character alphanumeric string |
-| `sign` | MD5 signature |
+| `noncestr` | Random 32-character alphanumeric string (auth) or 16-char (business) |
+| `sign` | MD5 signature (uppercase, see Appendix A) |
 
 **Response** (base64-decoded `data` field):
 ```json
@@ -826,7 +826,47 @@ The original NFC tag embeds an **AAR** (Android Application Record) for `com.whx
 
 ---
 
-## Appendix A: Local Storage Fields
+## Appendix A: Request Signing Algorithm
+
+Every API request includes a `sign` query parameter computed as follows:
+
+### Auth Server Requests
+
+```
+sign = MD5(
+  sorted(key1=val1&key2=val2&...&keyN=valN) + "&key=" + AUTH_SECRET
+).toUpperCase()
+```
+
+Where:
+- Parameters are sorted alphabetically by key
+- `AUTH_SECRET` = `6d5dbb85b949447a95ff8fda9a9b759b` (hardcoded, shared across all clients)
+- Nonce length: 32 characters
+
+### Business Server Requests
+
+```
+sign = MD5(
+  sorted(key1=val1&key2=val2&...&keyN=valN) + "&key=" + sessionSecret
+).toUpperCase()
+```
+
+Where:
+- `sessionSecret` is obtained from the login response (`server_info.session_secret`)
+- Nonce length: 16 characters
+
+### Example
+
+Given params `appid=20104&noncestr=abc123&phone=13800138000&pid=21048&pwd=123456&timestamp=1700000000`:
+
+```
+signSource = "appid=20104&noncestr=abc123&phone=13800138000&pid=21048&pwd=123456&timestamp=1700000000&key=6d5dbb85b949447a95ff8fda9a9b759b"
+sign = MD5(signSource).toUpperCase()
+```
+
+---
+
+## Appendix B: Local Storage Fields
 
 After synchronization, the client stores:
 
