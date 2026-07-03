@@ -1,6 +1,8 @@
 package com.whxinna.userplatform.ui;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.res.Configuration;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -15,9 +17,12 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.whxinna.userplatform.R;
+import com.whxinna.userplatform.SettingsActivity;
 import com.whxinna.userplatform.api.AuthApi;
 import com.whxinna.userplatform.model.LoginResponse;
 import com.whxinna.userplatform.storage.CredentialCache;
+
+import java.util.Locale;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -35,6 +40,8 @@ public class LoginActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        applyTheme();
+        applyLanguage();
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
@@ -49,6 +56,46 @@ public class LoginActivity extends AppCompatActivity {
 
         initViews();
         setupListeners();
+    }
+
+    private void applyTheme() {
+        SharedPreferences prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, MODE_PRIVATE);
+        String theme = prefs.getString(SettingsActivity.KEY_THEME, SettingsActivity.THEME_SYSTEM);
+        switch (theme) {
+            case SettingsActivity.THEME_LIGHT:
+                setTheme(R.style.Theme_SEUDoorLock);
+                break;
+            case SettingsActivity.THEME_DARK:
+                setTheme(R.style.Theme_SEUDoorLock_Dark);
+                break;
+            default:
+                int nightMode = getResources().getConfiguration().uiMode
+                    & Configuration.UI_MODE_NIGHT_MASK;
+                if (nightMode == Configuration.UI_MODE_NIGHT_YES) {
+                    setTheme(R.style.Theme_SEUDoorLock_Dark);
+                } else {
+                    setTheme(R.style.Theme_SEUDoorLock);
+                }
+                break;
+        }
+    }
+
+    private void applyLanguage() {
+        SharedPreferences prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, MODE_PRIVATE);
+        String lang = prefs.getString(SettingsActivity.KEY_LANGUAGE, SettingsActivity.LANG_SYSTEM);
+
+        Locale locale;
+        if (SettingsActivity.LANG_ZH.equals(lang)) {
+            locale = Locale.CHINESE;
+        } else if (SettingsActivity.LANG_EN.equals(lang)) {
+            locale = Locale.ENGLISH;
+        } else {
+            locale = Locale.getDefault();
+        }
+
+        Configuration config = new Configuration(getResources().getConfiguration());
+        config.setLocale(locale);
+        getResources().updateConfiguration(config, getResources().getDisplayMetrics());
     }
 
     private void initViews() {

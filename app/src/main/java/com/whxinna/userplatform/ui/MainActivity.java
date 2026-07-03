@@ -3,11 +3,15 @@ package com.whxinna.userplatform.ui;
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.nfc.NfcAdapter;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
@@ -23,12 +27,15 @@ import androidx.core.content.ContextCompat;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.whxinna.userplatform.R;
+import com.whxinna.userplatform.SettingsActivity;
 import com.whxinna.userplatform.api.AuthApi;
 import com.whxinna.userplatform.api.CredentialApi;
 import com.whxinna.userplatform.ble.BleUnlockManager;
 import com.whxinna.userplatform.model.DoorLockInfo;
 import com.whxinna.userplatform.nfc.NfcUnlockManager;
 import com.whxinna.userplatform.storage.CredentialCache;
+
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -52,6 +59,8 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        applyTheme();
+        applyLanguage();
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -72,6 +81,61 @@ public class MainActivity extends AppCompatActivity {
         handleNfcIntent(getIntent());
     }
 
+    private void applyTheme() {
+        SharedPreferences prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, MODE_PRIVATE);
+        String theme = prefs.getString(SettingsActivity.KEY_THEME, SettingsActivity.THEME_SYSTEM);
+        switch (theme) {
+            case SettingsActivity.THEME_LIGHT:
+                setTheme(R.style.Theme_SEUDoorLock);
+                break;
+            case SettingsActivity.THEME_DARK:
+                setTheme(R.style.Theme_SEUDoorLock_Dark);
+                break;
+            default:
+                int nightMode = getResources().getConfiguration().uiMode
+                    & Configuration.UI_MODE_NIGHT_MASK;
+                if (nightMode == Configuration.UI_MODE_NIGHT_YES) {
+                    setTheme(R.style.Theme_SEUDoorLock_Dark);
+                } else {
+                    setTheme(R.style.Theme_SEUDoorLock);
+                }
+                break;
+        }
+    }
+
+    private void applyLanguage() {
+        SharedPreferences prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, MODE_PRIVATE);
+        String lang = prefs.getString(SettingsActivity.KEY_LANGUAGE, SettingsActivity.LANG_SYSTEM);
+
+        Locale locale;
+        if (SettingsActivity.LANG_ZH.equals(lang)) {
+            locale = Locale.CHINESE;
+        } else if (SettingsActivity.LANG_EN.equals(lang)) {
+            locale = Locale.ENGLISH;
+        } else {
+            locale = Locale.getDefault();
+        }
+
+        Configuration config = new Configuration(getResources().getConfiguration());
+        config.setLocale(locale);
+        getResources().updateConfiguration(config, getResources().getDisplayMetrics());
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_settings) {
+            startActivity(new Intent(this, SettingsActivity.class));
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
     private void initViews() {
         toolbar = findViewById(R.id.toolbar);
         tvUserInfo = findViewById(R.id.tvUserInfo);
@@ -85,6 +149,11 @@ public class MainActivity extends AppCompatActivity {
 
         toolbar.setTitle("SEU Door Lock");
         setSupportActionBar(toolbar);
+
+        SharedPreferences prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, MODE_PRIVATE);
+        String defaultMethod = SettingsActivity.getDefaultMethod(prefs);
+        boolean showBleButton = SettingsActivity.METHOD_BLE.equals(defaultMethod);
+        btnBleUnlock.setVisibility(showBleButton ? View.VISIBLE : View.GONE);
 
         String phone = cache.getPhone();
         String masked = phone.length() >= 7

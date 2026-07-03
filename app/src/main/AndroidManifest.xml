@@ -36,6 +36,10 @@
             android:windowSoftInputMode="adjustResize"/>
 
         <activity
+            android:name=".SettingsActivity"
+            android:windowSoftInputMode="adjustResize"/>
+
+        <activity
             android:name=".nfc.NfcPendingActivity"
             android:exported="true"
             android:launchMode="singleInstance"

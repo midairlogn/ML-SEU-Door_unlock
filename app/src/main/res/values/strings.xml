@@ -35,4 +35,20 @@
     <string name="error_phone">Please enter a valid phone number</string>
     <string name="error_password">Password must be 6 digits</string>
     <string name="error_captcha">Captcha must be 4 characters</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_default_method">Default Door Opening Method</string>
+    <string name="settings_language_system">System default</string>
+    <string name="settings_language_en">English</string>
+    <string name="settings_language_zh">Chinese</string>
+    <string name="settings_theme_system">System default</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_method_nfc">NFC</string>
+    <string name="settings_method_ble">Bluetooth</string>
+    <string name="settings_about">About</string>
+    <string name="settings_version">Version %s</string>
 </resources>
