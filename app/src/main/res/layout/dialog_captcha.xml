@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:padding="16dp">
 
     <TextView
         android:id="@+id/tvCaptchaLabel"
@@ -27,9 +27,9 @@
         <WebView
             android:id="@+id/ivCaptcha"
             android:layout_width="match_parent"
-            android:layout_height="120dp"
+            android:layout_height="60dp"
             android:background="@android:color/white"
-            android:padding="8dp"/>
+            android:padding="4dp"/>
 
     </com.google.android.material.card.MaterialCardView>
 
@@ -48,7 +48,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="@string/hint_captcha"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="8dp"
         app:counterEnabled="true"
         app:counterMaxLength="4">
 
@@ -58,9 +58,9 @@
             android:layout_height="wrap_content"
             android:inputType="textCapCharacters|textVisiblePassword"
             android:maxLength="4"
-            android:textSize="24sp"
+            android:textSize="18sp"
             android:gravity="center"
-            android:letterSpacing="0.5"/>
+            android:letterSpacing="0.3"/>
 
     </com.google.android.material.textfield.TextInputLayout>
 

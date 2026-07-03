@@ -109,11 +109,11 @@ public class CaptchaDialogFragment extends DialogFragment {
                 if (webViewCaptcha != null && svgData != null) {
                     String html = "<!DOCTYPE html>"
                         + "<html><head>"
-                        + "<meta name='viewport' content='width=device-width, initial-scale=3.0, maximum-scale=3.0, user-scalable=no'/>"
+                        + "<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'/>"
                         + "<style>"
                         + "body { margin:0; padding:0; display:flex; justify-content:center; align-items:center; "
-                        + "background:#FFFFFF; min-height:100%; width:100%; }"
-                        + "svg { max-width:100%; max-height:100%; width:auto; height:auto; }"
+                        + "background:#FFFFFF; min-height:100%; width:100%; overflow:hidden; }"
+                        + "svg { max-width:100%; max-height:100%; }"
                         + "</style></head><body>"
                         + svgData
                         + "</body></html>";

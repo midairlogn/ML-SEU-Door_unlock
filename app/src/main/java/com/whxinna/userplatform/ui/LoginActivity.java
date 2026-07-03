@@ -6,6 +6,7 @@ import android.content.res.Configuration;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.widget.ProgressBar;
@@ -14,6 +15,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.checkbox.MaterialCheckBox;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.whxinna.userplatform.R;
@@ -27,6 +29,10 @@ import java.util.Locale;
 public class LoginActivity extends AppCompatActivity {
 
     private static final String TAG = "ZL_Login";
+    private static final String REMEMBER_PREFS = "remember_prefs";
+    private static final String KEY_REMEMBER = "remember_me";
+    private static final String KEY_PHONE = "saved_phone";
+    private static final String KEY_PASSWORD = "saved_password";
 
     private TextInputLayout tilPhone;
     private TextInputLayout tilPassword;
@@ -34,9 +40,11 @@ public class LoginActivity extends AppCompatActivity {
     private TextInputEditText etPassword;
     private MaterialButton btnLogin;
     private ProgressBar progressBar;
+    private MaterialCheckBox cbRemember;
 
     private AuthApi authApi;
     private CredentialCache cache;
+    private SharedPreferences rememberPrefs;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,14 +55,15 @@ public class LoginActivity extends AppCompatActivity {
 
         cache = CredentialCache.getInstance(this);
         authApi = new AuthApi(cache);
+        rememberPrefs = getSharedPreferences(REMEMBER_PREFS, MODE_PRIVATE);
 
-        // If already logged in, skip to main
         if (cache.hasSession()) {
             navigateToMain();
             return;
         }
 
         initViews();
+        loadRemembered();
         setupListeners();
     }
 
@@ -105,6 +114,7 @@ public class LoginActivity extends AppCompatActivity {
         etPassword = findViewById(R.id.etPassword);
         btnLogin = findViewById(R.id.btnLogin);
         progressBar = findViewById(R.id.progressBar);
+        cbRemember = findViewById(R.id.cbRemember);
 
         etPhone.addTextChangedListener(new TextWatcher() {
             @Override
@@ -127,6 +137,53 @@ public class LoginActivity extends AppCompatActivity {
             @Override
             public void afterTextChanged(Editable s) {}
         });
+    }
+
+    private void loadRemembered() {
+        boolean remember = rememberPrefs.getBoolean(KEY_REMEMBER, false);
+        cbRemember.setChecked(remember);
+        if (remember) {
+            String phone = rememberPrefs.getString(KEY_PHONE, "");
+            String encodedPwd = rememberPrefs.getString(KEY_PASSWORD, "");
+            if (!phone.isEmpty()) {
+                etPhone.setText(phone);
+            }
+            if (!encodedPwd.isEmpty()) {
+                etPassword.setText(decodePassword(encodedPwd));
+            }
+        }
+    }
+
+    private void saveRemembered(String phone, String password) {
+        if (cbRemember.isChecked()) {
+            rememberPrefs.edit()
+                .putBoolean(KEY_REMEMBER, true)
+                .putString(KEY_PHONE, phone)
+                .putString(KEY_PASSWORD, encodePassword(password))
+                .apply();
+        } else {
+            rememberPrefs.edit()
+                .putBoolean(KEY_REMEMBER, false)
+                .remove(KEY_PHONE)
+                .remove(KEY_PASSWORD)
+                .apply();
+        }
+    }
+
+    private String encodePassword(String password) {
+        try {
+            return Base64.encodeToString(password.getBytes("UTF-8"), Base64.NO_WRAP);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private String decodePassword(String encoded) {
+        try {
+            return new String(Base64.decode(encoded, Base64.NO_WRAP), "UTF-8");
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     private void setupListeners() {
@@ -152,6 +209,7 @@ public class LoginActivity extends AppCompatActivity {
             @Override
             public void onSuccess(LoginResponse response) {
                 setLoading(false);
+                saveRemembered(phone, password);
                 Toast.makeText(LoginActivity.this, "Login successful", Toast.LENGTH_SHORT).show();
                 navigateToMain();
             }
@@ -178,6 +236,7 @@ public class LoginActivity extends AppCompatActivity {
                 @Override
                 public void onSuccess(LoginResponse response) {
                     setLoading(false);
+                    saveRemembered(phone, password);
                     Toast.makeText(LoginActivity.this, "Login successful", Toast.LENGTH_SHORT).show();
                     navigateToMain();
                 }

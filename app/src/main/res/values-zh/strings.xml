@@ -9,7 +9,7 @@
     <string name="btn_register">注册</string>
     <string name="login_progress">登录中…</string>
     <string name="captcha_title">输入验证码</string>
-    <string name="hint_captcha">4位字符</string>
+    <string name="hint_captcha">验证码</string>
     <string name="btn_submit">提交</string>
     <string name="btn_cancel">取消</string>
     <string name="main_open_door">开门</string>
@@ -35,6 +35,7 @@
     <string name="error_phone">请输入有效的手机号</string>
     <string name="error_password">密码必须是6位数字</string>
     <string name="error_captcha">验证码必须是4个字符</string>
+    <string name="remember_me">记住账号密码</string>
 
     <!-- 设置 -->
     <string name="settings_title">设置</string>

@@ -9,7 +9,7 @@
     <string name="btn_register">Register</string>
     <string name="login_progress">Logging in…</string>
     <string name="captcha_title">Enter Captcha</string>
-    <string name="hint_captcha">4-char code</string>
+    <string name="hint_captcha">Captcha code</string>
     <string name="btn_submit">Submit</string>
     <string name="btn_cancel">Cancel</string>
     <string name="main_open_door">Open Door</string>
@@ -35,6 +35,7 @@
     <string name="error_phone">Please enter a valid phone number</string>
     <string name="error_password">Password must be 6 digits</string>
     <string name="error_captcha">Captcha must be 4 characters</string>
+    <string name="remember_me">Remember me</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
