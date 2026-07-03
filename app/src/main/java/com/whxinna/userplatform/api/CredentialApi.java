@@ -58,14 +58,43 @@ public class CredentialApi {
                 String dataStr = ApiClient.extractDataField(responseJson);
                 DoorLockInfo info = DoorLockInfo.fromJson(dataStr);
 
-                if (info.doorLock != null) {
-                    cache.saveDoorLock(
-                        info.doorLock.deviceId,
-                        info.doorLock.bleMac,
-                        info.doorLock.credential,
-                        info.doorLock.credentialId
-                    );
+                String deviceId = info.doorLock != null ? String.valueOf(info.doorLock.deviceId) : "";
+                String credential = info.doorLock != null ? info.doorLock.credential : "";
+                int credentialId = info.doorLock != null ? info.doorLock.credentialId : 0;
+                String bleMac = info.doorLock != null ? info.doorLock.bleMac : "";
+
+                if (deviceId.isEmpty()) {
+                    mainHandler.post(() -> callback.onError("Server returned missing device_id"));
+                    return;
                 }
+
+                if (credential.isEmpty() || !credential.matches("^[0-9A-Fa-f]{64}$")) {
+                    Log.d(TAG, "Credential missing or invalid, fetching from credentials endpoint");
+                    HttpUrl.Builder credBuilder = HttpUrl.parse(
+                        serverUrl + "/webapi/v1/staff/door_lock/credentials")
+                        .newBuilder()
+                        .addQueryParameter("device_id", deviceId)
+                        .addQueryParameter("user_id", cache.getUserId())
+                        .addQueryParameter("identitycode", cache.getIdentityCode());
+
+                    String credResponse = api.executeBusinessRequest(
+                        credBuilder, cache.getPlatformToken(), cache.getSessionSecret());
+                    String credDataStr = ApiClient.extractDataField(credResponse);
+                    JSONObject credData = new JSONObject(credDataStr);
+
+                    credential = credData.optString("credential", "");
+                    int newCredentialId = credData.optInt("credential_id", credentialId);
+                    if (newCredentialId != 0) credentialId = newCredentialId;
+                }
+
+                String normalizedCredential = credential.toUpperCase();
+                if (!normalizedCredential.matches("^[0-9A-F]{64}$")) {
+                    mainHandler.post(() -> callback.onError("Server returned invalid credential"));
+                    return;
+                }
+
+                cache.saveDoorLock(Integer.parseInt(deviceId), bleMac, normalizedCredential, credentialId);
+
                 if (info.accommodation != null) {
                     double battery = info.doorLock != null ? info.doorLock.batteryLevel : 100;
                     cache.saveAccommodationInfo(info.accommodation.getDisplayName(), battery);

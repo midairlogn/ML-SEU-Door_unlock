@@ -17,27 +17,37 @@ public class LoginResponse {
 
     public static LoginResponse fromJson(String json) throws JSONException {
         JSONObject root = new JSONObject(json);
-        JSONObject userInfoJson = root.getJSONObject("user_info");
-        String platformToken = root.getString("platform_token");
-        JSONObject serverInfoJson = root.getJSONObject("server_info");
+        JSONObject userInfoJson = root.optJSONObject("user_info") != null
+            ? root.getJSONObject("user_info") : root;
+        String platformToken = root.optString("platform_token", "");
+        JSONObject serverInfoJson = root.optJSONObject("server_info") != null
+            ? root.getJSONObject("server_info") : root;
 
         UserInfo userInfo = new UserInfo(
-            userInfoJson.getString("id"),
-            userInfoJson.getString("phone"),
-            userInfoJson.optString("identity_code", ""),
+            findString(userInfoJson, "id", "user_id", "userId", "uid"),
+            findString(userInfoJson, "phone", "mobile", "phone_number"),
+            findString(userInfoJson, "identity_code", "identitycode", "identityCode"),
             userInfoJson.optInt("isbind", 0),
             userInfoJson.optString("balance", "0")
         );
 
         ServerInfo serverInfo = new ServerInfo(
-            serverInfoJson.getString("server_addr"),
-            serverInfoJson.getString("session_secret"),
+            findString(serverInfoJson, "server_addr", "serverAddr"),
+            findString(serverInfoJson, "session_secret", "sessionSecret"),
             serverInfoJson.optString("appsecret", ""),
             serverInfoJson.optInt("server_appid", 21048),
             serverInfoJson.optInt("server_id", 20104)
         );
 
         return new LoginResponse(userInfo, platformToken, serverInfo);
+    }
+
+    private static String findString(JSONObject obj, String... keys) {
+        for (String key : keys) {
+            String val = obj.optString(key, "");
+            if (!val.isEmpty()) return val;
+        }
+        return "";
     }
 
     public static class UserInfo {

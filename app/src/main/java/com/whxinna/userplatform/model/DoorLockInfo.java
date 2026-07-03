@@ -27,19 +27,36 @@ public class DoorLockInfo {
         }
 
         DoorLock lock = null;
-        if (root.has("door_lock")) {
-            JSONObject lockJson = root.getJSONObject("door_lock");
+        JSONObject lockJson = root.has("door_lock") ? root.getJSONObject("door_lock") : root;
+        String deviceIdStr = findString(lockJson, "device_id", "deviceId");
+        String credential = findString(lockJson, "credential", "chain_key", "chainKey");
+        String credentialIdStr = findString(lockJson, "credential_id", "credentialId");
+
+        if (!deviceIdStr.isEmpty()) {
+            int deviceId = 0;
+            try { deviceId = Integer.parseInt(deviceIdStr); } catch (NumberFormatException ignored) {}
+            int credentialId = 0;
+            try { credentialId = Integer.parseInt(credentialIdStr); } catch (NumberFormatException ignored) {}
+
             lock = new DoorLock(
-                lockJson.getInt("device_id"),
-                lockJson.optString("ble_name", ""),
-                lockJson.optString("ble_mac", ""),
+                deviceId,
+                findString(lockJson, "ble_name", "bleName"),
+                findString(lockJson, "ble_mac", "bleMac"),
                 lockJson.optDouble("battery_level", 100.0),
-                lockJson.optString("credential", ""),
-                lockJson.optInt("credential_id", 0)
+                credential,
+                credentialId
             );
         }
 
         return new DoorLockInfo(acc, lock);
+    }
+
+    private static String findString(JSONObject obj, String... keys) {
+        for (String key : keys) {
+            String val = obj.optString(key, "");
+            if (!val.isEmpty()) return val;
+        }
+        return "";
     }
 
     public static class Accommodation {

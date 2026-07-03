@@ -99,23 +99,52 @@ public class AuthApi {
     public void getLoginCaptcha(String phone, SimpleCallback callback) {
         executor.execute(() -> {
             try {
-                HttpUrl.Builder urlBuilder = HttpUrl.parse(api.getAuthBaseUrl() + "/webapi/users/get_login_code")
-                    .newBuilder()
-                    .addQueryParameter("phone", phone);
-
-                String responseJson = api.executeAuthRequest(urlBuilder);
-                String dataStr = ApiClient.extractDataField(responseJson);
-
-                JSONObject data = new JSONObject(dataStr);
-                String svgCode = data.getString("codeImg");
-
+                String svgCode = fetchLoginCaptchaSvg(phone);
                 mainHandler.post(() -> callback.onSuccess(svgCode));
-
             } catch (Exception e) {
                 Log.e(TAG, "Captcha error", e);
                 mainHandler.post(() -> callback.onError("Failed to get captcha: " + e.getMessage()));
             }
         });
+    }
+
+    private String fetchLoginCaptchaSvg(String phone) throws Exception {
+        int maxAttempts = 2;
+        long retryDelayMs = 200;
+        Exception lastError = null;
+
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            try {
+                return fetchLoginCaptchaSvgOnce(phone);
+            } catch (Exception e) {
+                lastError = e;
+                if (attempt + 1 < maxAttempts) {
+                    try { Thread.sleep(retryDelayMs); } catch (InterruptedException ignored) {}
+                }
+            }
+        }
+        throw lastError != null ? lastError : new Exception("验证码获取失败");
+    }
+
+    private String fetchLoginCaptchaSvgOnce(String phone) throws Exception {
+        HttpUrl.Builder urlBuilder = HttpUrl.parse(api.getAuthBaseUrl() + "/webapi/users/get_login_code")
+            .newBuilder()
+            .addQueryParameter("phone", phone);
+
+        String responseJson = api.executeAuthRequest(urlBuilder);
+        String dataStr = ApiClient.extractDataField(responseJson);
+
+        JSONObject data = new JSONObject(dataStr);
+        String codeImg = data.optString("codeImg", "");
+        if (codeImg.isEmpty()) {
+            throw new Exception("验证码获取失败");
+        }
+
+        int svgStart = codeImg.indexOf("<svg");
+        if (svgStart < 0) throw new Exception("验证码获取失败");
+        int svgEnd = codeImg.toLowerCase().lastIndexOf("</svg>");
+        if (svgEnd <= svgStart) throw new Exception("验证码获取失败");
+        return codeImg.substring(svgStart, svgEnd + 6);
     }
 
     public void autoReLogin(CredentialCache cache, AuthCallback callback) {

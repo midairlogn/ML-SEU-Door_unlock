@@ -5,6 +5,7 @@ import android.util.Log;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.json.JSONArray;
 
 import java.io.IOException;
 import java.security.MessageDigest;
@@ -168,22 +169,65 @@ public class ApiClient {
 
     public static String extractDataField(String responseJson) throws JSONException {
         JSONObject root = new JSONObject(responseJson);
-        if (root.has("data")) {
-            String data = root.getString("data");
-            return base64Decode(data);
+        if (!isSuccess(root)) {
+            String serverMessage = extractServerMessage(root);
+            if (serverMessage != null && !serverMessage.isEmpty()) {
+                throw new JSONException(serverMessage);
+            }
+            throw new JSONException("Server error");
         }
-        if (root.has("message")) {
-            String msg = root.getString("message");
-            throw new JSONException("Server error: " + msg);
+        if (!root.has("data")) {
+            return responseJson;
         }
-        throw new JSONException("No data field in response");
+        Object data = root.get("data");
+        return decodeData(data);
+    }
+
+    private static boolean isSuccess(JSONObject root) {
+        if (root.has("success") && !root.optBoolean("success", true)) {
+            return false;
+        }
+        if (root.has("result") && !root.optBoolean("result", true)) {
+            return false;
+        }
+        Object codeValue = root.opt("code");
+        if (codeValue == null) codeValue = root.opt("status");
+        if (codeValue == null) codeValue = root.opt("errno");
+        if (codeValue == null) return true;
+        String code = String.valueOf(codeValue);
+        return "0".equals(code) || "1".equals(code) || "200".equals(code);
+    }
+
+    private static String extractServerMessage(JSONObject root) {
+        String msg = root.optString("err_msg", "");
+        if (msg.isEmpty()) msg = root.optString("msg", "");
+        if (msg.isEmpty()) msg = root.optString("message", "");
+        return msg.isEmpty() ? null : msg;
+    }
+
+    private static String decodeData(Object raw) {
+        if (raw instanceof JSONObject || raw instanceof org.json.JSONArray) {
+            return raw.toString();
+        }
+        String value = String.valueOf(raw).trim();
+        if (value.startsWith("{") || value.startsWith("[")) {
+            return value;
+        }
+        String decoded = base64Decode(value);
+        if (decoded != null && (decoded.startsWith("{") || decoded.startsWith("["))) {
+            return decoded;
+        }
+        return value;
     }
 
     public static boolean isCaptchaRequired(String responseJson) {
         try {
             JSONObject root = new JSONObject(responseJson);
-            String msg = root.optString("message", "");
-            return msg.contains("验证") || msg.contains("CAPTCHA");
+            String msg = extractServerMessage(root);
+            if (msg == null) return false;
+            return msg.contains("本次登录需要进行验证")
+                || msg.contains("CAPTCHA_REQUIRED")
+                || msg.contains("验证码输入错误");
         } catch (Exception e) {
             return false;
         }

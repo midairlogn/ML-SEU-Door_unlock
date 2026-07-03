@@ -11,6 +11,7 @@ public class CredentialCache {
     private static final String KEY_PLATFORM_TOKEN = "platform_token";
     private static final String KEY_SESSION_SECRET = "session_secret";
     private static final String KEY_SERVER_URL = "server_url";
+    private static final String KEY_AUTH_SERVER_URL = "auth_server_url";
     private static final String KEY_DEVICE_ID = "device_id";
     private static final String KEY_BLE_MAC = "ble_mac";
     private static final String KEY_CREDENTIAL_HEX = "credential_hex";
@@ -44,6 +45,7 @@ public class CredentialCache {
         securePrefs.putString(KEY_PLATFORM_TOKEN, platformToken);
         securePrefs.putString(KEY_SESSION_SECRET, sessionSecret);
         securePrefs.putString(KEY_SERVER_URL, serverUrl);
+        securePrefs.putString(KEY_AUTH_SERVER_URL, "https://pm.whxinna.com");
     }
 
     public void saveDoorLock(int deviceId, String bleMac, String credentialHex, int credentialId) {
@@ -69,6 +71,7 @@ public class CredentialCache {
     public String getPlatformToken() { return securePrefs.getString(KEY_PLATFORM_TOKEN, ""); }
     public String getSessionSecret() { return securePrefs.getString(KEY_SESSION_SECRET, ""); }
     public String getServerUrl() { return securePrefs.getString(KEY_SERVER_URL, ""); }
+    public String getAuthServerUrl() { return securePrefs.getString(KEY_AUTH_SERVER_URL, "https://pm.whxinna.com"); }
     public String getBleMac() { return securePrefs.getString(KEY_BLE_MAC, ""); }
     public String getCredentialHex() { return securePrefs.getString(KEY_CREDENTIAL_HEX, ""); }
     public String getBuildingName() { return securePrefs.getString(KEY_BUILDING_NAME, ""); }
