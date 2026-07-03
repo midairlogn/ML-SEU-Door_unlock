@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="nfc_tech_list">
+        <item>android.nfc.tech.IsoDep</item>
+        <item>android.nfc.tech.NfcA</item>
+        <item>android.nfc.tech.NfcB</item>
+        <item>android.nfc.tech.NfcF</item>
+        <item>android.nfc.tech.NfcV</item>
+        <item>android.nfc.tech.Ndef</item>
+        <item>android.nfc.tech.NdefFormatable</item>
+        <item>android.nfc.tech.MifareClassic</item>
+        <item>android.nfc.tech.MifareUltralight</item>
+    </string-array>
+</resources>

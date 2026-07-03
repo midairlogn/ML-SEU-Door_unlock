@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SEU Door Lock</string>
+    <string name="login_title">SEU Door Lock Login</string>
+    <string name="hint_phone">Phone number</string>
+    <string name="hint_password">6-digit password</string>
+    <string name="btn_login">Login</string>
+    <string name="btn_forgot_password">Forgot password?</string>
+    <string name="btn_register">Register</string>
+    <string name="login_progress">Logging in…</string>
+    <string name="captcha_title">Enter Captcha</string>
+    <string name="hint_captcha">4-char code</string>
+    <string name="btn_submit">Submit</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="main_open_door">Open Door</string>
+    <string name="main_nfc_hint">Tap phone on NFC tag to open</string>
+    <string name="main_ble_hint">Press button to connect via Bluetooth</string>
+    <string name="main_logout">Logout</string>
+    <string name="main_status_title">Door Status</string>
+    <string name="door_opened">Door Opened</string>
+    <string name="door_closed">Door Closed</string>
+    <string name="unlocking">Unlocking…</string>
+    <string name="unlock_success">Door opened successfully</string>
+    <string name="unlock_failed">Unlock failed</string>
+    <string name="nfc_error">NFC communication error</string>
+    <string name="ble_scanning">Searching for lock…</string>
+    <string name="ble_connecting">Connecting…</string>
+    <string name="ble_error">Bluetooth connection failed</string>
+    <string name="network_error">Network error. Please try again.</string>
+    <string name="session_expired">Session expired. Re-logging in…</string>
+    <string name="battery_level">Battery: %d%%</string>
+    <string name="logout_confirm">Are you sure you want to logout?</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="error_phone">Please enter a valid phone number</string>
+    <string name="error_password">Password must be 6 digits</string>
+    <string name="error_captcha">Captcha must be 4 characters</string>
+</resources>
