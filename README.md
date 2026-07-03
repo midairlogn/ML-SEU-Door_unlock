@@ -64,3 +64,7 @@ See [docs/PROTOCOL_REFERENCE.md](docs/PROTOCOL_REFERENCE.md) for full protocol d
 | BLE Service UUID | `0xFF12` | Door lock GATT service |
 | BLE Write UUID | `0xFF01` | Write characteristic |
 | BLE Read UUID | `0xFF02` | Read/notify characteristic |
+
+## License
+
+[GNU General Public License v3.0](LICENSE)
