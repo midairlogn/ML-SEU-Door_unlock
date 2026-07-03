@@ -75,6 +75,7 @@
     <string name="captcha_verify">请完成身份验证</string>
     <string name="captcha_refresh">换一张</string>
     <string name="settings_version_label">版本 %s</string>
+    <string name="enable_nfc_button">立即开启 NFC</string>
     <string name="login_welcome">欢迎回来</string>
     <string name="login_subtitle">东南大学九龙湖校区门锁控制</string>
 </resources>

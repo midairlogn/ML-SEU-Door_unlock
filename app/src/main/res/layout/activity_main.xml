@@ -77,13 +77,16 @@
                 android:layout_height="wrap_content"
                 android:gravity="center_horizontal"
                 android:orientation="vertical"
-                android:padding="24dp">
+                android:padding="24dp"
+                android:clipChildren="false"
+                android:clipToPadding="false">
 
                 <!-- Status Icon -->
                 <FrameLayout
                     android:id="@+id/statusIconContainer"
                     android:layout_width="120dp"
                     android:layout_height="120dp"
+                    android:layout_marginTop="32dp"
                     android:background="@drawable/bg_status_icon">
 
                     <ImageView
@@ -120,6 +123,18 @@
                     android:textColor="@color/on_surface_variant"
                     android:textSize="14sp"
                     tools:text="Phone: 138****1234\nLock: Building A\nBattery: 85%"/>
+
+                <!-- Enable NFC Button -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnEnableNfc"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_marginTop="24dp"
+                    android:text="@string/enable_nfc_button"
+                    app:cornerRadius="28dp"
+                    app:icon="@drawable/ic_settings"
+                    android:visibility="gone"/>
 
                 <!-- BLE Unlock Button -->
                 <com.google.android.material.button.MaterialButton

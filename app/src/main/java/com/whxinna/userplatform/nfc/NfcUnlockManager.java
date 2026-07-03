@@ -7,10 +7,11 @@ import android.content.IntentFilter;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.nfc.tech.NfcA;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+
+import androidx.core.content.IntentCompat;
 
 import com.whxinna.userplatform.api.CredentialApi;
 import com.whxinna.userplatform.model.DoorResponse;
@@ -84,12 +85,7 @@ public class NfcUnlockManager {
         if (NfcAdapter.ACTION_TAG_DISCOVERED.equals(action)
             || NfcAdapter.ACTION_TECH_DISCOVERED.equals(action)
             || NfcAdapter.ACTION_NDEF_DISCOVERED.equals(action)) {
-            Tag tag;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag.class);
-            } else {
-                tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
-            }
+            Tag tag = IntentCompat.getParcelableExtra(intent, NfcAdapter.EXTRA_TAG, Tag.class);
             if (tag != null) {
                 handleTagDiscovered(tag);
             }

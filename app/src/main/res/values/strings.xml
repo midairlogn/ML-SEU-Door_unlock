@@ -75,6 +75,7 @@
     <string name="captcha_verify">Verify you are human</string>
     <string name="captcha_refresh">Try another code</string>
     <string name="settings_version_label">Version %s</string>
+    <string name="enable_nfc_button">Enable NFC Now</string>
     <string name="login_welcome">Welcome Back</string>
     <string name="login_subtitle">SEU Jiulonghu Campus Door Lock</string>
 </resources>

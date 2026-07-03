@@ -51,6 +51,7 @@ public class MainActivity extends AppCompatActivity {
     private ImageView ivStatusIcon;
     private TextView tvStatusTitle;
     private TextView tvStatusDetail;
+    private com.google.android.material.button.MaterialButton btnEnableNfc;
     private com.google.android.material.button.MaterialButton btnBleUnlock;
     private com.google.android.material.button.MaterialButtonToggleGroup toggleGroup;
     private com.google.android.material.button.MaterialButton btnLogout;
@@ -111,6 +112,7 @@ public class MainActivity extends AppCompatActivity {
         ivStatusIcon = findViewById(R.id.ivStatusIcon);
         tvStatusTitle = findViewById(R.id.tvStatusTitle);
         tvStatusDetail = findViewById(R.id.tvStatusDetail);
+        btnEnableNfc = findViewById(R.id.btnEnableNfc);
         btnBleUnlock = findViewById(R.id.btnBleUnlock);
         toggleGroup = findViewById(R.id.toggleGroup);
         btnLogout = findViewById(R.id.btnLogout);
@@ -142,6 +144,11 @@ public class MainActivity extends AppCompatActivity {
         });
 
         btnBleUnlock.setOnClickListener(v -> attemptBleUnlock());
+
+        btnEnableNfc.setOnClickListener(v -> {
+            Intent intent = new Intent(android.provider.Settings.ACTION_NFC_SETTINGS);
+            startActivity(intent);
+        });
 
         btnLogout.setOnClickListener(v -> {
             new AlertDialog.Builder(this)
@@ -175,21 +182,25 @@ public class MainActivity extends AppCompatActivity {
             if (!nfcManager.isNfcSupported()) {
                 tvStatusTitle.setText(R.string.nfc_not_supported);
                 tvStatusDetail.setText("");
+                btnEnableNfc.setVisibility(View.GONE);
                 statusIconContainer.setAlpha(0.5f);
             } else if (!nfcManager.isNfcEnabled()) {
                 tvStatusTitle.setText(R.string.nfc_disabled);
                 tvStatusDetail.setText(R.string.enable_nfc_prompt);
+                btnEnableNfc.setVisibility(View.VISIBLE);
                 statusIconContainer.setAlpha(0.7f);
                 startBreathingAnimation();
             } else {
                 tvStatusTitle.setText(R.string.nfc_ready);
                 tvStatusDetail.setText(R.string.main_nfc_hint);
+                btnEnableNfc.setVisibility(View.GONE);
                 statusIconContainer.setAlpha(1.0f);
                 startBreathingAnimation();
             }
         } else {
             ivStatusIcon.setImageResource(R.drawable.ic_bluetooth);
             btnBleUnlock.setVisibility(View.VISIBLE);
+            btnEnableNfc.setVisibility(View.GONE);
 
             if (!bleManager.isBleSupported()) {
                 tvStatusTitle.setText(R.string.ble_not_supported);
