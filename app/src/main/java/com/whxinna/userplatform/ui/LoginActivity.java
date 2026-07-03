@@ -199,10 +199,12 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void navigateToMain() {
+        Log.d(TAG, "navigateToMain called");
         Intent intent = new Intent(this, MainActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
+        Log.d(TAG, "navigateToMain completed");
     }
 
     private void setLoading(boolean loading) {

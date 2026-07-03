@@ -79,7 +79,29 @@ public final class NfcCommandBuilder {
             crcValid = (frame[3 + payloadSize] & 0xFF) == expectedCrc;
         }
 
-        return new DoorResponse(commandId, payloadSize, resultCode, crcValid, plainPayload);
+        boolean success = resultCode == 0 || resultCode == 23;
+        String updatedCredentialHex = null;
+        if (success && plainPayload.length >= 36) {
+            byte[] credBytes = new byte[32];
+            System.arraycopy(plainPayload, 4, credBytes, 0, 32);
+            boolean hasNonZero = false;
+            for (byte b : credBytes) {
+                if (b != 0) { hasNonZero = true; break; }
+            }
+            if (hasNonZero) {
+                updatedCredentialHex = bytesToHex(credBytes).toUpperCase();
+            }
+        }
+
+        return new DoorResponse(commandId, payloadSize, resultCode, crcValid, plainPayload, updatedCredentialHex);
+    }
+
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b & 0xFF));
+        }
+        return sb.toString();
     }
 
     private static byte[] littleEndianInt(int value) {

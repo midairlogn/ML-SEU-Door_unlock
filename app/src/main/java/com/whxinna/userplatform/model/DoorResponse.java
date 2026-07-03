@@ -7,14 +7,21 @@ public class DoorResponse {
     public final int resultCode;
     public final boolean crcValid;
     public final byte[] rawPayload;
+    public final String updatedCredentialHex;
 
     public DoorResponse(int commandId, int payloadSize, int resultCode,
                         boolean crcValid, byte[] rawPayload) {
+        this(commandId, payloadSize, resultCode, crcValid, rawPayload, null);
+    }
+
+    public DoorResponse(int commandId, int payloadSize, int resultCode,
+                        boolean crcValid, byte[] rawPayload, String updatedCredentialHex) {
         this.commandId = commandId;
         this.payloadSize = payloadSize;
         this.resultCode = resultCode;
         this.crcValid = crcValid;
         this.rawPayload = rawPayload;
+        this.updatedCredentialHex = updatedCredentialHex;
     }
 
     public boolean isSuccess() {

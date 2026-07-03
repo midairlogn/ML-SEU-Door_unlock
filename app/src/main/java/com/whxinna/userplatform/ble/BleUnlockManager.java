@@ -134,7 +134,8 @@ public class BleUnlockManager {
     @SuppressLint("MissingPermission")
     private void startScanAndConnect() {
         String targetName = "XN-" + cache.getDeviceId();
-        Log.d(TAG, "Scanning for: " + targetName);
+        String targetAddress = cache.getBleMac().toUpperCase().replace(":", "").replace("-", "");
+        Log.d(TAG, "Scanning for: " + targetName + " addr=" + targetAddress);
 
         BluetoothLeScanner scanner = bluetoothAdapter.getBluetoothLeScanner();
         if (scanner == null) {
@@ -147,9 +148,15 @@ public class BleUnlockManager {
             public void onScanResult(int callbackType, ScanResult result) {
                 BluetoothDevice device = result.getDevice();
                 String deviceName = device.getName();
-                if (deviceName != null && deviceName.equals(targetName)) {
+                String normalizedAddr = device.getAddress().toUpperCase().replace(":", "").replace("-", "");
+
+                boolean nameMatch = deviceName != null && deviceName.equals(targetName);
+                boolean addrMatch = !targetAddress.isEmpty() && normalizedAddr.equals(targetAddress);
+
+                if (nameMatch || addrMatch) {
                     scanner.stopScan(this);
-                    Log.d(TAG, "Found device: " + deviceName);
+                    Log.d(TAG, "Found device: " + (deviceName != null ? deviceName : device.getAddress())
+                        + " match=" + (nameMatch ? "name" : "address"));
                     mainHandler.post(() -> connectToDevice(device));
                 }
             }
@@ -157,7 +164,6 @@ public class BleUnlockManager {
 
         scanner.startScan(scanCallback);
 
-        // Stop scan after 10 seconds
         timeoutHandler.postDelayed(() -> {
             scanner.stopScan(scanCallback);
             if (bluetoothGatt == null && pendingCallback != null) {
@@ -326,18 +332,25 @@ public class BleUnlockManager {
                 return;
             }
 
-            // Parse response: [1]=packet_count, [2..3]=total_length
             BleResponse refetchResponse = BleCommandBuilder.parseResponse(deviceId, refetchResp);
-            int packetCount = refetchResponse.plainData[1] & 0xFF;
+            if (!refetchResponse.isSuccess()) {
+                fail("Credential refetch rejected: " + refetchResponse.getResultCode());
+                return;
+            }
 
-            // Read each packet
+            int packetCount = refetchResponse.plainData[1] & 0xFF;
+            int credentialLength = ((refetchResponse.plainData[2] & 0xFF))
+                                 | ((refetchResponse.plainData[3] & 0xFF) << 8);
+            int expectedCrc = refetchResponse.plainData.length > 4 ? (refetchResponse.plainData[4] & 0xFF) : -1;
+
+            Log.d(TAG, "Refetch: packets=" + packetCount + " credLen=" + credentialLength + " expectedCrc=" + expectedCrc);
+
             byte[] credentialBytes = new byte[0];
             for (int i = 0; i < packetCount; i++) {
                 byte[] readCmd = BleCommandBuilder.buildReadPacket(deviceId, i);
                 byte[] readResp = sendAndWaitForNotification(readCmd);
                 if (readResp != null) {
                     BleResponse readResponse = BleCommandBuilder.parseResponse(deviceId, readResp);
-                    // Extract credential data from response
                     byte[] chunk = Arrays.copyOfRange(readResponse.plainData, 1, readResponse.plainData.length);
                     byte[] newCred = new byte[credentialBytes.length + chunk.length];
                     System.arraycopy(credentialBytes, 0, newCred, 0, credentialBytes.length);
@@ -346,14 +359,38 @@ public class BleUnlockManager {
                 }
             }
 
-            // Update cache with new credential
-            String hex = bytesToHex(credentialBytes);
+            if (credentialLength > 0 && credentialBytes.length >= credentialLength) {
+                byte[] trimmed = new byte[credentialLength];
+                System.arraycopy(credentialBytes, 0, trimmed, 0, credentialLength);
+                credentialBytes = trimmed;
+            }
+
+            if (expectedCrc >= 0) {
+                int actualCrc = com.whxinna.userplatform.crypto.CRC8.compute(credentialBytes);
+                if (actualCrc != expectedCrc) {
+                    Log.w(TAG, "Credential CRC mismatch: expected=" + expectedCrc + " actual=" + actualCrc);
+                    fail("Credential CRC verification failed");
+                    return;
+                }
+                Log.d(TAG, "Credential CRC verified OK");
+            }
+
+            String hex = bytesToHex(credentialBytes).toUpperCase();
             if (hex.length() >= 64) {
                 hex = hex.substring(0, 64);
                 cache.saveDoorLock(deviceId, cache.getBleMac(), hex, credentialId);
+
+                // Re-sync with server in background
+                credentialApi.syncCredential(credentialId, new CredentialApi.SyncCallback() {
+                    @Override public void onSuccess(com.whxinna.userplatform.model.DoorLockInfo info) {
+                        Log.d(TAG, "Server credential re-synced after BLE refresh");
+                    }
+                    @Override public void onError(String message) {
+                        Log.w(TAG, "Server credential re-sync failed: " + message);
+                    }
+                });
             }
 
-            // Retry open door with new credential
             byte[] openCmd = BleCommandBuilder.buildOpenDoor(deviceId);
             byte[] openResp = sendAndWaitForNotification(openCmd);
             if (openResp != null) {

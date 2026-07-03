@@ -23,7 +23,7 @@ public class ApiClient {
     private static final String AUTH_BASE = "https://pm.whxinna.com";
     public static final int PROJECT_ID = 21048;
     public static final int APP_ID = 20104;
-    private static final String AUTH_SIGN_SECRET = "6d5dbb85b949447a95ff8fda9a9b759b";
+    private static final String SIGN_SECRET = "b21b8999f154f53878071586258904f0";
 
     private final OkHttpClient client;
     private static ApiClient instance;
@@ -70,7 +70,7 @@ public class ApiClient {
     }
 
     public String signParams(HttpUrl.Builder urlBuilder) {
-        return signParams(urlBuilder, AUTH_SIGN_SECRET);
+        return signParams(urlBuilder, SIGN_SECRET);
     }
 
     public String signParams(HttpUrl.Builder urlBuilder, String secret) {
@@ -89,6 +89,7 @@ public class ApiClient {
             }
             String raw = sb.toString();
             if (raw.endsWith("&")) raw = raw.substring(0, raw.length() - 1);
+            raw = raw.replace("\"", "").replace(" ", "");
             raw += "&key=" + secret;
 
             MessageDigest md = MessageDigest.getInstance("MD5");
@@ -102,10 +103,6 @@ public class ApiClient {
             Log.e(TAG, "Sign failed", e);
             return "";
         }
-    }
-
-    public String signBusinessParams(HttpUrl.Builder urlBuilder, String sessionSecret) {
-        return signParams(urlBuilder, sessionSecret);
     }
 
     public String executeRequest(Request request) throws IOException {
@@ -132,21 +129,18 @@ public class ApiClient {
     }
 
     public String executeBusinessRequest(HttpUrl.Builder urlBuilder,
-                                          String platformToken,
                                           String sessionSecret) throws IOException {
         String nonce = generateNonce(16);
         long ts = getTimestamp();
         urlBuilder.addQueryParameter("timestamp", String.valueOf(ts));
         urlBuilder.addQueryParameter("noncestr", nonce);
-        urlBuilder.addQueryParameter("sign", signBusinessParams(urlBuilder, sessionSecret));
+        urlBuilder.addQueryParameter("sign", signParams(urlBuilder, sessionSecret));
 
-        Request.Builder reqBuilder = new Request.Builder()
+        Request request = new Request.Builder()
             .url(urlBuilder.build())
-            .get();
-        if (platformToken != null && !platformToken.isEmpty()) {
-            reqBuilder.addHeader("Authorization", "Bearer " + platformToken);
-        }
-        return executeRequest(reqBuilder.build());
+            .get()
+            .build();
+        return executeRequest(request);
     }
 
     public static String base64Decode(String input) {
@@ -225,11 +219,17 @@ public class ApiClient {
             JSONObject root = new JSONObject(responseJson);
             String msg = extractServerMessage(root);
             if (msg == null) return false;
-            return msg.contains("本次登录需要进行验证")
-                || msg.contains("CAPTCHA_REQUIRED")
-                || msg.contains("验证码输入错误");
+            String lower = msg.toLowerCase();
+            return lower.contains("本次登录需要进行验证")
+                || lower.contains("captcha_required")
+                || lower.contains("验证码输入错误");
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public static String normalizeServerUrl(String raw) {
+        if (raw == null) return "";
+        return raw.trim().replaceAll("/+$", "");
     }
 }

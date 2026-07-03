@@ -4,7 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/surface"
+    android:background="?android:attr/colorBackground"
     android:padding="32dp">
 
     <TextView
@@ -14,11 +14,23 @@
         android:text="@string/login_title"
         android:textSize="24sp"
         android:textStyle="bold"
-        android:textColor="@color/primary_dark"
+        android:textColor="?attr/colorPrimary"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="80dp"/>
+
+    <TextView
+        android:id="@+id/tvSubtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="SEU Jiulonghu Campus"
+        android:textSize="14sp"
+        android:textColor="?android:attr/textColorSecondary"
+        app:layout_constraintTop_toBottomOf="@id/tvTitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="8dp"/>
 
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/tilPhone"
@@ -26,8 +38,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:hint="@string/hint_phone"
-        android:inputType="phone"
-        app:layout_constraintTop_toBottomOf="@id/tvTitle"
+        app:layout_constraintTop_toBottomOf="@id/tvSubtitle"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="48dp">
@@ -47,7 +58,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:hint="@string/hint_password"
-        app:passwordToggleEnabled="true"
+        app:endIconMode="password_toggle"
         app:layout_constraintTop_toBottomOf="@id/tilPhone"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -68,7 +79,7 @@
         android:layout_height="56dp"
         android:text="@string/btn_login"
         android:textSize="16sp"
-        app:cornerRadius="8dp"
+        app:cornerRadius="12dp"
         app:layout_constraintTop_toBottomOf="@id/tilPassword"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -89,7 +100,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/btn_forgot_password"
-        android:textColor="@color/primary"
+        android:textColor="?attr/colorPrimary"
         android:textSize="14sp"
         android:clickable="true"
         android:focusable="true"

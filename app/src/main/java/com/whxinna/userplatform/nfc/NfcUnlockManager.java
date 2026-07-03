@@ -62,7 +62,9 @@ public class NfcUnlockManager {
             return;
         }
         this.pendingCallback = callback;
-        int flags = NfcAdapter.FLAG_READER_NFC_A | NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK;
+        int flags = NfcAdapter.FLAG_READER_NFC_A
+            | NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK
+            | NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS;
         nfcAdapter.enableReaderMode(activity, this::handleTagDiscovered, flags, null);
         readerModeEnabled = true;
         Log.d(TAG, "Reader mode enabled");
@@ -142,6 +144,12 @@ public class NfcUnlockManager {
                             Log.d(TAG, "Attempt " + attempt + " result: " + lastResponse.resultCode);
 
                             if (lastResponse.isSuccess()) {
+                                if (lastResponse.updatedCredentialHex != null
+                                    && lastResponse.updatedCredentialHex.matches("^[0-9A-F]{64}$")) {
+                                    Log.d(TAG, "NFC returned updated credential, saving");
+                                    cache.saveDoorLock(deviceId, cache.getBleMac(),
+                                        lastResponse.updatedCredentialHex, cache.getCredentialId());
+                                }
                                 nfcA.close();
                                 final DoorResponse resp = lastResponse;
                                 mainHandler.post(() -> {
@@ -154,6 +162,7 @@ public class NfcUnlockManager {
 
                             if (lastResponse.isExpired()) {
                                 nfcA.close();
+                                reSyncWithServer();
                                 mainHandler.post(() -> {
                                     if (pendingCallback != null) {
                                         pendingCallback.onExpired();
@@ -199,5 +208,19 @@ public class NfcUnlockManager {
 
     public void onDestroy() {
         pendingCallback = null;
+    }
+
+    private void reSyncWithServer() {
+        Log.d(TAG, "Re-syncing credential with server after expired code");
+        credentialApi.syncCredential(cache.getCredentialId(), new CredentialApi.SyncCallback() {
+            @Override
+            public void onSuccess(com.whxinna.userplatform.model.DoorLockInfo info) {
+                Log.d(TAG, "Server credential re-synced after NFC expired");
+            }
+            @Override
+            public void onError(String message) {
+                Log.w(TAG, "Server credential re-sync failed: " + message);
+            }
+        });
     }
 }

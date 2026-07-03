@@ -40,7 +40,7 @@ public class CredentialApi {
     public void syncDoorLockInfo(SyncCallback callback) {
         executor.execute(() -> {
             try {
-                String serverUrl = cache.getServerUrl();
+                String serverUrl = ApiClient.normalizeServerUrl(cache.getServerUrl());
                 if (serverUrl.isEmpty()) {
                     mainHandler.post(() -> callback.onError("No server URL"));
                     return;
@@ -52,8 +52,7 @@ public class CredentialApi {
                     .addQueryParameter("user_id", cache.getUserId())
                     .addQueryParameter("identitycode", cache.getIdentityCode());
 
-                String responseJson = api.executeBusinessRequest(
-                    urlBuilder, cache.getPlatformToken(), cache.getSessionSecret());
+                String responseJson = api.executeBusinessRequest(urlBuilder, cache.getSessionSecret());
 
                 String dataStr = ApiClient.extractDataField(responseJson);
                 DoorLockInfo info = DoorLockInfo.fromJson(dataStr);
@@ -77,13 +76,21 @@ public class CredentialApi {
                         .addQueryParameter("user_id", cache.getUserId())
                         .addQueryParameter("identitycode", cache.getIdentityCode());
 
-                    String credResponse = api.executeBusinessRequest(
-                        credBuilder, cache.getPlatformToken(), cache.getSessionSecret());
+                    String credResponse = api.executeBusinessRequest(credBuilder, cache.getSessionSecret());
                     String credDataStr = ApiClient.extractDataField(credResponse);
                     JSONObject credData = new JSONObject(credDataStr);
 
                     credential = credData.optString("credential", "");
+                    if (credential.isEmpty()) {
+                        credential = credData.optString("chain_key", "");
+                    }
+                    if (credential.isEmpty()) {
+                        credential = credData.optString("chainKey", "");
+                    }
                     int newCredentialId = credData.optInt("credential_id", credentialId);
+                    if (newCredentialId == 0) {
+                        newCredentialId = extractCredentialIdFromRows(credData);
+                    }
                     if (newCredentialId != 0) credentialId = newCredentialId;
                 }
 
@@ -119,7 +126,7 @@ public class CredentialApi {
     public void syncCredential(int credentialId, SyncCallback callback) {
         executor.execute(() -> {
             try {
-                String serverUrl = cache.getServerUrl();
+                String serverUrl = ApiClient.normalizeServerUrl(cache.getServerUrl());
                 if (serverUrl.isEmpty()) {
                     mainHandler.post(() -> callback.onError("No server URL"));
                     return;
@@ -132,17 +139,22 @@ public class CredentialApi {
                     .addQueryParameter("user_id", cache.getUserId())
                     .addQueryParameter("identitycode", cache.getIdentityCode());
 
-                String responseJson = api.executeBusinessRequest(
-                    urlBuilder, cache.getPlatformToken(), cache.getSessionSecret());
+                String responseJson = api.executeBusinessRequest(urlBuilder, cache.getSessionSecret());
 
                 String dataStr = ApiClient.extractDataField(responseJson);
                 JSONObject data = new JSONObject(dataStr);
 
                 String credential = data.optString("credential", "");
+                if (credential.isEmpty()) credential = data.optString("chain_key", "");
+                if (credential.isEmpty()) credential = data.optString("chainKey", "");
                 int newCredentialId = data.optInt("credential_id", credentialId);
+                if (newCredentialId == 0) {
+                    newCredentialId = extractCredentialIdFromRows(data);
+                }
+                if (newCredentialId == 0) newCredentialId = credentialId;
 
                 if (!credential.isEmpty()) {
-                    cache.saveDoorLock(cache.getDeviceId(), cache.getBleMac(), credential, newCredentialId);
+                    cache.saveDoorLock(cache.getDeviceId(), cache.getBleMac(), credential.toUpperCase(), newCredentialId);
                 }
 
                 DoorLockInfo info = DoorLockInfo.fromJson(dataStr);
@@ -161,5 +173,24 @@ public class CredentialApi {
         } else {
             mainHandler.post(() -> callback.onError("Refresh not needed"));
         }
+    }
+
+    private static int extractCredentialIdFromRows(JSONObject data) {
+        try {
+            org.json.JSONArray rows = data.optJSONArray("rows");
+            if (rows != null) {
+                for (int i = 0; i < rows.length(); i++) {
+                    JSONObject row = rows.optJSONObject(i);
+                    if (row != null && row.has("id")) {
+                        Object idVal = row.opt("id");
+                        if (idVal != null && !JSONObject.NULL.equals(idVal)) {
+                            try { return Integer.parseInt(String.valueOf(idVal)); }
+                            catch (NumberFormatException ignored) {}
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return 0;
     }
 }

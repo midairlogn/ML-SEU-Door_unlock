@@ -9,17 +9,18 @@ import android.view.View;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.DialogFragment;
 
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.whxinna.userplatform.R;
 import com.whxinna.userplatform.api.AuthApi;
+import com.whxinna.userplatform.storage.CredentialCache;
 
 public class CaptchaDialogFragment extends DialogFragment {
 
@@ -31,6 +32,7 @@ public class CaptchaDialogFragment extends DialogFragment {
     private OnCaptchaSubmitListener listener;
     private WebView webViewCaptcha;
     private TextInputEditText etCaptcha;
+    private MaterialButton btnRefresh;
 
     public interface OnCaptchaSubmitListener {
         void onSubmit(String captcha);
@@ -65,12 +67,16 @@ public class CaptchaDialogFragment extends DialogFragment {
 
         webViewCaptcha = view.findViewById(R.id.ivCaptcha);
         etCaptcha = view.findViewById(R.id.etCaptcha);
+        btnRefresh = view.findViewById(R.id.btnRefreshCaptcha);
 
-        // Setup WebView to render SVG captcha
         WebSettings settings = webViewCaptcha.getSettings();
         settings.setJavaScriptEnabled(false);
         settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
+        settings.setBuiltInZoomControls(false);
+        settings.setSupportZoom(false);
+
+        btnRefresh.setOnClickListener(v -> loadCaptcha());
 
         loadCaptcha();
 
@@ -94,19 +100,34 @@ public class CaptchaDialogFragment extends DialogFragment {
     private void loadCaptcha() {
         if (getContext() == null) return;
 
-        AuthApi authApi = new AuthApi(com.whxinna.userplatform.storage.CredentialCache.getInstance(getContext()));
+        btnRefresh.setEnabled(false);
+
+        AuthApi authApi = new AuthApi(CredentialCache.getInstance(getContext()));
         authApi.getLoginCaptcha(phone, new AuthApi.SimpleCallback() {
             @Override
             public void onSuccess(String svgData) {
                 if (webViewCaptcha != null && svgData != null) {
-                    String html = "<html><body style='margin:0;padding:0;display:flex;justify-content:center;align-items:center;background:#F0F0F0;'>" + svgData + "</body></html>";
+                    String html = "<!DOCTYPE html>"
+                        + "<html><head>"
+                        + "<meta name='viewport' content='width=device-width, initial-scale=3.0, maximum-scale=3.0, user-scalable=no'/>"
+                        + "<style>"
+                        + "body { margin:0; padding:0; display:flex; justify-content:center; align-items:center; "
+                        + "background:#FFFFFF; min-height:100%; width:100%; }"
+                        + "svg { max-width:100%; max-height:100%; width:auto; height:auto; }"
+                        + "</style></head><body>"
+                        + svgData
+                        + "</body></html>";
                     webViewCaptcha.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
                 }
+                if (btnRefresh != null) btnRefresh.setEnabled(true);
             }
 
             @Override
             public void onError(String message) {
-                Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
+                if (getContext() != null) {
+                    Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
+                }
+                if (btnRefresh != null) btnRefresh.setEnabled(true);
             }
         });
     }

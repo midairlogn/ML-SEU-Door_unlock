@@ -58,15 +58,48 @@ public class AuthApi {
                 }
 
                 String responseJson = api.executeAuthRequest(urlBuilder);
-                Log.d(TAG, "Login response: " + responseJson.substring(0, Math.min(200, responseJson.length())));
+                Log.d(TAG, "Login response length: " + responseJson.length());
+                Log.d(TAG, "Login response preview: " + responseJson.substring(0, Math.min(300, responseJson.length())));
 
                 if (ApiClient.isCaptchaRequired(responseJson)) {
+                    Log.d(TAG, "Captcha required");
                     mainHandler.post(() -> callback.onCaptchaRequired());
                     return;
                 }
 
-                String dataStr = ApiClient.extractDataField(responseJson);
-                LoginResponse loginResponse = LoginResponse.fromJson(dataStr);
+                String dataStr;
+                try {
+                    dataStr = ApiClient.extractDataField(responseJson);
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to extract data field from response", e);
+                    Log.d(TAG, "Raw response: " + responseJson);
+                    mainHandler.post(() -> callback.onError("Server response error: " + e.getMessage()));
+                    return;
+                }
+
+                Log.d(TAG, "Decoded data preview: " + dataStr.substring(0, Math.min(300, dataStr.length())));
+
+                LoginResponse loginResponse;
+                try {
+                    loginResponse = LoginResponse.fromJson(dataStr);
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to parse login response from data", e);
+                    Log.d(TAG, "Data string: " + dataStr);
+                    mainHandler.post(() -> callback.onError("Failed to parse server response: " + e.getMessage()));
+                    return;
+                }
+
+                if (loginResponse.userInfo == null || loginResponse.userInfo.id.isEmpty()) {
+                    Log.e(TAG, "Login response missing user info");
+                    mainHandler.post(() -> callback.onError("Server did not return user info"));
+                    return;
+                }
+
+                if (loginResponse.serverInfo == null || loginResponse.serverInfo.serverAddr.isEmpty()) {
+                    Log.e(TAG, "Login response missing server info");
+                    mainHandler.post(() -> callback.onError("Server did not return server info"));
+                    return;
+                }
 
                 cache.saveSession(
                     phone, pwd,
@@ -77,14 +110,12 @@ public class AuthApi {
                     loginResponse.serverInfo.serverAddr
                 );
 
+                Log.d(TAG, "Session saved, navigating to main");
                 mainHandler.post(() -> callback.onSuccess(loginResponse));
 
             } catch (IOException e) {
                 Log.e(TAG, "Login network error", e);
                 mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
-            } catch (JSONException e) {
-                Log.e(TAG, "Login parse error", e);
-                mainHandler.post(() -> callback.onError("Server response error: " + e.getMessage()));
             } catch (Exception e) {
                 Log.e(TAG, "Login error", e);
                 mainHandler.post(() -> callback.onError("Error: " + e.getMessage()));
