@@ -192,12 +192,14 @@
 
                     <TextView
                         android:id="@+id/tvVersion"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center"
+                        android:textAppearance="@style/TextAppearance.Material3.BodySmall"
                         android:textColor="@color/on_surface_variant"
-                        tools:text="Version 1.0.0"/>
+                        android:lineSpacingExtra="4dp"
+                        tools:text="Version v1.3.0 | Author: Midairlogn"/>
 
                 </LinearLayout>
 

@@ -4,6 +4,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.os.Bundle;
+import android.text.Html;
+import android.text.method.LinkMovementMethod;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 
@@ -12,6 +14,7 @@ import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.os.LocaleListCompat;
 
 import com.google.android.material.appbar.MaterialToolbar;
+import com.whxinna.userplatform.BuildConfig;
 
 public class SettingsActivity extends AppCompatActivity {
 
@@ -53,12 +56,16 @@ public class SettingsActivity extends AppCompatActivity {
         setupListeners();
 
         TextView tvVersion = findViewById(R.id.tvVersion);
+        tvVersion.setMovementMethod(LinkMovementMethod.getInstance());
+        String versionName = "1.0.0";
         try {
-            String version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
-            tvVersion.setText(getString(R.string.settings_version, version));
+            versionName = BuildConfig.VERSION_NAME;
         } catch (Exception e) {
-            tvVersion.setText(getString(R.string.settings_version, "1.0"));
+            // Use default
         }
+        String infoText = "Version: v" + versionName + " | Author: <a href=\"https://github.com/midairlogn\">Midairlogn</a><br>" +
+                "<a href=\"https://github.com/midairlogn/ML-SEU-Door_unlock\">ML-SEU-Door_unlock</a> \u00A9 2026 | GPLv3 LICENSE";
+        tvVersion.setText(Html.fromHtml(infoText, Html.FROM_HTML_MODE_LEGACY));
     }
 
     private void loadSettings() {
