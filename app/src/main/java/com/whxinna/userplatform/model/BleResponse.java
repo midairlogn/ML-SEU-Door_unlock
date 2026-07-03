@@ -27,4 +27,15 @@ public class BleResponse {
              | ((plainData[6] & 0xFF) << 16)
              | ((plainData[7] & 0xFF) << 24);
     }
+
+    public String getErrorMessage() {
+        int code = getResultCode();
+        switch (code) {
+            case 0: return "Success";
+            case 27: return "Credential Expired";
+            case 10: return "Authentication Failed";
+            case 11: return "Invalid Parameter";
+            default: return "Unknown error (" + code + ")";
+        }
+    }
 }

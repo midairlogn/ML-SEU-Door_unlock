@@ -185,7 +185,6 @@ public class MainActivity extends AppCompatActivity {
             setLoading(true);
             tvNfcHint.setText(getString(R.string.unlocking));
 
-            nfcManager.handleIntent(intent);
             nfcManager.enableReaderMode(this, new NfcUnlockManager.NfcCallback() {
                 @Override
                 public void onSuccess(com.whxinna.userplatform.model.DoorResponse response) {
@@ -208,6 +207,7 @@ public class MainActivity extends AppCompatActivity {
                     refreshCredentials();
                 }
             });
+            nfcManager.handleIntent(intent);
         }
     }
 

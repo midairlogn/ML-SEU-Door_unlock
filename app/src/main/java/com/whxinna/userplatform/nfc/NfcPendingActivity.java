@@ -30,7 +30,7 @@ public class NfcPendingActivity extends Activity {
             }
             if (intent.hasExtra(NfcAdapter.EXTRA_TAG)) {
                 mainIntent.putExtra(NfcAdapter.EXTRA_TAG,
-                    intent.getParcelableExtra(NfcAdapter.EXTRA_TAG));
+                    (android.os.Parcelable) intent.getParcelableExtra(NfcAdapter.EXTRA_TAG));
             }
             mainIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             startActivity(mainIntent);
