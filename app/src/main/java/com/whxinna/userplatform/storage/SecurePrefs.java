@@ -65,7 +65,7 @@ public class SecurePrefs {
             Log.e(TAG, "Failed to init keystore key", e);
             // Fallback: derive key from hardcoded value (less secure but functional)
             byte[] fallbackKey = new byte[32];
-            byte[] seed = "ZLDoorLock2024SecureKey!!".getBytes();
+            byte[] seed = "MLSEUDoorLock2026SecureKey!!".getBytes();
             System.arraycopy(seed, 0, fallbackKey, 0, Math.min(seed.length, 32));
             secretKey = new SecretKeySpec(fallbackKey, "AES");
         }

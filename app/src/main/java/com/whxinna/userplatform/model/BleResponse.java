@@ -13,6 +13,7 @@ public class BleResponse {
     }
 
     public int getResultCode() {
+        if (plainData == null || plainData.length == 0) return -1;
         return plainData[0] & 0xFF;
     }
 

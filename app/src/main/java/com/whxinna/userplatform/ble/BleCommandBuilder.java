@@ -121,7 +121,9 @@ public final class BleCommandBuilder {
 
     public static BleResponse parseResponse(int deviceId, byte[] frame) {
         if (frame == null || frame.length != FRAME_SIZE) {
-            return new BleResponse(0, new byte[0], false);
+            byte[] errorData = new byte[16];
+            errorData[0] = (byte) 0xFF;
+            return new BleResponse(0, errorData, false);
         }
 
         int commandType = frame[2] & 0xFF;

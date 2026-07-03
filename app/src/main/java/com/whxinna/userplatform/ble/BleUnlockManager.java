@@ -340,6 +340,11 @@ public class BleUnlockManager {
                 return;
             }
 
+            if (refetchResponse.plainData.length < 4) {
+                fail("Credential refetch response too short");
+                return;
+            }
+
             int packetCount = refetchResponse.plainData[1] & 0xFF;
             int credentialLength = ((refetchResponse.plainData[2] & 0xFF))
                                  | ((refetchResponse.plainData[3] & 0xFF) << 8);
@@ -353,6 +358,10 @@ public class BleUnlockManager {
                 byte[] readResp = sendAndWaitForNotification(readCmd);
                 if (readResp != null) {
                     BleResponse readResponse = BleCommandBuilder.parseResponse(deviceId, readResp);
+                    if (readResponse.plainData.length <= 1) {
+                        fail("Read packet " + i + " response too short");
+                        return;
+                    }
                     byte[] chunk = Arrays.copyOfRange(readResponse.plainData, 1, readResponse.plainData.length);
                     byte[] newCred = new byte[credentialBytes.length + chunk.length];
                     System.arraycopy(credentialBytes, 0, newCred, 0, credentialBytes.length);
