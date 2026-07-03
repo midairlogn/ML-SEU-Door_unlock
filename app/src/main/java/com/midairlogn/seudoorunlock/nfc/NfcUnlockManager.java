@@ -66,7 +66,9 @@ public class NfcUnlockManager {
         int flags = NfcAdapter.FLAG_READER_NFC_A
             | NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK
             | NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS;
-        nfcAdapter.enableReaderMode(activity, this::handleTagDiscovered, flags, null);
+        nfcAdapter.enableReaderMode(activity, tag -> {
+            handleTagDiscovered(tag);
+        }, flags, null);
         readerModeEnabled = true;
         Log.d(TAG, "Reader mode enabled");
     }
@@ -79,39 +81,39 @@ public class NfcUnlockManager {
         }
     }
 
-    public void handleIntent(Intent intent) {
-        if (intent == null) return;
+    public boolean handleIntent(Intent intent, NfcCallback callback) {
+        pendingCallback = callback;
+        if (intent == null) return false;
         String action = intent.getAction();
         if (NfcAdapter.ACTION_TAG_DISCOVERED.equals(action)
             || NfcAdapter.ACTION_TECH_DISCOVERED.equals(action)
             || NfcAdapter.ACTION_NDEF_DISCOVERED.equals(action)) {
             Tag tag = IntentCompat.getParcelableExtra(intent, NfcAdapter.EXTRA_TAG, Tag.class);
             if (tag != null) {
-                handleTagDiscovered(tag);
+                return handleTagDiscovered(tag);
             }
         }
+        return false;
     }
 
-    private void handleTagDiscovered(Tag tag) {
-        if (isProcessing.get()) {
+    private boolean handleTagDiscovered(Tag tag) {
+        if (!isProcessing.compareAndSet(false, true)) {
             Log.d(TAG, "Already processing a tag, skipping");
-            return;
+            return false;
         }
 
         NfcA nfcA = NfcA.get(tag);
         if (nfcA == null) {
+            isProcessing.set(false);
             mainHandler.post(() -> {
                 if (pendingCallback != null) {
                     pendingCallback.onError("Not an NFC-A tag");
                 }
             });
-            return;
+            return true;
         }
 
         executor.execute(() -> {
-            if (!isProcessing.compareAndSet(false, true)) {
-                return;
-            }
             try {
                 nfcA.connect();
                 nfcA.setTimeout(TIMEOUT_MS);
@@ -209,6 +211,7 @@ public class NfcUnlockManager {
                 isProcessing.set(false);
             }
         });
+        return true;
     }
 
     public void onDestroy() {

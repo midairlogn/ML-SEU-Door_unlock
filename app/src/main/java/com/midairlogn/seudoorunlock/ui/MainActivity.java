@@ -551,11 +551,13 @@ public class MainActivity extends AppCompatActivity {
             tvStatusTitle.setText(R.string.unlocking);
             tvStatusDetail.setText("");
 
-            // Don't enable reader mode here — it resets the NFC controller and
+            // Don't enable reader mode here; it resets the NFC controller and
             // interrupts the NfcA session from the intent tag. Reader mode will
             // be re-enabled after processing completes via setBusy(false).
             setBusy(true);
-            nfcManager.handleIntent(intent);
+            if (!nfcManager.handleIntent(intent, nfcCallback)) {
+                setBusy(false);
+            }
         }
     }
 
