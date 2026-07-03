@@ -63,12 +63,7 @@ public class NfcUnlockManager {
         }
         this.pendingCallback = callback;
         int flags = NfcAdapter.FLAG_READER_NFC_A | NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK;
-        nfcAdapter.enableReaderMode(activity, new NfcAdapter.ReaderCallback() {
-            @Override
-            public void onTagDiscovered(Tag tag) {
-                handleTagDiscovered(tag);
-            }
-        }, flags, null);
+        nfcAdapter.enableReaderMode(activity, this::handleTagDiscovered, flags, null);
         readerModeEnabled = true;
         Log.d(TAG, "Reader mode enabled");
     }
@@ -87,7 +82,12 @@ public class NfcUnlockManager {
         if (NfcAdapter.ACTION_TAG_DISCOVERED.equals(action)
             || NfcAdapter.ACTION_TECH_DISCOVERED.equals(action)
             || NfcAdapter.ACTION_NDEF_DISCOVERED.equals(action)) {
-            Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+            Tag tag;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag.class);
+            } else {
+                tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+            }
             if (tag != null) {
                 handleTagDiscovered(tag);
             }

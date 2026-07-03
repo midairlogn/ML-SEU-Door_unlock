@@ -10,11 +10,16 @@ import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanResult;
 import android.content.Context;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import com.whxinna.userplatform.api.CredentialApi;
 import com.whxinna.userplatform.model.BleResponse;
@@ -131,23 +136,30 @@ public class BleUnlockManager {
         String targetName = "XN-" + cache.getDeviceId();
         Log.d(TAG, "Scanning for: " + targetName);
 
-        BluetoothAdapter.LeScanCallback scanCallback = new BluetoothAdapter.LeScanCallback() {
+        BluetoothLeScanner scanner = bluetoothAdapter.getBluetoothLeScanner();
+        if (scanner == null) {
+            if (pendingCallback != null) pendingCallback.onError("Bluetooth scanner not available");
+            return;
+        }
+
+        ScanCallback scanCallback = new ScanCallback() {
             @Override
-            public void onLeScan(BluetoothDevice device, int rssi, byte[] scanRecord) {
+            public void onScanResult(int callbackType, ScanResult result) {
+                BluetoothDevice device = result.getDevice();
                 String deviceName = device.getName();
                 if (deviceName != null && deviceName.equals(targetName)) {
-                    bluetoothAdapter.stopLeScan(this);
+                    scanner.stopScan(this);
                     Log.d(TAG, "Found device: " + deviceName);
                     mainHandler.post(() -> connectToDevice(device));
                 }
             }
         };
 
-        bluetoothAdapter.startLeScan(scanCallback);
+        scanner.startScan(scanCallback);
 
         // Stop scan after 10 seconds
         timeoutHandler.postDelayed(() -> {
-            bluetoothAdapter.stopLeScan(scanCallback);
+            scanner.stopScan(scanCallback);
             if (bluetoothGatt == null && pendingCallback != null) {
                 pendingCallback.onError("Device not found nearby");
             }
@@ -224,8 +236,17 @@ public class BleUnlockManager {
 
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-            if (characteristic.getUuid().equals(READ_UUID)) {
-                lastNotificationData = characteristic.getValue();
+            handleCharacteristicChanged(characteristic.getUuid(), characteristic.getValue());
+        }
+
+        @Override
+        public void onCharacteristicChanged(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
+            handleCharacteristicChanged(characteristic.getUuid(), value);
+        }
+
+        private void handleCharacteristicChanged(UUID uuid, byte[] value) {
+            if (uuid.equals(READ_UUID)) {
+                lastNotificationData = value;
                 waitingForNotification = false;
                 Log.d(TAG, "Notification received, len=" + (lastNotificationData != null ? lastNotificationData.length : 0));
                 synchronized (BleUnlockManager.this) {
@@ -368,9 +389,13 @@ public class BleUnlockManager {
     @SuppressLint("MissingPermission")
     private void writeCharacteristic(byte[] data) {
         if (bluetoothGatt == null || writeCharacteristic == null) return;
-        writeCharacteristic.setValue(data);
-        writeCharacteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
-        bluetoothGatt.writeCharacteristic(writeCharacteristic);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            bluetoothGatt.writeCharacteristic(writeCharacteristic, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+        } else {
+            writeCharacteristic.setValue(data);
+            writeCharacteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+            bluetoothGatt.writeCharacteristic(writeCharacteristic);
+        }
     }
 
     private void scheduleTimeout(int delayMs, String message) {

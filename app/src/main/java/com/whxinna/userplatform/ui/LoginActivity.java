@@ -125,31 +125,28 @@ public class LoginActivity extends AppCompatActivity {
 
     private void showCaptchaDialog(String phone, String password) {
         CaptchaDialogFragment dialog = CaptchaDialogFragment.newInstance(phone, password);
-        dialog.setOnCaptchaSubmitListener(new CaptchaDialogFragment.OnCaptchaSubmitListener() {
-            @Override
-            public void onSubmit(String captcha) {
-                setLoading(true);
-                authApi.login(phone, password, captcha, new AuthApi.AuthCallback() {
-                    @Override
-                    public void onSuccess(LoginResponse response) {
-                        setLoading(false);
-                        Toast.makeText(LoginActivity.this, "Login successful", Toast.LENGTH_SHORT).show();
-                        navigateToMain();
-                    }
+        dialog.setOnCaptchaSubmitListener(captcha -> {
+            setLoading(true);
+            authApi.login(phone, password, captcha, new AuthApi.AuthCallback() {
+                @Override
+                public void onSuccess(LoginResponse response) {
+                    setLoading(false);
+                    Toast.makeText(LoginActivity.this, "Login successful", Toast.LENGTH_SHORT).show();
+                    navigateToMain();
+                }
 
-                    @Override
-                    public void onCaptchaRequired() {
-                        setLoading(false);
-                        Toast.makeText(LoginActivity.this, "Captcha required again", Toast.LENGTH_SHORT).show();
-                    }
+                @Override
+                public void onCaptchaRequired() {
+                    setLoading(false);
+                    Toast.makeText(LoginActivity.this, "Captcha required again", Toast.LENGTH_SHORT).show();
+                }
 
-                    @Override
-                    public void onError(String message) {
-                        setLoading(false);
-                        Toast.makeText(LoginActivity.this, message, Toast.LENGTH_LONG).show();
-                    }
-                });
-            }
+                @Override
+                public void onError(String message) {
+                    setLoading(false);
+                    Toast.makeText(LoginActivity.this, message, Toast.LENGTH_LONG).show();
+                }
+            });
         });
         dialog.show(getSupportFragmentManager(), "captcha");
     }

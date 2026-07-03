@@ -3,6 +3,8 @@ package com.whxinna.userplatform.nfc;
 import android.app.Activity;
 import android.content.Intent;
 import android.nfc.NfcAdapter;
+import android.nfc.Tag;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -29,8 +31,13 @@ public class NfcPendingActivity extends Activity {
                 mainIntent.setData(intent.getData());
             }
             if (intent.hasExtra(NfcAdapter.EXTRA_TAG)) {
-                mainIntent.putExtra(NfcAdapter.EXTRA_TAG,
-                    (android.os.Parcelable) intent.getParcelableExtra(NfcAdapter.EXTRA_TAG));
+                Tag tag;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag.class);
+                } else {
+                    tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+                }
+                mainIntent.putExtra(NfcAdapter.EXTRA_TAG, tag);
             }
             mainIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             startActivity(mainIntent);
