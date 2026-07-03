@@ -174,6 +174,7 @@ public class BleUnlockManager {
 
     private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
         @Override
+        @SuppressLint("MissingPermission")
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Log.d(TAG, "Connected, discovering services");
@@ -189,6 +190,7 @@ public class BleUnlockManager {
         }
 
         @Override
+        @SuppressLint("MissingPermission")
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             if (status != BluetoothGatt.GATT_SUCCESS) {
                 Log.e(TAG, "Service discovery failed: " + status);

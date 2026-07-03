@@ -8,6 +8,7 @@ import org.json.JSONObject;
 import org.json.JSONArray;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -93,7 +94,7 @@ public class ApiClient {
             raw += "&key=" + secret;
 
             MessageDigest md = MessageDigest.getInstance("MD5");
-            byte[] digest = md.digest(raw.getBytes("UTF-8"));
+            byte[] digest = md.digest(raw.getBytes(StandardCharsets.UTF_8));
             StringBuilder hex = new StringBuilder();
             for (byte b : digest) {
                 hex.append(String.format("%02X", b & 0xFF));
@@ -115,11 +116,11 @@ public class ApiClient {
     }
 
     public String executeAuthRequest(HttpUrl.Builder urlBuilder) throws IOException {
-        urlBuilder.addQueryParameter("pid", String.valueOf(PROJECT_ID));
-        urlBuilder.addQueryParameter("appid", String.valueOf(APP_ID));
+        urlBuilder.addQueryParameter("pid", "" + PROJECT_ID);
+        urlBuilder.addQueryParameter("appid", "" + APP_ID);
         String nonce = generateNonce(32);
         long ts = getTimestamp();
-        urlBuilder.addQueryParameter("timestamp", String.valueOf(ts));
+        urlBuilder.addQueryParameter("timestamp", "" + ts);
         urlBuilder.addQueryParameter("noncestr", nonce);
         urlBuilder.addQueryParameter("sign", signParams(urlBuilder));
 
@@ -132,11 +133,11 @@ public class ApiClient {
 
     public String executeBusinessRequest(HttpUrl.Builder urlBuilder,
                                           String sessionSecret) throws IOException {
-        urlBuilder.addQueryParameter("pid", String.valueOf(PROJECT_ID));
-        urlBuilder.addQueryParameter("appid", String.valueOf(APP_ID));
+        urlBuilder.addQueryParameter("pid", "" + PROJECT_ID);
+        urlBuilder.addQueryParameter("appid", "" + APP_ID);
         String nonce = generateNonce(16);
         long ts = getTimestamp();
-        urlBuilder.addQueryParameter("timestamp", String.valueOf(ts));
+        urlBuilder.addQueryParameter("timestamp", "" + ts);
         urlBuilder.addQueryParameter("noncestr", nonce);
         urlBuilder.addQueryParameter("sign", signParams(urlBuilder, sessionSecret));
 

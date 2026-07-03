@@ -49,7 +49,7 @@ public class CredentialCache {
     }
 
     public void saveDoorLock(int deviceId, String bleMac, String credentialHex, int credentialId) {
-        securePrefs.putString(KEY_DEVICE_ID, String.valueOf(deviceId));
+        securePrefs.putString(KEY_DEVICE_ID, "" + deviceId);
         securePrefs.putString(KEY_BLE_MAC, bleMac);
         securePrefs.putString(KEY_CREDENTIAL_HEX, credentialHex);
         securePrefs.putString(KEY_CREDENTIAL_ID, String.valueOf(credentialId));

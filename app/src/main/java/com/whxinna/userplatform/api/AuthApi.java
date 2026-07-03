@@ -51,8 +51,12 @@ public class AuthApi {
     public void login(String phone, String pwd, String captcha, AuthCallback callback) {
         executor.execute(() -> {
             try {
-                HttpUrl.Builder urlBuilder = HttpUrl.parse(api.getAuthBaseUrl() + "/webapi/users/login")
-                    .newBuilder()
+                HttpUrl httpUrl = HttpUrl.parse(api.getAuthBaseUrl() + "/webapi/users/login");
+                if (httpUrl == null) {
+                    mainHandler.post(() -> callback.onError("Invalid Auth URL"));
+                    return;
+                }
+                HttpUrl.Builder urlBuilder = httpUrl.newBuilder()
                     .addQueryParameter("phone", phone)
                     .addQueryParameter("pwd", pwd);
 
@@ -66,7 +70,7 @@ public class AuthApi {
 
                 if (ApiClient.isCaptchaRequired(responseJson)) {
                     Log.d(TAG, "Captcha required");
-                    mainHandler.post(() -> callback.onCaptchaRequired());
+                    mainHandler.post(callback::onCaptchaRequired);
                     return;
                 }
 

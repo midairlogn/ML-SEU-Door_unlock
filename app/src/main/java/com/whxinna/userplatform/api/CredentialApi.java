@@ -46,9 +46,12 @@ public class CredentialApi {
                     return;
                 }
 
-                HttpUrl.Builder urlBuilder = HttpUrl.parse(
-                    serverUrl + "/webapi/v1/student/accommodation/details")
-                    .newBuilder()
+                HttpUrl httpUrl = HttpUrl.parse(serverUrl + "/webapi/v1/student/accommodation/details");
+                if (httpUrl == null) {
+                    mainHandler.post(() -> callback.onError("Invalid server URL"));
+                    return;
+                }
+                HttpUrl.Builder urlBuilder = httpUrl.newBuilder()
                     .addQueryParameter("user_id", cache.getUserId())
                     .addQueryParameter("identitycode", cache.getIdentityCode());
 
@@ -57,7 +60,7 @@ public class CredentialApi {
                 String dataStr = ApiClient.extractDataField(responseJson);
                 DoorLockInfo info = DoorLockInfo.fromJson(dataStr);
 
-                String deviceId = info.doorLock != null ? String.valueOf(info.doorLock.deviceId) : "";
+                String deviceId = info.doorLock != null ? "" + info.doorLock.deviceId : "";
                 String credential = info.doorLock != null ? info.doorLock.credential : "";
                 int credentialId = info.doorLock != null ? info.doorLock.credentialId : 0;
                 String bleMac = info.doorLock != null ? info.doorLock.bleMac : "";
@@ -132,10 +135,13 @@ public class CredentialApi {
                     return;
                 }
 
-                HttpUrl.Builder urlBuilder = HttpUrl.parse(
-                    serverUrl + "/webapi/v1/staff/door_lock/credentials")
-                    .newBuilder()
-                    .addQueryParameter("device_id", String.valueOf(cache.getDeviceId()))
+                HttpUrl httpUrl = HttpUrl.parse(serverUrl + "/webapi/v1/staff/door_lock/credentials");
+                if (httpUrl == null) {
+                    mainHandler.post(() -> callback.onError("Invalid server URL"));
+                    return;
+                }
+                HttpUrl.Builder urlBuilder = httpUrl.newBuilder()
+                    .addQueryParameter("device_id", "" + cache.getDeviceId())
                     .addQueryParameter("user_id", cache.getUserId())
                     .addQueryParameter("identitycode", cache.getIdentityCode());
 

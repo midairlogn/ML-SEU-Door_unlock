@@ -150,25 +150,27 @@ public class MainActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
-        btnLogout.setOnClickListener(v -> {
-            new AlertDialog.Builder(this)
-                .setMessage(R.string.logout_confirm)
-                .setPositiveButton(R.string.yes, (d, w) -> {
-                    cache.clear();
-                    nfcManager.onDestroy();
-                    bleManager.onDestroy();
-                    navigateToLogin();
-                })
-                .setNegativeButton(R.string.no, null)
-                .show();
-        });
+        btnLogout.setOnClickListener(v -> new AlertDialog.Builder(this)
+            .setMessage(R.string.logout_confirm)
+            .setPositiveButton(R.string.yes, (d, w) -> {
+                cache.clear();
+                nfcManager.onDestroy();
+                bleManager.onDestroy();
+                navigateToLogin();
+            })
+            .setNegativeButton(R.string.no, null)
+            .show());
     }
 
     private void updateTabSelection() {
-        if (METHOD_NFC.equals(selectedMethod)) {
-            toggleGroup.check(R.id.btnTabNfc);
-        } else {
-            toggleGroup.check(R.id.btnTabBle);
+        switch (selectedMethod) {
+            case METHOD_NFC:
+                toggleGroup.check(R.id.btnTabNfc);
+                break;
+            case METHOD_BLE:
+            default:
+                toggleGroup.check(R.id.btnTabBle);
+                break;
         }
     }
 
@@ -184,17 +186,18 @@ public class MainActivity extends AppCompatActivity {
                 tvStatusDetail.setText("");
                 btnEnableNfc.setVisibility(View.GONE);
                 statusIconContainer.setAlpha(0.5f);
-            } else if (!nfcManager.isNfcEnabled()) {
-                tvStatusTitle.setText(R.string.nfc_disabled);
-                tvStatusDetail.setText(R.string.enable_nfc_prompt);
-                btnEnableNfc.setVisibility(View.VISIBLE);
-                statusIconContainer.setAlpha(0.7f);
-                startBreathingAnimation();
             } else {
-                tvStatusTitle.setText(R.string.nfc_ready);
-                tvStatusDetail.setText(R.string.main_nfc_hint);
-                btnEnableNfc.setVisibility(View.GONE);
-                statusIconContainer.setAlpha(1.0f);
+                if (!nfcManager.isNfcEnabled()) {
+                    tvStatusTitle.setText(R.string.nfc_disabled);
+                    tvStatusDetail.setText(R.string.enable_nfc_prompt);
+                    btnEnableNfc.setVisibility(View.VISIBLE);
+                    statusIconContainer.setAlpha(0.7f);
+                } else {
+                    tvStatusTitle.setText(R.string.nfc_ready);
+                    tvStatusDetail.setText(R.string.main_nfc_hint);
+                    btnEnableNfc.setVisibility(View.GONE);
+                    statusIconContainer.setAlpha(1.0f);
+                }
                 startBreathingAnimation();
             }
         } else {
@@ -207,15 +210,16 @@ public class MainActivity extends AppCompatActivity {
                 tvStatusDetail.setText("");
                 statusIconContainer.setAlpha(0.5f);
                 stopBreathingAnimation();
-            } else if (!bleManager.isBleEnabled()) {
-                tvStatusTitle.setText(R.string.ble_disabled);
-                tvStatusDetail.setText(R.string.enable_ble_prompt);
-                statusIconContainer.setAlpha(0.7f);
-                stopBreathingAnimation();
             } else {
-                tvStatusTitle.setText(R.string.ble_ready);
-                tvStatusDetail.setText(R.string.main_ble_hint);
-                statusIconContainer.setAlpha(1.0f);
+                if (!bleManager.isBleEnabled()) {
+                    tvStatusTitle.setText(R.string.ble_disabled);
+                    tvStatusDetail.setText(R.string.enable_ble_prompt);
+                    statusIconContainer.setAlpha(0.7f);
+                } else {
+                    tvStatusTitle.setText(R.string.ble_ready);
+                    tvStatusDetail.setText(R.string.main_ble_hint);
+                    statusIconContainer.setAlpha(1.0f);
+                }
                 stopBreathingAnimation();
             }
         }

@@ -26,6 +26,7 @@ import com.whxinna.userplatform.api.CredentialApi;
 import com.whxinna.userplatform.model.LoginResponse;
 import com.whxinna.userplatform.storage.CredentialCache;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -137,19 +138,11 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private String encodePassword(String password) {
-        try {
-            return Base64.encodeToString(password.getBytes("UTF-8"), Base64.NO_WRAP);
-        } catch (Exception e) {
-            return "";
-        }
+        return Base64.encodeToString(password.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
     }
 
     private String decodePassword(String encoded) {
-        try {
-            return new String(Base64.decode(encoded, Base64.NO_WRAP), "UTF-8");
-        } catch (Exception e) {
-            return "";
-        }
+        return new String(Base64.decode(encoded, Base64.NO_WRAP), StandardCharsets.UTF_8);
     }
 
     private void setupListeners() {
@@ -207,9 +200,7 @@ public class LoginActivity extends AppCompatActivity {
                 String authCode = AlipayAuth.authorize(LoginActivity.this, authInfo);
                 Log.d(TAG, "Got auth_code: " + authCode.substring(0, Math.min(8, authCode.length())) + "...");
 
-                runOnUiThread(() -> {
-                    Toast.makeText(LoginActivity.this, "Completing login...", Toast.LENGTH_SHORT).show();
-                });
+                runOnUiThread(() -> Toast.makeText(LoginActivity.this, "Completing login...", Toast.LENGTH_SHORT).show());
 
                 authApi.oauthLogin(authCode, new AuthApi.AlipayCallback() {
                     @Override

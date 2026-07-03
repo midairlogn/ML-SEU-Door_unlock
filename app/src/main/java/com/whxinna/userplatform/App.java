@@ -24,12 +24,16 @@ public class App extends Application {
         // Language
         String lang = prefs.getString(SettingsActivity.KEY_LANGUAGE, SettingsActivity.LANG_SYSTEM);
         LocaleListCompat appLocale;
-        if (SettingsActivity.LANG_ZH.equals(lang)) {
-            appLocale = LocaleListCompat.forLanguageTags("zh");
-        } else if (SettingsActivity.LANG_EN.equals(lang)) {
-            appLocale = LocaleListCompat.forLanguageTags("en");
-        } else {
-            appLocale = LocaleListCompat.getEmptyLocaleList();
+        switch (lang) {
+            case SettingsActivity.LANG_ZH:
+                appLocale = LocaleListCompat.forLanguageTags("zh");
+                break;
+            case SettingsActivity.LANG_EN:
+                appLocale = LocaleListCompat.forLanguageTags("en");
+                break;
+            default:
+                appLocale = LocaleListCompat.getEmptyLocaleList();
+                break;
         }
         AppCompatDelegate.setApplicationLocales(appLocale);
 

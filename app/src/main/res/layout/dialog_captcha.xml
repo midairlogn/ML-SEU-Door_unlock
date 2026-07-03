@@ -18,7 +18,7 @@
 
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="80dp"
         app:cardCornerRadius="12dp"
         app:cardElevation="0dp"
         app:strokeWidth="1dp"
@@ -28,7 +28,7 @@
         <WebView
             android:id="@+id/ivCaptcha"
             android:layout_width="match_parent"
-            android:layout_height="80dp"
+            android:layout_height="match_parent"
             android:padding="8dp"/>
 
     </com.google.android.material.card.MaterialCardView>

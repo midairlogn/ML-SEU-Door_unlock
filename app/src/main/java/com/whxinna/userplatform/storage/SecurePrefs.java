@@ -7,6 +7,7 @@ import android.security.keystore.KeyProperties;
 import android.util.Base64;
 import android.util.Log;
 
+import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 
 import javax.crypto.Cipher;
@@ -75,7 +76,7 @@ public class SecurePrefs {
             Cipher cipher = Cipher.getInstance(AES_MODE);
             cipher.init(Cipher.ENCRYPT_MODE, secretKey);
             byte[] iv = cipher.getIV();
-            byte[] encrypted = cipher.doFinal(value.getBytes("UTF-8"));
+            byte[] encrypted = cipher.doFinal(value.getBytes(StandardCharsets.UTF_8));
 
             String encoded = Base64.encodeToString(iv, Base64.NO_WRAP) + "|" +
                            Base64.encodeToString(encrypted, Base64.NO_WRAP);
@@ -100,7 +101,7 @@ public class SecurePrefs {
                 GCMParameterSpec spec = new GCMParameterSpec(128, iv);
                 cipher.init(Cipher.DECRYPT_MODE, secretKey, spec);
                 byte[] decrypted = cipher.doFinal(encrypted);
-                return new String(decrypted, "UTF-8");
+                return new String(decrypted, StandardCharsets.UTF_8);
             }
         } catch (Exception e) {
             Log.e(TAG, "Decrypt failed for key: " + key, e);
