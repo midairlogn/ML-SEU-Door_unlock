@@ -11,6 +11,7 @@ import android.text.method.LinkMovementMethod;
 import android.util.Base64;
 import android.util.Log;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -49,6 +50,7 @@ public class LoginActivity extends AppCompatActivity {
     private TextInputEditText etPassword;
     private MaterialButton btnLogin;
     private MaterialButton btnAlipay;
+    private ImageButton btnSettings;
     private ProgressBar progressBar;
     private MaterialCheckBox cbRemember;
 
@@ -85,6 +87,7 @@ public class LoginActivity extends AppCompatActivity {
         etPassword = findViewById(R.id.etPassword);
         btnLogin = findViewById(R.id.btnLogin);
         btnAlipay = findViewById(R.id.btnAlipay);
+        btnSettings = findViewById(R.id.btnSettings);
         progressBar = findViewById(R.id.progressBar);
         cbRemember = findViewById(R.id.cbRemember);
 
@@ -153,6 +156,7 @@ public class LoginActivity extends AppCompatActivity {
     private void setupListeners() {
         btnLogin.setOnClickListener(v -> attemptLogin());
         btnAlipay.setOnClickListener(v -> startAlipayLogin());
+        btnSettings.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
     }
 
     private void attemptLogin() {
