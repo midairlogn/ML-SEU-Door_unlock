@@ -17,9 +17,11 @@ public class LoginResponse {
 
     public static LoginResponse fromJson(String json) throws JSONException {
         JSONObject root = new JSONObject(json);
+
+        // Reference app expects flat keys: id, identity_code, server_addr, session_secret
+        // Also handles nested user_info/server_info if present
         JSONObject userInfoJson = root.optJSONObject("user_info") != null
             ? root.getJSONObject("user_info") : root;
-        String platformToken = root.optString("platform_token", "");
         JSONObject serverInfoJson = root.optJSONObject("server_info") != null
             ? root.getJSONObject("server_info") : root;
 
@@ -38,6 +40,8 @@ public class LoginResponse {
             serverInfoJson.optInt("server_appid", 21048),
             serverInfoJson.optInt("server_id", 20104)
         );
+
+        String platformToken = findString(root, "platform_token", "platformToken");
 
         return new LoginResponse(userInfo, platformToken, serverInfo);
     }

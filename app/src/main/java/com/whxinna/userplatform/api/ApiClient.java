@@ -132,6 +132,8 @@ public class ApiClient {
 
     public String executeBusinessRequest(HttpUrl.Builder urlBuilder,
                                           String sessionSecret) throws IOException {
+        urlBuilder.addQueryParameter("pid", String.valueOf(PROJECT_ID));
+        urlBuilder.addQueryParameter("appid", String.valueOf(APP_ID));
         String nonce = generateNonce(16);
         long ts = getTimestamp();
         urlBuilder.addQueryParameter("timestamp", String.valueOf(ts));

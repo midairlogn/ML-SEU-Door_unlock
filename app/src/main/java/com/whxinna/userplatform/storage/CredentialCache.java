@@ -97,7 +97,7 @@ public class CredentialCache {
     }
 
     public boolean hasSession() {
-        return !getPhone().isEmpty() && !getPassword().isEmpty() && !getUserId().isEmpty();
+        return !getUserId().isEmpty();
     }
 
     public boolean hasDoorLock() {
