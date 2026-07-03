@@ -5,11 +5,14 @@ import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.text.Editable;
+import android.text.Html;
 import android.text.TextWatcher;
+import android.text.method.LinkMovementMethod;
 import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -18,6 +21,7 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.checkbox.MaterialCheckBox;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+import com.whxinna.userplatform.BuildConfig;
 import com.whxinna.userplatform.R;
 import com.whxinna.userplatform.SettingsActivity;
 import com.whxinna.userplatform.alipay.AlipayAuth;
@@ -70,6 +74,7 @@ public class LoginActivity extends AppCompatActivity {
         initViews();
         loadRemembered();
         setupListeners();
+        setupVersionInfo();
     }
 
 
@@ -286,6 +291,20 @@ public class LoginActivity extends AppCompatActivity {
         startActivity(intent);
         finish();
         Log.d(TAG, "navigateToMain completed");
+    }
+
+    private void setupVersionInfo() {
+        TextView tvVersion = findViewById(R.id.tvVersion);
+        tvVersion.setMovementMethod(LinkMovementMethod.getInstance());
+        String versionName = "1.0.0";
+        try {
+            versionName = BuildConfig.VERSION_NAME;
+        } catch (Exception e) {
+            // Use default
+        }
+        String infoText = "Version: v" + versionName + " | Author: <a href=\"https://github.com/midairlogn\">Midairlogn</a><br>" +
+                "<a href=\"https://github.com/midairlogn/ML-SEU-Door_unlock\">ML-SEU-Door_unlock</a> \u00A9 2026 | GPLv3 LICENSE";
+        tvVersion.setText(Html.fromHtml(infoText, Html.FROM_HTML_MODE_LEGACY));
     }
 
     private void setLoading(boolean loading) {
