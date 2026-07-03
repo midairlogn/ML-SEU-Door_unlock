@@ -90,4 +90,7 @@
     <string name="detail_phone">Phone: %s</string>
     <string name="detail_lock">Lock: %s</string>
     <string name="detail_battery">Battery: %d%%</string>
+    <string name="detail_credential">Credential: %s</string>
+    <string name="detail_credential_id">Credential ID: %d</string>
+    <string name="copied">Copied to clipboard</string>
 </resources>

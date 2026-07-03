@@ -90,4 +90,7 @@
     <string name="detail_phone">手机号: %s</string>
     <string name="detail_lock">门锁: %s</string>
     <string name="detail_battery">电量: %d%%</string>
+    <string name="detail_credential">凭证: %s</string>
+    <string name="detail_credential_id">凭证ID: %d</string>
+    <string name="copied">已复制到剪贴板</string>
 </resources>

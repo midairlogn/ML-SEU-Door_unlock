@@ -4,6 +4,9 @@ import android.Manifest;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -34,6 +37,7 @@ import androidx.core.content.ContextCompat;
 
 import com.whxinna.userplatform.R;
 import com.whxinna.userplatform.SettingsActivity;
+import com.whxinna.userplatform.api.AuthApi;
 import com.whxinna.userplatform.api.CredentialApi;
 import com.whxinna.userplatform.ble.BleUnlockManager;
 import com.whxinna.userplatform.model.DoorLockInfo;
@@ -73,6 +77,7 @@ public class MainActivity extends AppCompatActivity {
     private NfcUnlockManager nfcManager;
     private BleUnlockManager bleManager;
     private CredentialApi credentialApi;
+    private AuthApi authApi;
     private SharedPreferences prefs;
     private String selectedMethod;
 
@@ -88,6 +93,7 @@ public class MainActivity extends AppCompatActivity {
         nfcManager = new NfcUnlockManager(this, cache);
         bleManager = new BleUnlockManager(this, cache);
         credentialApi = new CredentialApi(cache);
+        authApi = new AuthApi(cache);
         prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, MODE_PRIVATE);
 
         if (!cache.hasSession()) {
@@ -164,6 +170,16 @@ public class MainActivity extends AppCompatActivity {
         });
 
         btnGrantPermissions.setOnClickListener(v -> requestPermissions());
+
+        tvStatusDetail.setOnLongClickListener(v -> {
+            CharSequence text = tvStatusDetail.getText();
+            if (text != null && text.length() > 0) {
+                ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                clipboard.setPrimaryClip(ClipData.newPlainText("credential", text));
+                Toast.makeText(this, R.string.copied, Toast.LENGTH_SHORT).show();
+            }
+            return true;
+        });
 
         btnLogout.setOnClickListener(v -> new AlertDialog.Builder(this)
             .setMessage(R.string.logout_confirm)
@@ -271,8 +287,8 @@ public class MainActivity extends AppCompatActivity {
     private void updateDetailInfo() {
         StringBuilder detail = new StringBuilder();
         String phone = cache.getPhone();
-        if (phone != null && phone.length() >= 7) {
-            detail.append(getString(R.string.detail_phone, phone.substring(0, 3) + "****" + phone.substring(7)));
+        if (phone != null && phone.length() >= 5) {
+            detail.append(getString(R.string.detail_phone, phone.substring(0, 3) + "*****" + phone.substring(phone.length() - 2)));
         } else if (phone != null) {
             detail.append(getString(R.string.detail_phone, phone));
         }
@@ -282,6 +298,10 @@ public class MainActivity extends AppCompatActivity {
             detail.append(getString(R.string.detail_lock, cache.getBuildingName()));
             detail.append("\n");
             detail.append(getString(R.string.detail_battery, (int) cache.getBatteryLevel()));
+            detail.append("\n");
+            detail.append(getString(R.string.detail_credential, cache.getCredentialHex()));
+            detail.append("\n");
+            detail.append(getString(R.string.detail_credential_id, cache.getCredentialId()));
         }
 
         if (detail.length() > 0) {
@@ -496,7 +516,39 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onError(String message) {
-                Log.w(TAG, "Credential refresh failed: " + message);
+                Log.w(TAG, "Lightweight refresh failed: " + message + ", trying full re-login");
+                String phone = cache.getPhone();
+                String password = cache.getPassword();
+                if (phone.isEmpty() || password.isEmpty()) {
+                    Log.w(TAG, "No stored credentials for fallback re-login");
+                    return;
+                }
+                authApi.autoReLogin(cache, new AuthApi.AuthCallback() {
+                    @Override
+                    public void onSuccess(com.whxinna.userplatform.model.LoginResponse response) {
+                        Log.d(TAG, "Re-login succeeded, re-syncing credentials");
+                        credentialApi.syncDoorLockInfo(new CredentialApi.SyncCallback() {
+                            @Override
+                            public void onSuccess(DoorLockInfo info) {
+                                runOnUiThread(() -> updateDetailInfo());
+                            }
+                            @Override
+                            public void onError(String msg) {
+                                Log.e(TAG, "Credential sync after re-login failed: " + msg);
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onCaptchaRequired() {
+                        Log.w(TAG, "Captcha required during re-login fallback");
+                    }
+
+                    @Override
+                    public void onError(String msg) {
+                        Log.e(TAG, "Fallback re-login failed: " + msg);
+                    }
+                });
             }
         });
     }
