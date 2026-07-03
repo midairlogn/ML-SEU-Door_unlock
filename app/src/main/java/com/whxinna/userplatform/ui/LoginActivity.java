@@ -22,7 +22,6 @@ import com.whxinna.userplatform.api.AuthApi;
 import com.whxinna.userplatform.api.CredentialApi;
 import com.whxinna.userplatform.model.LoginResponse;
 import com.whxinna.userplatform.storage.CredentialCache;
-import com.whxinna.userplatform.wechat.WechatAuth;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -31,7 +30,6 @@ public class LoginActivity extends AppCompatActivity {
 
     private static final String TAG = "ZL_Login";
 
-    private MaterialButton btnWechat;
     private MaterialButton btnAlipay;
     private MaterialButton btnPhoneLogin;
     private ImageButton btnSettings;
@@ -57,11 +55,9 @@ public class LoginActivity extends AppCompatActivity {
         initViews();
         setupListeners();
         setupVersionInfo();
-        WechatAuth.getInstance().init(this);
     }
 
     private void initViews() {
-        btnWechat = findViewById(R.id.btnWechat);
         btnAlipay = findViewById(R.id.btnAlipay);
         btnPhoneLogin = findViewById(R.id.btnPhoneLogin);
         btnSettings = findViewById(R.id.btnSettings);
@@ -69,56 +65,9 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void setupListeners() {
-        btnWechat.setOnClickListener(v -> startWechatLogin());
         btnAlipay.setOnClickListener(v -> startAlipayLogin());
         btnPhoneLogin.setOnClickListener(v -> showPhoneLoginSheet());
         btnSettings.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
-    }
-
-    private void startWechatLogin() {
-        if (!WechatAuth.getInstance().isWechatInstalled()) {
-            Toast.makeText(this, R.string.wechat_not_installed, Toast.LENGTH_LONG).show();
-            return;
-        }
-
-        setLoading(true);
-        Toast.makeText(this, R.string.wechat_loading, Toast.LENGTH_SHORT).show();
-
-        WechatAuth.getInstance().sendAuth(this, new WechatAuth.WechatAuthCallback() {
-            @Override
-            public void onSuccess(String code) {
-                Log.d(TAG, "WeChat auth code obtained");
-                runOnUiThread(() -> Toast.makeText(LoginActivity.this, "Completing login...", Toast.LENGTH_SHORT).show());
-
-                authApi.wechatLogin(code, new AuthApi.OAuthCallback() {
-                    @Override
-                    public void onSuccess(LoginResponse response) {
-                        setLoading(false);
-                        Toast.makeText(LoginActivity.this, "Login successful", Toast.LENGTH_SHORT).show();
-                        syncDoorLockAndNavigate();
-                    }
-
-                    @Override
-                    public void onPhoneBindingRequired(String openId, String oauthType, String authCode) {
-                        setLoading(false);
-                        Toast.makeText(LoginActivity.this, "Phone binding required. Please use phone login first.", Toast.LENGTH_LONG).show();
-                    }
-
-                    @Override
-                    public void onError(String message) {
-                        setLoading(false);
-                        Toast.makeText(LoginActivity.this, message, Toast.LENGTH_LONG).show();
-                    }
-                });
-            }
-
-            @Override
-            public void onError(String message) {
-                Log.e(TAG, "WeChat auth error: " + message);
-                setLoading(false);
-                Toast.makeText(LoginActivity.this, message, Toast.LENGTH_LONG).show();
-            }
-        });
     }
 
     private void startAlipayLogin() {
@@ -214,7 +163,6 @@ public class LoginActivity extends AppCompatActivity {
     private void setLoading(boolean loading) {
         runOnUiThread(() -> {
             progressBar.setVisibility(loading ? View.VISIBLE : View.GONE);
-            btnWechat.setEnabled(!loading);
             btnAlipay.setEnabled(!loading);
             btnPhoneLogin.setEnabled(!loading);
         });

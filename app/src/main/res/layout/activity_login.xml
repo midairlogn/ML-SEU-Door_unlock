@@ -91,17 +91,6 @@
                 app:cornerRadius="24dp"
                 app:icon="@drawable/ic_alipay"/>
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnWechat"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/btn_wechat_login"
-                app:cornerRadius="24dp"
-                app:icon="@drawable/ic_wechat"
-                app:iconTint="@null"/>
-
             <TextView
                 android:id="@+id/tvOr"
                 android:layout_width="wrap_content"
