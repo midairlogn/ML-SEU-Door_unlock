@@ -49,9 +49,7 @@ public class AuthApi {
                 HttpUrl.Builder urlBuilder = HttpUrl.parse(api.getAuthBaseUrl() + "/webapi/users/login")
                     .newBuilder()
                     .addQueryParameter("phone", phone)
-                    .addQueryParameter("pwd", pwd)
-                    .addQueryParameter("pid", String.valueOf(ApiClient.PROJECT_ID))
-                    .addQueryParameter("appid", String.valueOf(ApiClient.APP_ID));
+                    .addQueryParameter("pwd", pwd);
 
                 if (captcha != null && !captcha.isEmpty()) {
                     urlBuilder.addQueryParameter("code", captcha);

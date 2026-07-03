@@ -23,7 +23,7 @@ public class ApiClient {
     private static final String AUTH_BASE = "https://pm.whxinna.com";
     public static final int PROJECT_ID = 21048;
     public static final int APP_ID = 20104;
-    private static final String SIGN_SECRET = "b21b8999f154f53878071586258904f0";
+    private static final String AUTH_SIGN_SECRET = "6d5dbb85b949447a95ff8fda9a9b759b";
 
     private final OkHttpClient client;
     private static ApiClient instance;
@@ -70,7 +70,7 @@ public class ApiClient {
     }
 
     public String signParams(HttpUrl.Builder urlBuilder) {
-        return signParams(urlBuilder, SIGN_SECRET);
+        return signParams(urlBuilder, AUTH_SIGN_SECRET);
     }
 
     public String signParams(HttpUrl.Builder urlBuilder, String secret) {
@@ -115,6 +115,8 @@ public class ApiClient {
     }
 
     public String executeAuthRequest(HttpUrl.Builder urlBuilder) throws IOException {
+        urlBuilder.addQueryParameter("pid", String.valueOf(PROJECT_ID));
+        urlBuilder.addQueryParameter("appid", String.valueOf(APP_ID));
         String nonce = generateNonce(32);
         long ts = getTimestamp();
         urlBuilder.addQueryParameter("timestamp", String.valueOf(ts));
