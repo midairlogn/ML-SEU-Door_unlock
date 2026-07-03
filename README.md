@@ -40,7 +40,7 @@ model/        LoginResponse, DoorLockInfo, DoorResponse, BleResponse
 
 ## Protocol
 
-See [PROTOCOL_REFERENCE.md](PROTOCOL_REFERENCE.md) for full protocol documentation including:
+See [docs/PROTOCOL_REFERENCE.md](docs/PROTOCOL_REFERENCE.md) for full protocol documentation including:
 
 - Login endpoint and request signing
 - Cryptographic primitives (deriveKey, RC4, CRC8)

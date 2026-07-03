@@ -13,7 +13,7 @@
 - BLE feature optional: `<uses-feature android:name="android.hardware.bluetooth_le" android:required="false"/>`
 
 ### 1.2 Crypto Module
-- `CRC8.java` — 256-entry lookup table from PROTOCOL_REFERENCE.md §5.3, `crc8(byte[])` returns `int`
+- `CRC8.java` — 256-entry lookup table from docs/PROTOCOL_REFERENCE.md §5.3, `crc8(byte[])` returns `int`
 - `RC4.java` — Standard RC4, key = `deriveKey(deviceId)`, KSA uses `key[i % 16]`, PRGA XORs byte-by-byte. Single `encrypt(byte[] data, byte[] key)` method works for both encrypt and decrypt
 - `KeyDerivation.java` — `deriveKey(int deviceId)` returns 16 bytes. Split deviceId into 4 LE bytes, reassemble big-endian. 4 rounds of confusion with DELTA0=0x9E3779B9, DELTA_STEP=0x12345678, KEY_CONST from §5.1. Output 4 big-endian uint32 words concatenated
 
@@ -84,10 +84,10 @@
 - `NfcCommandBuilder.java`:
   - `buildCommand(int deviceId, String credentialHex, int projectId)` → `byte[40]`
     - Format: `[0xB1, 0x0D, 0x24, ...RC4(40 bytes of projectId_LE ++ credential), CRC8]`
-    - See PROTOCOL_REFERENCE.md §6.3
+    - See docs/PROTOCOL_REFERENCE.md §6.3
   - `parseResponse(int deviceId, byte[] frame)` → `DoorResponse`
     - Decrypt payload with RC4, check CRC8, extract result code
-    - See PROTOCOL_REFERENCE.md §6.5
+    - See docs/PROTOCOL_REFERENCE.md §6.5
 
 ### 4.2 NFC Unlock Manager
 - `NfcUnlockManager.java`:
@@ -117,7 +117,7 @@
 - `BleCommandBuilder.java`:
   - `buildCommand(int deviceId, int commandType, byte[] data)` → `byte[20]`
     - Format: `[0x14, 0x00, commandType, ...RC4(zero-padded 16 bytes), CRC8]`
-    - See PROTOCOL_REFERENCE.md §7.2
+    - See docs/PROTOCOL_REFERENCE.md §7.2
   - `buildCredentialHeader(int projectId, String credentialHex)` → `byte[20]` (command type 0x74)
     - Plaintext: `[0x28, 0x00, 0x03, CRC8(projectId_LE ++ credential), 0x00...]`
   - `buildCredentialPacket(int packetIndex, byte[] payload)` → `byte[20]` (command type 0x75)
