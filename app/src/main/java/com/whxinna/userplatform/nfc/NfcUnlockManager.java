@@ -19,6 +19,7 @@ import com.whxinna.userplatform.storage.CredentialCache;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NfcUnlockManager {
 
@@ -40,6 +41,7 @@ public class NfcUnlockManager {
     private final Handler mainHandler;
     private NfcCallback pendingCallback;
     private boolean readerModeEnabled = false;
+    private final AtomicBoolean isProcessing = new AtomicBoolean(false);
 
     public NfcUnlockManager(Activity activity, CredentialCache cache) {
         this.cache = cache;
@@ -93,6 +95,11 @@ public class NfcUnlockManager {
     }
 
     private void handleTagDiscovered(Tag tag) {
+        if (isProcessing.get()) {
+            Log.d(TAG, "Already processing a tag, skipping");
+            return;
+        }
+
         NfcA nfcA = NfcA.get(tag);
         if (nfcA == null) {
             mainHandler.post(() -> {
@@ -104,6 +111,9 @@ public class NfcUnlockManager {
         }
 
         executor.execute(() -> {
+            if (!isProcessing.compareAndSet(false, true)) {
+                return;
+            }
             try {
                 nfcA.connect();
                 nfcA.setTimeout(TIMEOUT_MS);
@@ -146,7 +156,6 @@ public class NfcUnlockManager {
                                     cache.saveDoorLock(deviceId, cache.getBleMac(),
                                         lastResponse.updatedCredentialHex, cache.getCredentialId());
                                 }
-                                nfcA.close();
                                 final DoorResponse resp = lastResponse;
                                 mainHandler.post(() -> {
                                     if (pendingCallback != null) {
@@ -157,7 +166,6 @@ public class NfcUnlockManager {
                             }
 
                             if (lastResponse.isExpired()) {
-                                nfcA.close();
                                 reSyncWithServer();
                                 mainHandler.post(() -> {
                                     if (pendingCallback != null) {
@@ -178,7 +186,6 @@ public class NfcUnlockManager {
                     }
                 }
 
-                nfcA.close();
                 final DoorResponse resp = lastResponse;
                 mainHandler.post(() -> {
                     if (pendingCallback != null) {
@@ -192,12 +199,16 @@ public class NfcUnlockManager {
 
             } catch (Exception e) {
                 Log.e(TAG, "NFC error", e);
-                try { nfcA.close(); } catch (Exception ignored) {}
                 mainHandler.post(() -> {
                     if (pendingCallback != null) {
                         pendingCallback.onError("NFC error: " + e.getMessage());
                     }
                 });
+            } finally {
+                try {
+                    nfcA.close();
+                } catch (Exception ignored) {}
+                isProcessing.set(false);
             }
         });
     }

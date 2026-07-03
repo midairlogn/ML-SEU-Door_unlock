@@ -7,7 +7,9 @@ import android.animation.ValueAnimator;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.BroadcastReceiver;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.GradientDrawable;
@@ -81,6 +83,30 @@ public class MainActivity extends AppCompatActivity {
     private AuthApi authApi;
     private SharedPreferences prefs;
     private String selectedMethod;
+
+    // NFC state receiver
+    private BroadcastReceiver nfcStateReceiver;
+    private long lastNfcStateChangeTime = 0;
+    private static final long NFC_STATE_DEBOUNCE_MS = 500;
+
+    private final NfcUnlockManager.NfcCallback nfcCallback = new NfcUnlockManager.NfcCallback() {
+        @Override
+        public void onSuccess(com.whxinna.userplatform.model.DoorResponse response) {
+            showSuccessState();
+            Toast.makeText(MainActivity.this, R.string.unlock_success, Toast.LENGTH_SHORT).show();
+        }
+
+        @Override
+        public void onError(String message) {
+            showErrorState(message);
+        }
+
+        @Override
+        public void onExpired() {
+            tvStatusTitle.setText(R.string.session_expired);
+            refreshCredentials();
+        }
+    };
 
     // Animation
     private AnimatorSet iconAnimator;
@@ -158,8 +184,12 @@ public class MainActivity extends AppCompatActivity {
             if (isChecked) {
                 if (checkedId == R.id.btnTabNfc) {
                     selectedMethod = METHOD_NFC;
+                    if (hasAllPermissions()) {
+                        enableNfcReaderMode();
+                    }
                 } else if (checkedId == R.id.btnTabBle) {
                     selectedMethod = METHOD_BLE;
+                    nfcManager.disableReaderMode(this);
                 }
                 prefs.edit().putString(PREF_SELECTED_METHOD, selectedMethod).apply();
                 updateStatusDisplay();
@@ -196,6 +226,45 @@ public class MainActivity extends AppCompatActivity {
             default:
                 toggleGroup.check(R.id.btnTabBle);
                 break;
+        }
+    }
+
+    private void registerNfcStateReceiver() {
+        if (nfcStateReceiver != null) return;
+        IntentFilter filter = new IntentFilter(NfcAdapter.ACTION_ADAPTER_STATE_CHANGED);
+        nfcStateReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                int state = intent.getIntExtra(NfcAdapter.EXTRA_ADAPTER_STATE, NfcAdapter.STATE_OFF);
+                if (state == NfcAdapter.STATE_ON || state == NfcAdapter.STATE_OFF) {
+                    long now = System.currentTimeMillis();
+                    if (now - lastNfcStateChangeTime < NFC_STATE_DEBOUNCE_MS) return;
+                    lastNfcStateChangeTime = now;
+                    
+                    runOnUiThread(() -> {
+                        updateStatusDisplay();
+                        if (METHOD_NFC.equals(selectedMethod)
+                                && state == NfcAdapter.STATE_ON
+                                && hasAllPermissions()) {
+                            enableNfcReaderMode();
+                        } else {
+                            nfcManager.disableReaderMode(MainActivity.this);
+                        }
+                    });
+                }
+            }
+        };
+        // Use RECEIVER_EXPORTED for system broadcasts on API 33+
+        int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU 
+                ? ContextCompat.RECEIVER_EXPORTED 
+                : 0;
+        ContextCompat.registerReceiver(this, nfcStateReceiver, filter, flags);
+    }
+
+    private void unregisterNfcStateReceiver() {
+        if (nfcStateReceiver != null) {
+            unregisterReceiver(nfcStateReceiver);
+            nfcStateReceiver = null;
         }
     }
 
@@ -431,7 +500,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         if (cache.hasSession()) {
-            if (hasAllPermissions()) {
+            registerNfcStateReceiver();
+            if (METHOD_NFC.equals(selectedMethod) && hasAllPermissions()) {
                 enableNfcReaderMode();
             }
             updateStatusDisplay();
@@ -450,6 +520,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
+        unregisterNfcStateReceiver();
         nfcManager.disableReaderMode(this);
     }
 
@@ -467,30 +538,14 @@ public class MainActivity extends AppCompatActivity {
             || NfcAdapter.ACTION_NDEF_DISCOVERED.equals(action)) {
 
             if (!METHOD_NFC.equals(selectedMethod)) {
-                return;
+                selectedMethod = METHOD_NFC;
+                updateTabSelection();
             }
 
             tvStatusTitle.setText(R.string.unlocking);
             tvStatusDetail.setText("");
 
-            nfcManager.enableReaderMode(this, new NfcUnlockManager.NfcCallback() {
-                @Override
-                public void onSuccess(com.whxinna.userplatform.model.DoorResponse response) {
-                    showSuccessState();
-                    Toast.makeText(MainActivity.this, R.string.unlock_success, Toast.LENGTH_SHORT).show();
-                }
-
-                @Override
-                public void onError(String message) {
-                    showErrorState(message);
-                }
-
-                @Override
-                public void onExpired() {
-                    tvStatusTitle.setText(R.string.session_expired);
-                    refreshCredentials();
-                }
-            });
+            enableNfcReaderMode();
             nfcManager.handleIntent(intent);
         }
     }
@@ -499,25 +554,7 @@ public class MainActivity extends AppCompatActivity {
         if (!nfcManager.isNfcSupported() || !nfcManager.isNfcEnabled()) {
             return;
         }
-
-        nfcManager.enableReaderMode(this, new NfcUnlockManager.NfcCallback() {
-            @Override
-            public void onSuccess(com.whxinna.userplatform.model.DoorResponse response) {
-                showSuccessState();
-                Toast.makeText(MainActivity.this, R.string.unlock_success, Toast.LENGTH_SHORT).show();
-            }
-
-            @Override
-            public void onError(String message) {
-                showErrorState(message);
-            }
-
-            @Override
-            public void onExpired() {
-                tvStatusTitle.setText(R.string.session_expired);
-                refreshCredentials();
-            }
-        });
+        nfcManager.enableReaderMode(this, nfcCallback);
     }
 
     private void refreshCredentials() {
