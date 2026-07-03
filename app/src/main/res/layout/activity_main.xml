@@ -207,6 +207,7 @@
         android:textColor="@color/error"
         app:icon="@drawable/ic_logout"
         app:iconTint="@color/error"
-        app:iconGravity="textStart"/>
+        app:iconGravity="textStart"
+        app:iconPadding="12dp"/>
 
 </LinearLayout>
