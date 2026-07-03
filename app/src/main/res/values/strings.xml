@@ -87,4 +87,9 @@
     <string name="permission_rationale_message">Bluetooth and Location permissions are required to search for and connect to nearby door locks. We do not track your location.</string>
     <string name="permission_settings_message">Required permissions were permanently denied. Please enable them in App Settings to use Bluetooth unlocking.</string>
     <string name="btn_go_to_settings">Go to Settings</string>
+
+    <!-- Status Detail Labels -->
+    <string name="detail_phone">Phone: %s</string>
+    <string name="detail_lock">Lock: %s</string>
+    <string name="detail_battery">Battery: %d%%</string>
 </resources>

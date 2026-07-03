@@ -87,4 +87,9 @@
     <string name="permission_rationale_message">蓝牙和位置权限用于搜索并连接附近的门锁。我们不会追踪您的位置信息。</string>
     <string name="permission_settings_message">所需权限已被永久拒绝。请在“应用设置”中手动开启，以便使用蓝牙开门功能。</string>
     <string name="btn_go_to_settings">前往设置</string>
+
+    <!-- 状态详情标签 -->
+    <string name="detail_phone">手机号: %s</string>
+    <string name="detail_lock">门锁: %s</string>
+    <string name="detail_battery">电量: %d%%</string>
 </resources>

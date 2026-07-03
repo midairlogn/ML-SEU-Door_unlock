@@ -272,16 +272,16 @@ public class MainActivity extends AppCompatActivity {
         StringBuilder detail = new StringBuilder();
         String phone = cache.getPhone();
         if (phone != null && phone.length() >= 7) {
-            detail.append("Phone: ").append(phone.substring(0, 3)).append("****").append(phone.substring(7));
+            detail.append(getString(R.string.detail_phone, phone.substring(0, 3) + "****" + phone.substring(7)));
         } else if (phone != null) {
-            detail.append("Phone: ").append(phone);
+            detail.append(getString(R.string.detail_phone, phone));
         }
 
         if (cache.hasDoorLock()) {
             if (detail.length() > 0) detail.append("\n");
-            detail.append("Lock: ").append(cache.getBuildingName());
-            if (detail.length() > 0) detail.append("\n");
-            detail.append("Battery: ").append((int) cache.getBatteryLevel()).append("%");
+            detail.append(getString(R.string.detail_lock, cache.getBuildingName()));
+            detail.append("\n");
+            detail.append(getString(R.string.detail_battery, (int) cache.getBatteryLevel()));
         }
 
         if (detail.length() > 0) {
