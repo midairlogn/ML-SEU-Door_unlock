@@ -5,10 +5,10 @@ import android.content.Intent;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.os.Bundle;
+import android.util.Log;
 
 import androidx.core.content.IntentCompat;
 
-import com.midairlogn.seudoorunlock.LogManager;
 import com.midairlogn.seudoorunlock.ui.MainActivity;
 
 public class NfcPendingActivity extends Activity {
@@ -22,7 +22,7 @@ public class NfcPendingActivity extends Activity {
         Intent intent = getIntent();
         if (intent != null) {
             String action = intent.getAction();
-            LogManager.d(TAG, "NFC intent received: " + action);
+            Log.d(TAG, "NFC intent received: " + action);
 
             // Forward the NFC intent to MainActivity
             Intent mainIntent = new Intent(this, MainActivity.class);

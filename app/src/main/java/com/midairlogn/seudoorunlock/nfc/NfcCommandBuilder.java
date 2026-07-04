@@ -1,6 +1,6 @@
 package com.midairlogn.seudoorunlock.nfc;
 
-import com.midairlogn.seudoorunlock.LogManager;
+import android.util.Log;
 
 import com.midairlogn.seudoorunlock.crypto.CRC8;
 import com.midairlogn.seudoorunlock.crypto.KeyDerivation;
@@ -19,7 +19,7 @@ public final class NfcCommandBuilder {
     public static byte[] buildCommand(int deviceId, String credentialHex, int projectId) {
         byte[] credential = hexToBytes(credentialHex);
         if (credential.length != 32) {
-            LogManager.e(TAG, "Invalid credential length: " + credential.length);
+            Log.e(TAG, "Invalid credential length: " + credential.length);
             return null;
         }
 

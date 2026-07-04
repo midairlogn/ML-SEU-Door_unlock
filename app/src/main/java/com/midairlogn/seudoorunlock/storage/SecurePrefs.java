@@ -5,9 +5,9 @@ import android.content.SharedPreferences;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
+import android.util.Log;
 
 import com.midairlogn.seudoorunlock.AppExecutors;
-import com.midairlogn.seudoorunlock.LogManager;
 
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
@@ -69,7 +69,7 @@ public class SecurePrefs {
         try {
             keyLatch.await();
         } catch (InterruptedException e) {
-            LogManager.w(TAG, "Interrupted waiting for key, falling back to sync init");
+            Log.w(TAG, "Interrupted waiting for key, falling back to sync init");
             Thread.currentThread().interrupt();
             if (!keyReady) initKey();
             keyReady = true;
@@ -102,7 +102,7 @@ public class SecurePrefs {
                 secretKey = keyGen.generateKey();
             }
         } catch (Exception e) {
-            LogManager.e(TAG, "Failed to init keystore key", e);
+            Log.e(TAG, "Failed to init keystore key", e);
             byte[] fallbackKey = new byte[32];
             byte[] seed = "MLSEUDoorLock2026SecureKey!!".getBytes();
             System.arraycopy(seed, 0, fallbackKey, 0, Math.min(seed.length, 32));
@@ -122,7 +122,7 @@ public class SecurePrefs {
                            Base64.encodeToString(encrypted, Base64.NO_WRAP);
             prefs.edit().putString(key, encoded).apply();
         } catch (Exception e) {
-            LogManager.e(TAG, "Encrypt failed for key: " + key, e);
+            Log.e(TAG, "Encrypt failed for key: " + key, e);
             prefs.edit().putString(key, value).apply();
         }
     }
@@ -145,7 +145,7 @@ public class SecurePrefs {
             byte[] decrypted = cipher.doFinal(encrypted);
             return new String(decrypted, StandardCharsets.UTF_8);
         } catch (Exception e) {
-            LogManager.e(TAG, "Decrypt failed for key: " + key, e);
+            Log.e(TAG, "Decrypt failed for key: " + key, e);
         }
         return stored;
     }

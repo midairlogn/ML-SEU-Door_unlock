@@ -10,11 +10,11 @@ import android.nfc.Tag;
 import android.nfc.tech.NfcA;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import androidx.core.content.IntentCompat;
 
 import com.midairlogn.seudoorunlock.AppExecutors;
-import com.midairlogn.seudoorunlock.LogManager;
 import com.midairlogn.seudoorunlock.api.CredentialApi;
 import com.midairlogn.seudoorunlock.model.DoorResponse;
 import com.midairlogn.seudoorunlock.storage.CredentialCache;
@@ -79,14 +79,14 @@ public class NfcUnlockManager {
             handleTagDiscovered(tag);
         }, flags, null);
         readerModeEnabled = true;
-        LogManager.d(TAG, "Reader mode enabled");
+        Log.d(TAG, "Reader mode enabled");
     }
 
     public void disableReaderMode(Activity activity) {
         if (nfcAdapter != null && readerModeEnabled) {
             nfcAdapter.disableReaderMode(activity);
             readerModeEnabled = false;
-            LogManager.d(TAG, "Reader mode disabled");
+            Log.d(TAG, "Reader mode disabled");
         }
     }
 
@@ -107,7 +107,7 @@ public class NfcUnlockManager {
 
     private boolean handleTagDiscovered(Tag tag) {
         if (!isProcessing.compareAndSet(false, true)) {
-            LogManager.d(TAG, "Already processing a tag, skipping");
+            Log.d(TAG, "Already processing a tag, skipping");
             return false;
         }
 
@@ -142,7 +142,7 @@ public class NfcUnlockManager {
                 }
 
                 if (cachedDeviceId != 0 && cachedDeviceId != deviceId) {
-                    LogManager.w(TAG, "NFC tag device_id differs from cache: tag=" + deviceId
+                    Log.w(TAG, "NFC tag device_id differs from cache: tag=" + deviceId
                         + " cache=" + cachedDeviceId);
                 }
 
@@ -171,12 +171,12 @@ public class NfcUnlockManager {
                         byte[] response = nfcA.transceive(command);
                         if (response != null) {
                             lastResponse = NfcCommandBuilder.parseResponse(deviceId, response);
-                            LogManager.d(TAG, "Attempt " + attempt + " result: " + lastResponse.resultCode);
+                            Log.d(TAG, "Attempt " + attempt + " result: " + lastResponse.resultCode);
 
                             if (lastResponse.isSuccess()) {
                                 if (lastResponse.updatedCredentialHex != null
                                     && lastResponse.updatedCredentialHex.matches("^[0-9A-F]{64}$")) {
-                                    LogManager.d(TAG, "NFC returned updated credential, saving");
+                                    Log.d(TAG, "NFC returned updated credential, saving");
                                     cache.saveDoorLock(deviceId, cache.getBleMac(),
                                         lastResponse.updatedCredentialHex, cache.getCredentialId());
                                 }
@@ -200,7 +200,7 @@ public class NfcUnlockManager {
                             }
                         }
                     } catch (Exception e) {
-                        LogManager.w(TAG, "Transceive attempt " + attempt + " failed", e);
+                        Log.w(TAG, "Transceive attempt " + attempt + " failed", e);
                     }
 
                     if (attempt < MAX_RETRIES - 1) {
@@ -222,7 +222,7 @@ public class NfcUnlockManager {
                 });
 
             } catch (Exception e) {
-                LogManager.e(TAG, "NFC error", e);
+                Log.e(TAG, "NFC error", e);
                 mainHandler.post(() -> {
                     if (pendingCallback != null) {
                         pendingCallback.onError("NFC error: " + e.getMessage());
@@ -351,15 +351,15 @@ public class NfcUnlockManager {
     }
 
     private void reSyncWithServer() {
-        LogManager.d(TAG, "Re-syncing credential with server after expired code");
+        Log.d(TAG, "Re-syncing credential with server after expired code");
         credentialApi.syncCredential(cache.getCredentialId(), new CredentialApi.SyncCallback() {
             @Override
             public void onSuccess(com.midairlogn.seudoorunlock.model.DoorLockInfo info) {
-                LogManager.d(TAG, "Server credential re-synced after NFC expired");
+                Log.d(TAG, "Server credential re-synced after NFC expired");
             }
             @Override
             public void onError(String message) {
-                LogManager.w(TAG, "Server credential re-sync failed: " + message);
+                Log.w(TAG, "Server credential re-sync failed: " + message);
             }
         });
     }
