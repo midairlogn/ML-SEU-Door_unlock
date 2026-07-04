@@ -7,3 +7,10 @@
     public static final int *;
     public static final byte *;
 }
+
+# Strip verbose/debug/info Log calls in release builds, keep warn/error for diagnostics
+-assumenosideeffects class android.util.Log {
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+}
