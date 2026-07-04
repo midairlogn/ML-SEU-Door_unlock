@@ -18,6 +18,7 @@ import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.Menu;
@@ -143,6 +144,8 @@ public class MainActivity extends AppCompatActivity {
 
     // Animation
     private AnimatorSet iconAnimator;
+    private final Handler handler = new Handler(android.os.Looper.getMainLooper());
+    private Runnable restoreRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -465,6 +468,13 @@ public class MainActivity extends AppCompatActivity {
         GradientDrawable bg = (GradientDrawable) layerBg.getDrawable(0);
         bg.setColor(ContextCompat.getColor(this, R.color.success_container));
         ivStatusIcon.setColorFilter(ContextCompat.getColor(this, R.color.success));
+
+        // Restore to original state after 10 seconds (door auto-locks)
+        if (restoreRunnable != null) {
+            handler.removeCallbacks(restoreRunnable);
+        }
+        restoreRunnable = () -> updateStatusDisplay();
+        handler.postDelayed(restoreRunnable, 10_000);
     }
 
     private void showErrorState(String message) {
@@ -495,7 +505,6 @@ public class MainActivity extends AppCompatActivity {
         }
 
         tvStatusTitle.setText(R.string.ble_connecting);
-        tvStatusDetail.setText("");
         btnBleUnlock.setEnabled(false);
 
         getBleManager().unlock(new BleUnlockManager.BleCallback() {
@@ -715,6 +724,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (restoreRunnable != null) {
+            handler.removeCallbacks(restoreRunnable);
+        }
         stopBreathingAnimation();
         if (nfcManager != null) nfcManager.onDestroy();
         if (bleManager != null) bleManager.onDestroy();
