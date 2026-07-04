@@ -7,8 +7,12 @@ import android.security.keystore.KeyProperties;
 import android.util.Base64;
 import android.util.Log;
 
+import com.midairlogn.seudoorunlock.AppExecutors;
+
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -25,20 +29,56 @@ public class SecurePrefs {
     private static final String ANDROID_KEYSTORE = "AndroidKeyStore";
 
     private final SharedPreferences prefs;
-    private SecretKey secretKey;
+    private volatile SecretKey secretKey;
+    private volatile boolean keyReady = false;
+    private final CountDownLatch keyLatch = new CountDownLatch(1);
+    private final ExecutorService executor;
 
-    private static SecurePrefs instance;
+    private static volatile SecurePrefs instance;
 
-    public static synchronized SecurePrefs getInstance(Context context) {
+    public static SecurePrefs getInstance(Context context) {
         if (instance == null) {
-            instance = new SecurePrefs(context.getApplicationContext());
+            synchronized (SecurePrefs.class) {
+                if (instance == null) {
+                    instance = new SecurePrefs(context.getApplicationContext());
+                }
+            }
         }
         return instance;
     }
 
     private SecurePrefs(Context context) {
         prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        initKey();
+        executor = AppExecutors.getInstance();
+        initKeyAsync();
+    }
+
+    private void initKeyAsync() {
+        executor.execute(() -> {
+            try {
+                initKey();
+            } finally {
+                keyReady = true;
+                keyLatch.countDown();
+            }
+        });
+    }
+
+    private void awaitKey() {
+        if (keyReady) return;
+        try {
+            keyLatch.await();
+        } catch (InterruptedException e) {
+            Log.w(TAG, "Interrupted waiting for key, falling back to sync init");
+            Thread.currentThread().interrupt();
+            if (!keyReady) initKey();
+            keyReady = true;
+            if (keyLatch.getCount() > 0) keyLatch.countDown();
+        }
+    }
+
+    public boolean isKeyReady() {
+        return keyReady;
     }
 
     private void initKey() {
@@ -63,7 +103,6 @@ public class SecurePrefs {
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to init keystore key", e);
-            // Fallback: derive key from hardcoded value (less secure but functional)
             byte[] fallbackKey = new byte[32];
             byte[] seed = "MLSEUDoorLock2026SecureKey!!".getBytes();
             System.arraycopy(seed, 0, fallbackKey, 0, Math.min(seed.length, 32));
@@ -72,6 +111,7 @@ public class SecurePrefs {
     }
 
     public void putString(String key, String value) {
+        awaitKey();
         try {
             Cipher cipher = Cipher.getInstance(AES_MODE);
             cipher.init(Cipher.ENCRYPT_MODE, secretKey);
@@ -91,18 +131,19 @@ public class SecurePrefs {
         String stored = prefs.getString(key, null);
         if (stored == null) return defValue;
 
-        try {
-            if (stored.contains("|")) {
-                String[] parts = stored.split("\\|", 2);
-                byte[] iv = Base64.decode(parts[0], Base64.NO_WRAP);
-                byte[] encrypted = Base64.decode(parts[1], Base64.NO_WRAP);
+        if (!stored.contains("|")) return stored;
 
-                Cipher cipher = Cipher.getInstance(AES_MODE);
-                GCMParameterSpec spec = new GCMParameterSpec(128, iv);
-                cipher.init(Cipher.DECRYPT_MODE, secretKey, spec);
-                byte[] decrypted = cipher.doFinal(encrypted);
-                return new String(decrypted, StandardCharsets.UTF_8);
-            }
+        awaitKey();
+        try {
+            String[] parts = stored.split("\\|", 2);
+            byte[] iv = Base64.decode(parts[0], Base64.NO_WRAP);
+            byte[] encrypted = Base64.decode(parts[1], Base64.NO_WRAP);
+
+            Cipher cipher = Cipher.getInstance(AES_MODE);
+            GCMParameterSpec spec = new GCMParameterSpec(128, iv);
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, spec);
+            byte[] decrypted = cipher.doFinal(encrypted);
+            return new String(decrypted, StandardCharsets.UTF_8);
         } catch (Exception e) {
             Log.e(TAG, "Decrypt failed for key: " + key, e);
         }

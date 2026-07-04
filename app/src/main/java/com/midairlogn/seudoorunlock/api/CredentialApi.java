@@ -4,6 +4,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import com.midairlogn.seudoorunlock.AppExecutors;
 import com.midairlogn.seudoorunlock.model.DoorLockInfo;
 import com.midairlogn.seudoorunlock.storage.CredentialCache;
 
@@ -12,7 +13,6 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import okhttp3.HttpUrl;
 
@@ -33,7 +33,7 @@ public class CredentialApi {
     public CredentialApi(CredentialCache cache) {
         this.api = ApiClient.getInstance();
         this.cache = cache;
-        this.executor = Executors.newSingleThreadExecutor();
+        this.executor = AppExecutors.getInstance();
         this.mainHandler = new Handler(Looper.getMainLooper());
     }
 

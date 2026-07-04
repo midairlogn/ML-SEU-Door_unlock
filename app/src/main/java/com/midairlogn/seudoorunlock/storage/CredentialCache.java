@@ -100,6 +100,10 @@ public class CredentialCache {
         return !getUserId().isEmpty();
     }
 
+    public boolean hasSessionFast() {
+        return securePrefs.contains(KEY_USER_ID);
+    }
+
     public boolean hasDoorLock() {
         return getDeviceId() != 0 && !getCredentialHex().isEmpty();
     }

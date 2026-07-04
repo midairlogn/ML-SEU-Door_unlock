@@ -39,18 +39,19 @@ public class LoginActivity extends AppCompatActivity {
     private CredentialCache cache;
     private final ExecutorService oauthExecutor = Executors.newSingleThreadExecutor();
 
+    private AuthApi getAuthApi() {
+        if (authApi == null) {
+            authApi = new AuthApi(cache);
+        }
+        return authApi;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
         cache = CredentialCache.getInstance(this);
-        authApi = new AuthApi(cache);
-
-        if (cache.hasSession()) {
-            navigateToMain();
-            return;
-        }
 
         initViews();
         setupListeners();
@@ -76,7 +77,7 @@ public class LoginActivity extends AppCompatActivity {
 
         oauthExecutor.execute(() -> {
             try {
-                String authInfo = authApi.fetchAlipayAuthInfo();
+                String authInfo = getAuthApi().fetchAlipayAuthInfo();
                 Log.d(TAG, "Got auth_info, launching Alipay...");
 
                 String authCode = AlipayAuth.authorize(LoginActivity.this, authInfo);
@@ -84,7 +85,7 @@ public class LoginActivity extends AppCompatActivity {
 
                 runOnUiThread(() -> Toast.makeText(LoginActivity.this, "Completing login...", Toast.LENGTH_SHORT).show());
 
-                authApi.oauthLogin(authCode, new AuthApi.AlipayCallback() {
+                getAuthApi().oauthLogin(authCode, new AuthApi.AlipayCallback() {
                     @Override
                     public void onSuccess(LoginResponse response) {
                         setLoading(false);

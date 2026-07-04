@@ -17,4 +17,8 @@
         <item name="android:navigationBarColor">@color/surface</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">false</item>
     </style>
+
+    <style name="Theme.SEUDoorLock.Splash" parent="Theme.SEUDoorLock">
+        <item name="android:windowBackground">@color/surface</item>
+    </style>
 </resources>

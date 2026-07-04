@@ -84,6 +84,34 @@ public class MainActivity extends AppCompatActivity {
     private SharedPreferences prefs;
     private String selectedMethod;
 
+    private NfcUnlockManager getNfcManager() {
+        if (nfcManager == null) {
+            nfcManager = new NfcUnlockManager(this, cache);
+        }
+        return nfcManager;
+    }
+
+    private BleUnlockManager getBleManager() {
+        if (bleManager == null) {
+            bleManager = new BleUnlockManager(this, cache);
+        }
+        return bleManager;
+    }
+
+    private CredentialApi getCredentialApi() {
+        if (credentialApi == null) {
+            credentialApi = new CredentialApi(cache);
+        }
+        return credentialApi;
+    }
+
+    private AuthApi getAuthApi() {
+        if (authApi == null) {
+            authApi = new AuthApi(cache);
+        }
+        return authApi;
+    }
+
     // NFC state
     private BroadcastReceiver nfcStateReceiver;
     private long lastNfcStateChangeTime = 0;
@@ -122,10 +150,6 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         cache = CredentialCache.getInstance(this);
-        nfcManager = new NfcUnlockManager(this, cache);
-        bleManager = new BleUnlockManager(this, cache);
-        credentialApi = new CredentialApi(cache);
-        authApi = new AuthApi(cache);
         prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, MODE_PRIVATE);
 
         if (!cache.hasSession()) {
@@ -192,7 +216,7 @@ public class MainActivity extends AppCompatActivity {
                     enableNfcReaderModeIfIdle();
                 } else if (checkedId == R.id.btnTabBle) {
                     selectedMethod = METHOD_BLE;
-                    nfcManager.disableReaderMode(this);
+                    getNfcManager().disableReaderMode(this);
                 }
                 prefs.edit().putString(PREF_SELECTED_METHOD, selectedMethod).apply();
                 updateStatusDisplay();
@@ -212,8 +236,8 @@ public class MainActivity extends AppCompatActivity {
             .setMessage(R.string.logout_confirm)
             .setPositiveButton(R.string.yes, (d, w) -> {
                 cache.clear();
-                nfcManager.onDestroy();
-                bleManager.onDestroy();
+                if (nfcManager != null) nfcManager.onDestroy();
+                if (bleManager != null) bleManager.onDestroy();
                 navigateToLogin();
             })
             .setNegativeButton(R.string.no, null)
@@ -250,7 +274,7 @@ public class MainActivity extends AppCompatActivity {
                                 && state == NfcAdapter.STATE_ON) {
                             enableNfcReaderModeIfIdle();
                         } else {
-                            nfcManager.disableReaderMode(MainActivity.this);
+                            getNfcManager().disableReaderMode(MainActivity.this);
                         }
                     });
                 }
@@ -297,13 +321,13 @@ public class MainActivity extends AppCompatActivity {
             ivStatusIcon.setImageResource(R.drawable.ic_nfc);
             btnBleUnlock.setVisibility(View.GONE);
 
-            if (!nfcManager.isNfcSupported()) {
+            if (!getNfcManager().isNfcSupported()) {
                 tvStatusTitle.setText(R.string.nfc_not_supported);
                 tvStatusDetail.setText("");
                 btnEnableNfc.setVisibility(View.GONE);
                 statusIconContainer.setAlpha(0.5f);
             } else {
-                if (!nfcManager.isNfcEnabled()) {
+                if (!getNfcManager().isNfcEnabled()) {
                     tvStatusTitle.setText(R.string.nfc_disabled);
                     tvStatusDetail.setText(R.string.enable_nfc_prompt);
                     btnEnableNfc.setVisibility(View.VISIBLE);
@@ -321,12 +345,12 @@ public class MainActivity extends AppCompatActivity {
             btnBleUnlock.setVisibility(View.VISIBLE);
             btnEnableNfc.setVisibility(View.GONE);
 
-            if (!bleManager.isBleSupported()) {
+            if (!getBleManager().isBleSupported()) {
                 tvStatusTitle.setText(R.string.ble_not_supported);
                 tvStatusDetail.setText("");
                 statusIconContainer.setAlpha(0.5f);
             } else {
-                if (!bleManager.isBleEnabled()) {
+                if (!getBleManager().isBleEnabled()) {
                     tvStatusTitle.setText(R.string.ble_disabled);
                     tvStatusDetail.setText(R.string.enable_ble_prompt);
                     statusIconContainer.setAlpha(0.7f);
@@ -462,11 +486,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void attemptBleUnlock() {
-        if (!bleManager.isBleSupported()) {
+        if (!getBleManager().isBleSupported()) {
             Toast.makeText(this, R.string.ble_not_supported, Toast.LENGTH_SHORT).show();
             return;
         }
-        if (!bleManager.isBleEnabled()) {
+        if (!getBleManager().isBleEnabled()) {
             Toast.makeText(this, R.string.ble_disabled, Toast.LENGTH_SHORT).show();
             return;
         }
@@ -475,7 +499,7 @@ public class MainActivity extends AppCompatActivity {
         tvStatusDetail.setText("");
         btnBleUnlock.setEnabled(false);
 
-        bleManager.unlock(new BleUnlockManager.BleCallback() {
+        getBleManager().unlock(new BleUnlockManager.BleCallback() {
             @Override
             public void onSuccess(String message) {
                 showSuccessState();
@@ -523,7 +547,7 @@ public class MainActivity extends AppCompatActivity {
         isResumed = false;
         super.onPause();
         unregisterNfcStateReceiver();
-        nfcManager.disableReaderMode(this);
+        getNfcManager().disableReaderMode(this);
     }
 
     @Override
@@ -555,7 +579,7 @@ public class MainActivity extends AppCompatActivity {
             // interrupts the NfcA session from the intent tag. Reader mode will
             // be re-enabled after processing completes via setBusy(false).
             setBusy(true);
-            if (!nfcManager.handleIntent(intent, nfcCallback)) {
+            if (!getNfcManager().handleIntent(intent, nfcCallback)) {
                 setBusy(false);
             }
         }
@@ -574,14 +598,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void enableNfcReaderMode() {
-        if (!nfcManager.isNfcSupported() || !nfcManager.isNfcEnabled()) {
+        if (!getNfcManager().isNfcSupported() || !getNfcManager().isNfcEnabled()) {
             return;
         }
-        nfcManager.enableReaderMode(this, nfcCallback);
+        getNfcManager().enableReaderMode(this, nfcCallback);
     }
 
     private void refreshCredentials() {
-        credentialApi.syncDoorLockInfo(new CredentialApi.SyncCallback() {
+                        getCredentialApi().syncDoorLockInfo(new CredentialApi.SyncCallback() {
             @Override
             public void onSuccess(DoorLockInfo info) {
                 runOnUiThread(() -> updateDetailInfo());
@@ -596,11 +620,11 @@ public class MainActivity extends AppCompatActivity {
                     Log.w(TAG, "No stored credentials for fallback re-login");
                     return;
                 }
-                authApi.autoReLogin(cache, new AuthApi.AuthCallback() {
+                getAuthApi().autoReLogin(cache, new AuthApi.AuthCallback() {
                     @Override
                     public void onSuccess(com.midairlogn.seudoorunlock.model.LoginResponse response) {
                         Log.d(TAG, "Re-login succeeded, re-syncing credentials");
-                        credentialApi.syncDoorLockInfo(new CredentialApi.SyncCallback() {
+        getCredentialApi().syncDoorLockInfo(new CredentialApi.SyncCallback() {
                             @Override
                             public void onSuccess(DoorLockInfo info) {
                                 runOnUiThread(() -> updateDetailInfo());
@@ -693,7 +717,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         stopBreathingAnimation();
-        nfcManager.onDestroy();
-        bleManager.onDestroy();
+        if (nfcManager != null) nfcManager.onDestroy();
+        if (bleManager != null) bleManager.onDestroy();
     }
 }

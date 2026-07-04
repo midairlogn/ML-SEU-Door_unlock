@@ -21,6 +21,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.midairlogn.seudoorunlock.AppExecutors;
 import com.midairlogn.seudoorunlock.api.CredentialApi;
 import com.midairlogn.seudoorunlock.model.BleResponse;
 import com.midairlogn.seudoorunlock.storage.CredentialCache;
@@ -28,7 +29,6 @@ import com.midairlogn.seudoorunlock.storage.CredentialCache;
 import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class BleUnlockManager {
 
@@ -75,7 +75,7 @@ public class BleUnlockManager {
         this.context = context;
         this.cache = cache;
         this.credentialApi = new CredentialApi(cache);
-        this.executor = Executors.newSingleThreadExecutor();
+        this.executor = AppExecutors.getInstance();
         this.mainHandler = new Handler(Looper.getMainLooper());
         this.timeoutHandler = new Handler(Looper.getMainLooper());
 

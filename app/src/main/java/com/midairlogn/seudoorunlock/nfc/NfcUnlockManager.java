@@ -11,12 +11,12 @@ import android.util.Log;
 
 import androidx.core.content.IntentCompat;
 
+import com.midairlogn.seudoorunlock.AppExecutors;
 import com.midairlogn.seudoorunlock.api.CredentialApi;
 import com.midairlogn.seudoorunlock.model.DoorResponse;
 import com.midairlogn.seudoorunlock.storage.CredentialCache;
 
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NfcUnlockManager {
@@ -44,7 +44,7 @@ public class NfcUnlockManager {
     public NfcUnlockManager(Activity activity, CredentialCache cache) {
         this.cache = cache;
         this.credentialApi = new CredentialApi(cache);
-        this.executor = Executors.newSingleThreadExecutor();
+        this.executor = AppExecutors.getInstance();
         this.mainHandler = new Handler(Looper.getMainLooper());
         this.nfcAdapter = NfcAdapter.getDefaultAdapter(activity);
     }
