@@ -602,6 +602,8 @@ fun buildBleCommand(deviceId: Int, commandType: Int, data: ByteArray): ByteArray
    - Payload = `ran_LE(4) ++ projectId_LE(4) ++ credential(32)` = 40 bytes
    - Split into 3 chunks of 15 bytes each
    - Each packet plaintext: `[0]=packet_index(0/1/2), [1..15]=chunk_data`
+   - Response: `plainData[0]` echoes the packet index (0/1/2), **NOT a result code**
+   - Only validate command type and CRC; do NOT check `plainData[0]` against result code table
    - Inter-packet delay: 10ms
 
 3. **0x78 Open Door**:

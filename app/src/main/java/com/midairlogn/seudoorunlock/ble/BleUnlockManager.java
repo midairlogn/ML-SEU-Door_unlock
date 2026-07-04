@@ -79,6 +79,8 @@ public class BleUnlockManager {
 
     private boolean waitingForNotification = false;
     private byte[] lastNotificationData;
+    private boolean waitingForWrite = false;
+    private int lastWriteStatus = BluetoothGatt.GATT_FAILURE;
     private boolean waitingForDescriptor = false;
 
     public BleUnlockManager(Context context, CredentialCache cache) {
@@ -319,6 +321,13 @@ public class BleUnlockManager {
 
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+            if (WRITE_UUID.equals(characteristic.getUuid())) {
+                synchronized (BleUnlockManager.this) {
+                    lastWriteStatus = status;
+                    waitingForWrite = false;
+                    BleUnlockManager.this.notifyAll();
+                }
+            }
             if (status != BluetoothGatt.GATT_SUCCESS) {
                 Log.e(TAG, "Write failed: " + status);
             }
@@ -336,12 +345,12 @@ public class BleUnlockManager {
 
         private void handleCharacteristicChanged(UUID uuid, byte[] value) {
             if (uuid.equals(READ_UUID)) {
-                lastNotificationData = value;
-                waitingForNotification = false;
-                Log.d(TAG, "Notification received, len=" + (lastNotificationData != null ? lastNotificationData.length : 0));
                 synchronized (BleUnlockManager.this) {
+                    lastNotificationData = value != null ? value.clone() : null;
+                    waitingForNotification = false;
                     BleUnlockManager.this.notifyAll();
                 }
+                Log.d(TAG, "Notification received, len=" + (lastNotificationData != null ? lastNotificationData.length : 0));
             }
         }
     };
@@ -386,10 +395,9 @@ public class BleUnlockManager {
                         "Credential packet " + (i + 1))) {
                         return;
                     }
-                    if (packetResponse.getResultCode() != 0) {
-                        fail("Credential packet " + (i + 1) + " rejected: " + packetResponse.getResultCode());
-                        return;
-                    }
+                    // 0x75 responses acknowledge the packet frame; plainData[0] is not a result code
+                    // and may echo the packet index (packet 2 can report 1).
+                    Log.d(TAG, "Credential packet " + (i + 1) + " ack=" + packetResponse.getResultCode());
                     Thread.sleep(INTER_PACKET_DELAY_MS);
                 }
 
@@ -564,28 +572,48 @@ public class BleUnlockManager {
     }
 
     private synchronized byte[] sendAndWaitForNotification(byte[] data) throws InterruptedException {
+        waitingForWrite = true;
+        lastWriteStatus = BluetoothGatt.GATT_FAILURE;
         waitingForNotification = true;
         lastNotificationData = null;
-        writeCharacteristic(data);
 
-        // Wait up to OPERATION_TIMEOUT_MS for notification
+        if (!writeCharacteristic(data)) {
+            waitingForWrite = false;
+            waitingForNotification = false;
+            throw new IllegalStateException("Failed to start BLE write");
+        }
+
         long deadline = System.currentTimeMillis() + OPERATION_TIMEOUT_MS;
+        while (waitingForWrite && System.currentTimeMillis() < deadline) {
+            wait(Math.max(1, deadline - System.currentTimeMillis()));
+        }
+        if (waitingForWrite) {
+            waitingForWrite = false;
+            waitingForNotification = false;
+            throw new IllegalStateException("BLE write timed out");
+        }
+        if (lastWriteStatus != BluetoothGatt.GATT_SUCCESS) {
+            waitingForNotification = false;
+            throw new IllegalStateException("BLE write failed: " + lastWriteStatus);
+        }
+
         while (waitingForNotification && System.currentTimeMillis() < deadline) {
-            wait(OPERATION_TIMEOUT_MS);
+            wait(Math.max(1, deadline - System.currentTimeMillis()));
         }
 
         return lastNotificationData;
     }
 
     @SuppressLint("MissingPermission")
-    private void writeCharacteristic(byte[] data) {
-        if (bluetoothGatt == null || writeCharacteristic == null) return;
+    private boolean writeCharacteristic(byte[] data) {
+        if (bluetoothGatt == null || writeCharacteristic == null) return false;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            bluetoothGatt.writeCharacteristic(writeCharacteristic, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+            return bluetoothGatt.writeCharacteristic(writeCharacteristic, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+                == BluetoothStatusCodes.SUCCESS;
         } else {
             writeCharacteristic.setValue(data);
             writeCharacteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
-            bluetoothGatt.writeCharacteristic(writeCharacteristic);
+            return bluetoothGatt.writeCharacteristic(writeCharacteristic);
         }
     }
 
@@ -633,6 +661,7 @@ public class BleUnlockManager {
         }
         writeCharacteristic = null;
         readCharacteristic = null;
+        waitingForWrite = false;
         waitingForDescriptor = false;
     }
 
