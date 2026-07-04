@@ -36,11 +36,25 @@ public class BleResponse {
         int code = getResultCode();
         switch (code) {
             case 0: return "Success";
+            case 1: return "CRC check error";
+            case 2: return "ISN random error";
+            case 3: return "Busy";
+            case 7: return "No key set";
+            case 10: return "Authentication failed";
+            case 11: return "Invalid parameter";
+            case 12: return "User deleted";
+            case 13: return "Random verification failed";
+            case 14: return "Project ID mismatch";
+            case 20: return "User info not found";
+            case 21: return "Key type mismatch";
+            case 22: return "Admin random mismatch";
             case 23: return "Door already open";
-            case 27: return "Credential Expired";
-            case 10: return "Authentication Failed";
-            case 11: return "Invalid Parameter";
-            default: return "Unknown error (" + code + ")";
+            case 24: return "Expired";
+            case 25: return "Offline count exhausted";
+            case 26: return "Credential update failed";
+            case 27: return "Need to update key";
+            case 255: return "Unknown command";
+            default: return "Error code: " + code;
         }
     }
 }

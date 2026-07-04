@@ -201,7 +201,7 @@ zl.oauth.sendAuth({ provider: "WeChat", info: null }, callback)
 
 **Endpoint**:
 ```
-POST https://pm.whxinna.com/webapi/oauth/account_login
+GET https://pm.whxinna.com/webapi/oauth/account_login
 ```
 
 **Flow**:
@@ -506,25 +506,29 @@ fun parseResponse(deviceId: Int, frame: ByteArray): DoorResponse {
 
 ### 6.6 Result Codes
 
-| Code | Meaning |
-|---|---|
-| 0 | Success |
-| 1 | CRC check error |
-| 2 | ISN random error |
-| 3 | Busy |
-| 7 | No key set |
-| 12 | User deleted |
-| 13 | Random verification failed |
-| 14 | Project ID mismatch |
-| 20 | User info not found |
-| 21 | Key type mismatch |
-| 22 | Admin random mismatch |
-| 23 | Door already open (also success) |
-| 24 | Expired |
-| 25 | Offline count exhausted |
-| 26 | Credential update failed |
-| 27 | Need to update key (triggers refresh) |
-| 255 | Unknown command |
+| Code | Meaning | BLE Refresh? |
+|---|---|---|
+| 0 | Success | — |
+| 1 | CRC check error | — |
+| 2 | ISN random error | — |
+| 3 | Busy | — |
+| 7 | No key set | — |
+| 10 | Authentication failed (BLE) | — |
+| 11 | Invalid parameter (BLE) | — |
+| 12 | User deleted | — |
+| 13 | Random verification failed | — |
+| 14 | Project ID mismatch | — |
+| 20 | User info not found | — |
+| 21 | Key type mismatch | — |
+| 22 | Admin random mismatch | — |
+| 23 | Door already open (also success) | — |
+| 24 | Expired | NFC only |
+| 25 | Offline count exhausted | — |
+| 26 | Credential update failed | — |
+| 27 | Need to update key | Yes (BLE + NFC) |
+| 255 | Unknown command | — |
+
+**Note**: Code 27 triggers the 0x76/0x77 BLE credential refetch flow. Code 24 only triggers server re-sync via `syncCredential` (NFC path); BLE does not handle code 24 with a refetch.
 
 ### 6.7 NFC Credential Characteristics
 
