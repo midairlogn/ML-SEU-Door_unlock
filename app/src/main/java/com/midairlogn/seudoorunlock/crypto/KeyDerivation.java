@@ -30,10 +30,10 @@ public final class KeyDerivation {
         long[] words = new long[4];
         for (int i = 0; i < 4; i++) {
             int offset = i * 4;
-            words[i] = ((KEY_CONST[offset] & 0xFFL) << 24)
-                      | ((KEY_CONST[offset + 1] & 0xFFL) << 16)
-                      | ((KEY_CONST[offset + 2] & 0xFFL) << 8)
-                      | (KEY_CONST[offset + 3] & 0xFFL);
+            words[i] = (KEY_CONST[offset] & 0xFFL)
+                      | ((KEY_CONST[offset + 1] & 0xFFL) << 8)
+                      | ((KEY_CONST[offset + 2] & 0xFFL) << 16)
+                      | ((KEY_CONST[offset + 3] & 0xFFL) << 24);
         }
 
         for (int i = 0; i < 4; i++) {

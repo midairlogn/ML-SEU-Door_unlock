@@ -25,14 +25,17 @@ public class DoorResponse {
     }
 
     public boolean isSuccess() {
-        return resultCode == 0 || resultCode == 23;
+        return crcValid && (resultCode == 0 || resultCode == 23);
     }
 
     public boolean isExpired() {
-        return resultCode == 24 || resultCode == 27;
+        return crcValid && (resultCode == 24 || resultCode == 27);
     }
 
     public String getErrorMessage() {
+        if (!crcValid) {
+            return "Response CRC check failed";
+        }
         switch (resultCode) {
             case 0: return "Success";
             case 1: return "CRC check error";

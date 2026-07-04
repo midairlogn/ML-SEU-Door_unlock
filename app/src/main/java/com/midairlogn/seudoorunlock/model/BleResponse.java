@@ -18,7 +18,7 @@ public class BleResponse {
     }
 
     public boolean isSuccess() {
-        return getResultCode() == 0;
+        return crcValid && (getResultCode() == 0 || getResultCode() == 23);
     }
 
     public int getRandom() {
@@ -30,9 +30,13 @@ public class BleResponse {
     }
 
     public String getErrorMessage() {
+        if (!crcValid) {
+            return "Response CRC check failed";
+        }
         int code = getResultCode();
         switch (code) {
             case 0: return "Success";
+            case 23: return "Door already open";
             case 27: return "Credential Expired";
             case 10: return "Authentication Failed";
             case 11: return "Invalid Parameter";

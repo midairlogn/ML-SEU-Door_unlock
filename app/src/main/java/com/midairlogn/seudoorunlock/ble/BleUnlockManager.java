@@ -279,7 +279,10 @@ public class BleUnlockManager {
                 }
 
                 BleResponse headerResponse = BleCommandBuilder.parseResponse(deviceId, headerResp);
-                if (!headerResponse.isSuccess()) {
+                if (!isValidResponse(headerResponse, BleCommandBuilder.CMD_CREDENTIAL_HEADER, "Credential header")) {
+                    return;
+                }
+                if (headerResponse.getResultCode() != 0) {
                     fail("Credential header rejected: " + headerResponse.getResultCode());
                     return;
                 }
@@ -290,7 +293,20 @@ public class BleUnlockManager {
                 // Step 2: Send 0x75 × 3 credential packets
                 byte[][] packets = BleCommandBuilder.buildCredentialPackets(deviceId, ran, PROJECT_ID, credentialHex);
                 for (int i = 0; i < 3; i++) {
-                    writeCharacteristic(packets[i]);
+                    byte[] packetResp = sendAndWaitForNotification(packets[i]);
+                    if (packetResp == null) {
+                        fail("No response to credential packet " + (i + 1));
+                        return;
+                    }
+                    BleResponse packetResponse = BleCommandBuilder.parseResponse(deviceId, packetResp);
+                    if (!isValidResponse(packetResponse, BleCommandBuilder.CMD_CREDENTIAL_PACKET,
+                        "Credential packet " + (i + 1))) {
+                        return;
+                    }
+                    if (packetResponse.getResultCode() != 0) {
+                        fail("Credential packet " + (i + 1) + " rejected: " + packetResponse.getResultCode());
+                        return;
+                    }
                     Thread.sleep(INTER_PACKET_DELAY_MS);
                 }
 
@@ -306,6 +322,9 @@ public class BleUnlockManager {
                 }
 
                 BleResponse openResponse = BleCommandBuilder.parseResponse(deviceId, openResp);
+                if (!isValidResponse(openResponse, BleCommandBuilder.CMD_OPEN_DOOR, "Open door")) {
+                    return;
+                }
                 if (openResponse.isSuccess()) {
                     success("Door opened successfully");
                 } else if (openResponse.getResultCode() == 27) {
@@ -335,6 +354,9 @@ public class BleUnlockManager {
             }
 
             BleResponse refetchResponse = BleCommandBuilder.parseResponse(deviceId, refetchResp);
+            if (!isValidResponse(refetchResponse, BleCommandBuilder.CMD_CREDENTIAL_REFETCH, "Credential refetch")) {
+                return;
+            }
             if (!refetchResponse.isSuccess()) {
                 fail("Credential refetch rejected: " + refetchResponse.getResultCode());
                 return;
@@ -358,6 +380,9 @@ public class BleUnlockManager {
                 byte[] readResp = sendAndWaitForNotification(readCmd);
                 if (readResp != null) {
                     BleResponse readResponse = BleCommandBuilder.parseResponse(deviceId, readResp);
+                    if (!isValidResponse(readResponse, BleCommandBuilder.CMD_READ_PACKET, "Read packet " + i)) {
+                        return;
+                    }
                     if (readResponse.plainData.length <= 1) {
                         fail("Read packet " + i + " response too short");
                         return;
@@ -406,6 +431,9 @@ public class BleUnlockManager {
             byte[] openResp = sendAndWaitForNotification(openCmd);
             if (openResp != null) {
                 BleResponse openResponse = BleCommandBuilder.parseResponse(deviceId, openResp);
+                if (!isValidResponse(openResponse, BleCommandBuilder.CMD_OPEN_DOOR, "Open door after refresh")) {
+                    return;
+                }
                 if (openResponse.isSuccess()) {
                     success("Door opened (after credential refresh)");
                 } else {
@@ -418,6 +446,18 @@ public class BleUnlockManager {
         } catch (Exception e) {
             fail("Credential refetch error: " + e.getMessage());
         }
+    }
+
+    private boolean isValidResponse(BleResponse response, int expectedCommand, String stage) {
+        if (response.commandType != expectedCommand) {
+            fail(stage + " response command mismatch: " + response.commandType);
+            return false;
+        }
+        if (!response.crcValid) {
+            fail(stage + " response CRC check failed");
+            return false;
+        }
+        return true;
     }
 
     private synchronized byte[] sendAndWaitForNotification(byte[] data) throws InterruptedException {
