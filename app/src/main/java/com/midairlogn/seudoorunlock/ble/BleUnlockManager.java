@@ -192,17 +192,14 @@ public class BleUnlockManager {
                 String normalizedAddr = device.getAddress().toUpperCase().replace(":", "").replace("-", "");
                 int advertisedDeviceId = parseDeviceId(deviceName);
 
-                boolean nameMatch = deviceName != null
-                    && (deviceName.equals(targetName)
-                        || deviceName.startsWith(targetName + "-")
-                        || deviceName.contains(targetName));
+                boolean nameMatch = matchesTargetName(deviceName, targetName);
                 boolean addrMatch = !targetAddress.isEmpty() && normalizedAddr.equals(targetAddress);
                 boolean deviceIdMatch = advertisedDeviceId != 0 && advertisedDeviceId == cachedDeviceId;
                 boolean serviceMatch = hasDoorService(scanRecord);
 
-                if (serviceMatch && result.getRssi() > fallbackRssi[0]) {
+                if (serviceMatch && deviceIdMatch && result.getRssi() > fallbackRssi[0]) {
                     fallbackDevice[0] = device;
-                    fallbackDeviceId[0] = advertisedDeviceId != 0 ? advertisedDeviceId : cachedDeviceId;
+                    fallbackDeviceId[0] = advertisedDeviceId;
                     fallbackRssi[0] = result.getRssi();
                 }
 
@@ -661,6 +658,16 @@ public class BleUnlockManager {
         } catch (NumberFormatException e) {
             return 0;
         }
+    }
+
+    private static boolean matchesTargetName(String deviceName, String targetName) {
+        if (deviceName == null) return false;
+        if (deviceName.equals(targetName)) return true;
+        if (!deviceName.startsWith(targetName) || deviceName.length() == targetName.length()) {
+            return false;
+        }
+        char delimiter = deviceName.charAt(targetName.length());
+        return delimiter == '-' || delimiter == '_' || delimiter == ' ';
     }
 
     private static String bytesToHex(byte[] bytes) {
