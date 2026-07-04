@@ -56,6 +56,10 @@
     <string name="settings_method_ble">蓝牙</string>
     <string name="settings_about">关于</string>
     <string name="settings_version">版本 %s</string>
+    <string name="settings_debug">调试</string>
+    <string name="settings_preserve_logs">保存日志</string>
+    <string name="settings_preserve_logs_desc">将日志保存到文件，用于故障排查</string>
+    <string name="settings_export_logs">导出日志</string>
 
     <!-- 主页面 -->
     <string name="nfc_ready">准备扫描</string>

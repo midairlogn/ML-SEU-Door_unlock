@@ -2,7 +2,6 @@ package com.midairlogn.seudoorunlock;
 
 import android.app.Application;
 import android.content.SharedPreferences;
-import android.util.Log;
 
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.os.LocaleListCompat;
@@ -14,8 +13,12 @@ public class App extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        LogManager.init(this, AppExecutors.getInstance());
         applySettings();
-        Log.d(TAG, "Application started");
+        boolean preserveLogs = getSharedPreferences(SettingsActivity.PREFS_NAME, MODE_PRIVATE)
+                .getBoolean(SettingsActivity.KEY_PRESERVE_LOGS, false);
+        LogManager.getInstance().setEnabled(preserveLogs);
+        LogManager.d(TAG, "Application started");
     }
 
     private void applySettings() {

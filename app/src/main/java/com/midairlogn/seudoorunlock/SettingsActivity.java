@@ -1,17 +1,23 @@
 package com.midairlogn.seudoorunlock;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Html;
 import android.text.method.LinkMovementMethod;
+import android.view.View;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.content.FileProvider;
 import androidx.core.os.LocaleListCompat;
 
 import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.materialswitch.MaterialSwitch;
 
 public class SettingsActivity extends AppCompatActivity {
 
@@ -19,6 +25,7 @@ public class SettingsActivity extends AppCompatActivity {
     public static final String KEY_LANGUAGE = "language";
     public static final String KEY_THEME = "theme";
     public static final String KEY_DEFAULT_METHOD = "default_method";
+    public static final String KEY_PRESERVE_LOGS = "preserve_logs";
 
     public static final String LANG_SYSTEM = "system";
     public static final String LANG_EN = "en";
@@ -34,6 +41,8 @@ public class SettingsActivity extends AppCompatActivity {
     private RadioGroup rgLanguage;
     private RadioGroup rgTheme;
     private RadioGroup rgDefaultMethod;
+    private MaterialSwitch switchPreserveLogs;
+    private MaterialButton btnExportLogs;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,9 +57,12 @@ public class SettingsActivity extends AppCompatActivity {
         rgLanguage = findViewById(R.id.rgLanguage);
         rgTheme = findViewById(R.id.rgTheme);
         rgDefaultMethod = findViewById(R.id.rgDefaultMethod);
+        switchPreserveLogs = findViewById(R.id.switchPreserveLogs);
+        btnExportLogs = findViewById(R.id.btnExportLogs);
 
         loadSettings();
         setupListeners();
+        setupDebugSection();
 
         TextView tvVersion = findViewById(R.id.tvVersion);
         tvVersion.setMovementMethod(LinkMovementMethod.getInstance());
@@ -152,5 +164,50 @@ public class SettingsActivity extends AppCompatActivity {
 
     public static String getDefaultMethod(SharedPreferences prefs) {
         return prefs.getString(KEY_DEFAULT_METHOD, METHOD_NFC);
+    }
+
+    private void setupDebugSection() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        boolean preserveLogs = prefs.getBoolean(KEY_PRESERVE_LOGS, false);
+        switchPreserveLogs.setChecked(preserveLogs);
+        updateExportButtonVisibility();
+
+        switchPreserveLogs.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit().putBoolean(KEY_PRESERVE_LOGS, isChecked).apply();
+            LogManager logManager = LogManager.getInstance();
+            if (logManager != null) {
+                logManager.setEnabled(isChecked);
+            }
+            updateExportButtonVisibility();
+        });
+
+        btnExportLogs.setOnClickListener(v -> exportLogs());
+    }
+
+    private void updateExportButtonVisibility() {
+        LogManager logManager = LogManager.getInstance();
+        boolean hasLogs = logManager != null && logManager.hasLogFile();
+        btnExportLogs.setVisibility(
+                switchPreserveLogs.isChecked() && hasLogs ? View.VISIBLE : View.GONE);
+    }
+
+    private void exportLogs() {
+        LogManager logManager = LogManager.getInstance();
+        if (logManager == null || !logManager.hasLogFile()) return;
+
+        logManager.flush();
+        try {
+            Uri uri = FileProvider.getUriForFile(this,
+                    getApplicationContext().getPackageName() + ".fileprovider",
+                    logManager.getLogFile());
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType("text/plain");
+            shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
+            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(shareIntent, getString(R.string.settings_export_logs)));
+        } catch (Exception e) {
+            android.util.Log.e("ZL_Settings", "Failed to export logs", e);
+        }
     }
 }

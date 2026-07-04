@@ -6,7 +6,7 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.util.Log;
+import com.midairlogn.seudoorunlock.LogManager;
 
 import com.alipay.android.app.IAlixPay;
 import com.alipay.android.app.IRemoteServiceCallback;
@@ -49,7 +49,7 @@ public class AlipayAuth {
         ServiceConnection connection = new ServiceConnection() {
             @Override
             public void onServiceConnected(ComponentName name, IBinder binder) {
-                Log.d(TAG, "onServiceConnected " + name);
+                LogManager.d(TAG, "onServiceConnected " + name);
                 binderHolder[0] = binder;
                 latch.countDown();
             }
@@ -66,10 +66,10 @@ public class AlipayAuth {
         try {
             bound = appContext.bindService(intent, connection, Context.BIND_AUTO_CREATE);
         } catch (Throwable e) {
-            Log.e(TAG, "bindService threw", e);
+            LogManager.e(TAG, "bindService threw", e);
             bound = false;
         }
-        Log.d(TAG, "bindService bound=" + bound);
+        LogManager.d(TAG, "bindService bound=" + bound);
 
         if (!bound) {
             try { appContext.unbindService(connection); } catch (Exception ignored) {}
@@ -89,7 +89,7 @@ public class AlipayAuth {
             IRemoteServiceCallback callback = new IRemoteServiceCallback.Stub() {
                 @Override
                 public void startActivity(String packageName, String className, int flag, Bundle data) {
-                    Log.d(TAG, "cb.startActivity pkg=" + packageName + " cls=" + className + " flag=" + flag);
+                    LogManager.d(TAG, "cb.startActivity pkg=" + packageName + " cls=" + className + " flag=" + flag);
                     try {
                         Intent ui = new Intent(Intent.ACTION_MAIN);
                         if (packageName != null && className != null) {
@@ -102,13 +102,13 @@ public class AlipayAuth {
                         ui.putExtras(extras);
                         appContext.startActivity(ui);
                     } catch (Throwable e) {
-                        Log.e(TAG, "cb.startActivity failed", e);
+                        LogManager.e(TAG, "cb.startActivity failed", e);
                     }
                 }
 
                 @Override
                 public void payEnd(boolean isOk, String result) {
-                    Log.d(TAG, "cb.payEnd isOk=" + isOk + " result=" + result);
+                    LogManager.d(TAG, "cb.payEnd isOk=" + isOk + " result=" + result);
                 }
 
                 @Override
@@ -123,7 +123,7 @@ public class AlipayAuth {
 
                 @Override
                 public void r03(String a, String b, Map data) {
-                    Log.d(TAG, "cb.r03 a=" + a + " b=" + b);
+                    LogManager.d(TAG, "cb.r03 a=" + a + " b=" + b);
                 }
             };
 
@@ -131,10 +131,10 @@ public class AlipayAuth {
             try {
                 version = alixPay.getVersion();
             } catch (Throwable e) {
-                Log.e(TAG, "getVersion failed", e);
+                LogManager.e(TAG, "getVersion failed", e);
                 version = 0;
             }
-            Log.d(TAG, "IAlixPay version=" + version);
+            LogManager.d(TAG, "IAlixPay version=" + version);
 
             try {
                 if (version >= 3) {
@@ -142,25 +142,25 @@ public class AlipayAuth {
                     try {
                         alixPay.r03("alipaySdk", "bind_pay", null);
                     } catch (Throwable e) {
-                        Log.e(TAG, "r03 failed", e);
+                        LogManager.e(TAG, "r03 failed", e);
                     }
                 } else {
                     alixPay.registerCallback(callback);
                 }
 
-                Log.d(TAG, "invoking pay (version=" + version + ")...");
+                LogManager.d(TAG, "invoking pay (version=" + version + ")...");
                 String raw;
                 if (version >= 2) {
                     raw = alixPay.pay02(authInfo, buildTraceMap(authInfo, bindStart, bindEnd));
                 } else {
                     raw = alixPay.Pay(authInfo);
                 }
-                Log.d(TAG, "pay returned: " + raw);
+                LogManager.d(TAG, "pay returned: " + raw);
                 return parseAuthCode(raw);
             } catch (AlipayAuthException e) {
                 throw e;
             } catch (Throwable e) {
-                Log.e(TAG, "pay invoke failed", e);
+                LogManager.e(TAG, "pay invoke failed", e);
                 throw new AlipayAuthException("Alipay authorization call failed: " + e.getMessage());
             } finally {
                 try { alixPay.unregisterCallback(callback); } catch (Throwable ignored) {}
@@ -168,7 +168,7 @@ public class AlipayAuth {
         } catch (AlipayAuthException e) {
             throw e;
         } catch (Throwable e) {
-            Log.e(TAG, "authorize error", e);
+            LogManager.e(TAG, "authorize error", e);
             throw new AlipayAuthException("Alipay authorization error: " + e.getMessage());
         } finally {
             try { appContext.unbindService(connection); } catch (Throwable ignored) {}

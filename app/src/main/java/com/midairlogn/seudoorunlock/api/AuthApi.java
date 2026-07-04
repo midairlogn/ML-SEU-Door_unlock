@@ -2,9 +2,8 @@ package com.midairlogn.seudoorunlock.api;
 
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
-
 import com.midairlogn.seudoorunlock.AppExecutors;
+import com.midairlogn.seudoorunlock.LogManager;
 import com.midairlogn.seudoorunlock.model.LoginResponse;
 import com.midairlogn.seudoorunlock.storage.CredentialCache;
 
@@ -64,11 +63,11 @@ public class AuthApi {
                 }
 
                 String responseJson = api.executeAuthRequest(urlBuilder);
-                Log.d(TAG, "Login response length: " + responseJson.length());
-                Log.d(TAG, "Login response preview: " + responseJson.substring(0, Math.min(300, responseJson.length())));
+                LogManager.d(TAG, "Login response length: " + responseJson.length());
+                LogManager.d(TAG, "Login response preview: " + responseJson.substring(0, Math.min(300, responseJson.length())));
 
                 if (ApiClient.isCaptchaRequired(responseJson)) {
-                    Log.d(TAG, "Captcha required");
+                    LogManager.d(TAG, "Captcha required");
                     mainHandler.post(callback::onCaptchaRequired);
                     return;
                 }
@@ -77,32 +76,32 @@ public class AuthApi {
                 try {
                     dataStr = ApiClient.extractDataField(responseJson);
                 } catch (Exception e) {
-                    Log.e(TAG, "Failed to extract data field from response", e);
-                    Log.d(TAG, "Raw response: " + responseJson);
+                    LogManager.e(TAG, "Failed to extract data field from response", e);
+                    LogManager.d(TAG, "Raw response: " + responseJson);
                     mainHandler.post(() -> callback.onError("Server response error: " + e.getMessage()));
                     return;
                 }
 
-                Log.d(TAG, "Decoded data preview: " + dataStr.substring(0, Math.min(300, dataStr.length())));
+                LogManager.d(TAG, "Decoded data preview: " + dataStr.substring(0, Math.min(300, dataStr.length())));
 
                 LoginResponse loginResponse;
                 try {
                     loginResponse = LoginResponse.fromJson(dataStr);
                 } catch (Exception e) {
-                    Log.e(TAG, "Failed to parse login response from data", e);
-                    Log.d(TAG, "Data string: " + dataStr);
+                    LogManager.e(TAG, "Failed to parse login response from data", e);
+                    LogManager.d(TAG, "Data string: " + dataStr);
                     mainHandler.post(() -> callback.onError("Failed to parse server response: " + e.getMessage()));
                     return;
                 }
 
                 if (loginResponse.userInfo == null || loginResponse.userInfo.id.isEmpty()) {
-                    Log.e(TAG, "Login response missing user info");
+                    LogManager.e(TAG, "Login response missing user info");
                     mainHandler.post(() -> callback.onError("Server did not return user info"));
                     return;
                 }
 
                 if (loginResponse.serverInfo == null || loginResponse.serverInfo.serverAddr.isEmpty()) {
-                    Log.e(TAG, "Login response missing server info");
+                    LogManager.e(TAG, "Login response missing server info");
                     mainHandler.post(() -> callback.onError("Server did not return server info"));
                     return;
                 }
@@ -116,14 +115,14 @@ public class AuthApi {
                     loginResponse.serverInfo.serverAddr
                 );
 
-                Log.d(TAG, "Session saved, navigating to main");
+                LogManager.d(TAG, "Session saved, navigating to main");
                 mainHandler.post(() -> callback.onSuccess(loginResponse));
 
             } catch (IOException e) {
-                Log.e(TAG, "Login network error", e);
+                LogManager.e(TAG, "Login network error", e);
                 mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
             } catch (Exception e) {
-                Log.e(TAG, "Login error", e);
+                LogManager.e(TAG, "Login error", e);
                 mainHandler.post(() -> callback.onError("Error: " + e.getMessage()));
             }
         });
@@ -139,7 +138,7 @@ public class AuthApi {
                 String svgCode = fetchLoginCaptchaSvg(phone);
                 mainHandler.post(() -> callback.onSuccess(svgCode));
             } catch (Exception e) {
-                Log.e(TAG, "Captcha error", e);
+                LogManager.e(TAG, "Captcha error", e);
                 mainHandler.post(() -> callback.onError("Failed to get captcha: " + e.getMessage()));
             }
         });
@@ -264,7 +263,7 @@ public class AuthApi {
                     .addQueryParameter("app_version", "1.0.0");
 
                 String responseJson = api.executeAuthRequest(urlBuilder);
-                Log.d(TAG, "OAuth login response length: " + responseJson.length());
+                LogManager.d(TAG, "OAuth login response length: " + responseJson.length());
 
                 if (ApiClient.isCaptchaRequired(responseJson)) {
                     mainHandler.post(() -> callback.onError("Captcha required for OAuth login"));
@@ -275,7 +274,7 @@ public class AuthApi {
                 try {
                     dataStr = ApiClient.extractDataField(responseJson);
                 } catch (Exception e) {
-                    Log.e(TAG, "Failed to extract data from OAuth response", e);
+                    LogManager.e(TAG, "Failed to extract data from OAuth response", e);
                     mainHandler.post(() -> callback.onError("Server response error: " + e.getMessage()));
                     return;
                 }
@@ -284,7 +283,7 @@ public class AuthApi {
                 try {
                     loginResponse = LoginResponse.fromJson(dataStr);
                 } catch (Exception e) {
-                    Log.e(TAG, "Failed to parse OAuth login response", e);
+                    LogManager.e(TAG, "Failed to parse OAuth login response", e);
                     mainHandler.post(() -> callback.onError("Failed to parse server response: " + e.getMessage()));
                     return;
                 }
@@ -310,11 +309,11 @@ public class AuthApi {
                     loginResponse.serverInfo.serverAddr
                 );
 
-                Log.d(TAG, "OAuth session saved");
+                LogManager.d(TAG, "OAuth session saved");
                 mainHandler.post(() -> callback.onSuccess(loginResponse));
 
             } catch (Exception e) {
-                Log.e(TAG, "OAuth login error", e);
+                LogManager.e(TAG, "OAuth login error", e);
                 mainHandler.post(() -> callback.onError("Error: " + e.getMessage()));
             }
         });

@@ -19,7 +19,6 @@ import android.nfc.Tag;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -37,6 +36,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.midairlogn.seudoorunlock.LogManager;
 import com.midairlogn.seudoorunlock.R;
 import com.midairlogn.seudoorunlock.SettingsActivity;
 import com.midairlogn.seudoorunlock.api.AuthApi;
@@ -613,17 +613,17 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onError(String message) {
-                Log.w(TAG, "Lightweight refresh failed: " + message + ", trying full re-login");
+                LogManager.w(TAG, "Lightweight refresh failed: " + message + ", trying full re-login");
                 String phone = cache.getPhone();
                 String password = cache.getPassword();
                 if (phone.isEmpty() || password.isEmpty()) {
-                    Log.w(TAG, "No stored credentials for fallback re-login");
+                    LogManager.w(TAG, "No stored credentials for fallback re-login");
                     return;
                 }
                 getAuthApi().autoReLogin(cache, new AuthApi.AuthCallback() {
                     @Override
                     public void onSuccess(com.midairlogn.seudoorunlock.model.LoginResponse response) {
-                        Log.d(TAG, "Re-login succeeded, re-syncing credentials");
+                        LogManager.d(TAG, "Re-login succeeded, re-syncing credentials");
         getCredentialApi().syncDoorLockInfo(new CredentialApi.SyncCallback() {
                             @Override
                             public void onSuccess(DoorLockInfo info) {
@@ -631,19 +631,19 @@ public class MainActivity extends AppCompatActivity {
                             }
                             @Override
                             public void onError(String msg) {
-                                Log.e(TAG, "Credential sync after re-login failed: " + msg);
+                                LogManager.e(TAG, "Credential sync after re-login failed: " + msg);
                             }
                         });
                     }
 
                     @Override
                     public void onCaptchaRequired() {
-                        Log.w(TAG, "Captcha required during re-login fallback");
+                        LogManager.w(TAG, "Captcha required during re-login fallback");
                     }
 
                     @Override
                     public void onError(String msg) {
-                        Log.e(TAG, "Fallback re-login failed: " + msg);
+                        LogManager.e(TAG, "Fallback re-login failed: " + msg);
                     }
                 });
             }

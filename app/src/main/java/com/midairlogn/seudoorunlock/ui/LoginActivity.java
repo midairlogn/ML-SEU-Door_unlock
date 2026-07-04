@@ -4,7 +4,6 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.Html;
 import android.text.method.LinkMovementMethod;
-import android.util.Log;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
@@ -15,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.button.MaterialButton;
 import com.midairlogn.seudoorunlock.BuildConfig;
+import com.midairlogn.seudoorunlock.LogManager;
 import com.midairlogn.seudoorunlock.R;
 import com.midairlogn.seudoorunlock.SettingsActivity;
 import com.midairlogn.seudoorunlock.alipay.AlipayAuth;
@@ -78,10 +78,10 @@ public class LoginActivity extends AppCompatActivity {
         oauthExecutor.execute(() -> {
             try {
                 String authInfo = getAuthApi().fetchAlipayAuthInfo();
-                Log.d(TAG, "Got auth_info, launching Alipay...");
+                LogManager.d(TAG, "Got auth_info, launching Alipay...");
 
                 String authCode = AlipayAuth.authorize(LoginActivity.this, authInfo);
-                Log.d(TAG, "Got auth_code: " + authCode.substring(0, Math.min(8, authCode.length())) + "...");
+                LogManager.d(TAG, "Got auth_code: " + authCode.substring(0, Math.min(8, authCode.length())) + "...");
 
                 runOnUiThread(() -> Toast.makeText(LoginActivity.this, "Completing login...", Toast.LENGTH_SHORT).show());
 
@@ -101,13 +101,13 @@ public class LoginActivity extends AppCompatActivity {
                 });
 
             } catch (AlipayAuth.AlipayAuthException e) {
-                Log.e(TAG, "Alipay auth failed", e);
+                LogManager.e(TAG, "Alipay auth failed", e);
                 runOnUiThread(() -> {
                     setLoading(false);
                     Toast.makeText(LoginActivity.this, e.getMessage(), Toast.LENGTH_LONG).show();
                 });
             } catch (Exception e) {
-                Log.e(TAG, "Alipay login failed", e);
+                LogManager.e(TAG, "Alipay login failed", e);
                 runOnUiThread(() -> {
                     setLoading(false);
                     Toast.makeText(LoginActivity.this, "Alipay login error: " + e.getMessage(), Toast.LENGTH_LONG).show();
@@ -132,19 +132,19 @@ public class LoginActivity extends AppCompatActivity {
 
             @Override
             public void onError(String message) {
-                Log.w(TAG, "Door lock sync failed: " + message);
+                LogManager.w(TAG, "Door lock sync failed: " + message);
                 navigateToMain();
             }
         });
     }
 
     private void navigateToMain() {
-        Log.d(TAG, "navigateToMain called");
+        LogManager.d(TAG, "navigateToMain called");
         Intent intent = new Intent(this, com.midairlogn.seudoorunlock.ui.MainActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
-        Log.d(TAG, "navigateToMain completed");
+        LogManager.d(TAG, "navigateToMain completed");
     }
 
     private void setupVersionInfo() {

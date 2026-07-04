@@ -2,9 +2,8 @@ package com.midairlogn.seudoorunlock.api;
 
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
-
 import com.midairlogn.seudoorunlock.AppExecutors;
+import com.midairlogn.seudoorunlock.LogManager;
 import com.midairlogn.seudoorunlock.model.DoorLockInfo;
 import com.midairlogn.seudoorunlock.storage.CredentialCache;
 
@@ -71,7 +70,7 @@ public class CredentialApi {
                 }
 
                 if (credential.isEmpty() || !credential.matches("^[0-9A-Fa-f]{64}$")) {
-                    Log.d(TAG, "Credential missing or invalid, fetching from credentials endpoint");
+                    LogManager.d(TAG, "Credential missing or invalid, fetching from credentials endpoint");
                     HttpUrl.Builder credBuilder = HttpUrl.parse(
                         serverUrl + "/webapi/v1/staff/door_lock/credentials")
                         .newBuilder()
@@ -114,13 +113,13 @@ public class CredentialApi {
                 mainHandler.post(() -> callback.onSuccess(info));
 
             } catch (IOException e) {
-                Log.e(TAG, "Sync network error", e);
+                LogManager.e(TAG, "Sync network error", e);
                 mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
             } catch (JSONException e) {
-                Log.e(TAG, "Sync parse error", e);
+                LogManager.e(TAG, "Sync parse error", e);
                 mainHandler.post(() -> callback.onError("Parse error: " + e.getMessage()));
             } catch (Exception e) {
-                Log.e(TAG, "Sync error", e);
+                LogManager.e(TAG, "Sync error", e);
                 mainHandler.post(() -> callback.onError("Error: " + e.getMessage()));
             }
         });
@@ -167,7 +166,7 @@ public class CredentialApi {
                 mainHandler.post(() -> callback.onSuccess(info));
 
             } catch (Exception e) {
-                Log.e(TAG, "Credential sync error", e);
+                LogManager.e(TAG, "Credential sync error", e);
                 mainHandler.post(() -> callback.onError("Error: " + e.getMessage()));
             }
         });

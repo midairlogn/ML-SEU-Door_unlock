@@ -1,7 +1,7 @@
 package com.midairlogn.seudoorunlock.api;
 
 import android.util.Base64;
-import android.util.Log;
+import com.midairlogn.seudoorunlock.LogManager;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -100,16 +100,16 @@ public class ApiClient {
             }
             return hex.toString();
         } catch (Exception e) {
-            Log.e(TAG, "Sign failed", e);
+            LogManager.e(TAG, "Sign failed", e);
             return "";
         }
     }
 
     public String executeRequest(Request request) throws IOException {
-        Log.d(TAG, "Request: " + request.url());
+        LogManager.d(TAG, "Request: " + request.url());
         try (Response response = client.newCall(request).execute()) {
             String body = response.body() != null ? response.body().string() : "";
-            Log.d(TAG, "Response code: " + response.code());
+            LogManager.d(TAG, "Response code: " + response.code());
             return body;
         }
     }
