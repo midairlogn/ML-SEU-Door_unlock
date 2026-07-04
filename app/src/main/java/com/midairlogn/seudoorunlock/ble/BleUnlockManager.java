@@ -10,6 +10,7 @@ import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
@@ -17,6 +18,7 @@ import android.content.Context;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.ParcelUuid;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -27,8 +29,10 @@ import com.midairlogn.seudoorunlock.model.BleResponse;
 import com.midairlogn.seudoorunlock.storage.CredentialCache;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BleUnlockManager {
 
@@ -40,7 +44,10 @@ public class BleUnlockManager {
     private static final UUID CCCD_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
 
     private static final int CONNECT_TIMEOUT_MS = 10000;
-    private static final int OPERATION_TIMEOUT_MS = 5000;
+    private static final int OPERATION_TIMEOUT_MS = 10000;
+    private static final int SCAN_TIMEOUT_MS = 3000;
+    private static final int CONNECT_RETRY_COUNT = 3;
+    private static final int RETRY_DELAY_MS = 800;
     private static final int INTER_PACKET_DELAY_MS = 10;
     private static final int PRE_OPEN_DELAY_MS = 50;
     private static final int PROJECT_ID = 21048;
@@ -63,13 +70,15 @@ public class BleUnlockManager {
     private BluetoothGattCharacteristic writeCharacteristic;
     private BluetoothGattCharacteristic readCharacteristic;
     private BleCallback pendingCallback;
+    private BluetoothDevice targetDevice;
+    private int connectAttempt;
+    private int activeDeviceId;
+    private boolean unlockFlowStarted;
+    private boolean operationFinished;
 
-    private byte[] pendingData;
-    private int pendingIndex;
-    private int pendingTotal;
-    private int pendingRan;
     private boolean waitingForNotification = false;
     private byte[] lastNotificationData;
+    private boolean waitingForDescriptor = false;
 
     public BleUnlockManager(Context context, CredentialCache cache) {
         this.context = context;
@@ -115,7 +124,7 @@ public class BleUnlockManager {
             Log.d(TAG, "Attempting direct connect to cached MAC: " + cachedMac);
             BluetoothDevice device = bluetoothAdapter.getRemoteDevice(cachedMac);
             if (device != null) {
-                connectToDevice(device);
+                connectToDevice(device, deviceId);
                 return;
             }
         }
@@ -126,14 +135,38 @@ public class BleUnlockManager {
     }
 
     @SuppressLint("MissingPermission")
-    private void connectToDevice(BluetoothDevice device) {
+    private void connectToDevice(BluetoothDevice device, int deviceId) {
+        targetDevice = device;
+        activeDeviceId = deviceId;
+        connectAttempt = 0;
+        unlockFlowStarted = false;
+        operationFinished = false;
+        connectNextAttempt();
+    }
+
+    @SuppressLint("MissingPermission")
+    private void connectNextAttempt() {
+        cleanupGattOnly();
+        connectAttempt++;
+        Log.d(TAG, "Connecting to " + targetDevice.getAddress() + " attempt " + connectAttempt);
         scheduleTimeout(CONNECT_TIMEOUT_MS, "Connection timed out");
-        bluetoothGatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE);
+        bluetoothGatt = targetDevice.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE);
+    }
+
+    private void retryOrFail(String message) {
+        if (operationFinished) return;
+        if (targetDevice != null && connectAttempt < CONNECT_RETRY_COUNT) {
+            Log.w(TAG, message + ", retrying BLE connection");
+            timeoutHandler.postDelayed(this::connectNextAttempt, RETRY_DELAY_MS);
+        } else {
+            fail(message);
+        }
     }
 
     @SuppressLint("MissingPermission")
     private void startScanAndConnect() {
-        String targetName = "XN-" + cache.getDeviceId();
+        int cachedDeviceId = cache.getDeviceId();
+        String targetName = "XN-" + cachedDeviceId;
         String targetAddress = cache.getBleMac().toUpperCase().replace(":", "").replace("-", "");
         Log.d(TAG, "Scanning for: " + targetName + " addr=" + targetAddress);
 
@@ -143,21 +176,42 @@ public class BleUnlockManager {
             return;
         }
 
+        final BluetoothDevice[] fallbackDevice = new BluetoothDevice[1];
+        final int[] fallbackDeviceId = new int[]{cachedDeviceId};
+        final int[] fallbackRssi = new int[]{Integer.MIN_VALUE};
+        final AtomicBoolean matched = new AtomicBoolean(false);
+
         ScanCallback scanCallback = new ScanCallback() {
             @Override
             public void onScanResult(int callbackType, ScanResult result) {
                 BluetoothDevice device = result.getDevice();
-                String deviceName = device.getName();
+                ScanRecord scanRecord = result.getScanRecord();
+                String deviceName = scanRecord != null && scanRecord.getDeviceName() != null
+                    ? scanRecord.getDeviceName()
+                    : device.getName();
                 String normalizedAddr = device.getAddress().toUpperCase().replace(":", "").replace("-", "");
+                int advertisedDeviceId = parseDeviceId(deviceName);
 
-                boolean nameMatch = deviceName != null && deviceName.equals(targetName);
+                boolean nameMatch = deviceName != null
+                    && (deviceName.equals(targetName)
+                        || deviceName.startsWith(targetName + "-")
+                        || deviceName.contains(targetName));
                 boolean addrMatch = !targetAddress.isEmpty() && normalizedAddr.equals(targetAddress);
+                boolean deviceIdMatch = advertisedDeviceId != 0 && advertisedDeviceId == cachedDeviceId;
+                boolean serviceMatch = hasDoorService(scanRecord);
 
-                if (nameMatch || addrMatch) {
+                if (serviceMatch && result.getRssi() > fallbackRssi[0]) {
+                    fallbackDevice[0] = device;
+                    fallbackDeviceId[0] = advertisedDeviceId != 0 ? advertisedDeviceId : cachedDeviceId;
+                    fallbackRssi[0] = result.getRssi();
+                }
+
+                if ((nameMatch || addrMatch || deviceIdMatch) && matched.compareAndSet(false, true)) {
                     scanner.stopScan(this);
                     Log.d(TAG, "Found device: " + (deviceName != null ? deviceName : device.getAddress())
-                        + " match=" + (nameMatch ? "name" : "address"));
-                    mainHandler.post(() -> connectToDevice(device));
+                        + " match=" + (nameMatch ? "name" : addrMatch ? "address" : "deviceId"));
+                    int resolvedDeviceId = advertisedDeviceId != 0 ? advertisedDeviceId : cachedDeviceId;
+                    mainHandler.post(() -> connectToDevice(device, resolvedDeviceId));
                 }
             }
         };
@@ -166,10 +220,15 @@ public class BleUnlockManager {
 
         timeoutHandler.postDelayed(() -> {
             scanner.stopScan(scanCallback);
-            if (bluetoothGatt == null && pendingCallback != null) {
-                pendingCallback.onError("Device not found nearby");
+            if (bluetoothGatt == null && pendingCallback != null && matched.compareAndSet(false, true)) {
+                if (fallbackDevice[0] != null) {
+                    Log.d(TAG, "Using BLE service UUID fallback: " + fallbackDevice[0].getAddress());
+                    connectToDevice(fallbackDevice[0], fallbackDeviceId[0]);
+                } else {
+                    pendingCallback.onError("Device not found nearby");
+                }
             }
-        }, CONNECT_TIMEOUT_MS);
+        }, SCAN_TIMEOUT_MS);
     }
 
     private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
@@ -182,8 +241,10 @@ public class BleUnlockManager {
                 gatt.discoverServices();
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.d(TAG, "Disconnected");
-                cleanupGatt();
-                if (pendingCallback != null && !waitingForNotification) {
+                cleanupGattOnly();
+                if (!unlockFlowStarted && !operationFinished) {
+                    retryOrFail("Disconnected");
+                } else if (pendingCallback != null && !waitingForNotification && !operationFinished) {
                     mainHandler.post(() -> pendingCallback.onError("Disconnected"));
                 }
             }
@@ -194,18 +255,16 @@ public class BleUnlockManager {
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             if (status != BluetoothGatt.GATT_SUCCESS) {
                 Log.e(TAG, "Service discovery failed: " + status);
-                mainHandler.post(() -> {
-                    if (pendingCallback != null) pendingCallback.onError("Service discovery failed");
-                });
+                cleanupGattOnly();
+                retryOrFail("Service discovery failed");
                 return;
             }
 
             BluetoothGattService service = gatt.getService(SERVICE_UUID);
             if (service == null) {
                 Log.e(TAG, "Door lock service not found");
-                mainHandler.post(() -> {
-                    if (pendingCallback != null) pendingCallback.onError("Door lock service not found");
-                });
+                cleanupGattOnly();
+                retryOrFail("Door lock service not found");
                 return;
             }
 
@@ -213,25 +272,50 @@ public class BleUnlockManager {
             readCharacteristic = service.getCharacteristic(READ_UUID);
 
             if (writeCharacteristic == null || readCharacteristic == null) {
-                mainHandler.post(() -> {
-                    if (pendingCallback != null) pendingCallback.onError("Characteristics not found");
-                });
+                cleanupGattOnly();
+                retryOrFail("Characteristics not found");
                 return;
             }
 
             // Enable notifications on read characteristic
             gatt.setCharacteristicNotification(readCharacteristic, true);
             BluetoothGattDescriptor descriptor = readCharacteristic.getDescriptor(CCCD_UUID);
-            if (descriptor != null) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    gatt.writeDescriptor(descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                } else {
-                    descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                    gatt.writeDescriptor(descriptor);
-                }
+            if (descriptor == null) {
+                cleanupGattOnly();
+                retryOrFail("Notification descriptor not found");
+                return;
             }
 
-            Log.d(TAG, "Services discovered, starting unlock flow");
+            waitingForDescriptor = true;
+            boolean writeStarted;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                writeStarted = gatt.writeDescriptor(descriptor,
+                    BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) == 0;
+            } else {
+                descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                writeStarted = gatt.writeDescriptor(descriptor);
+            }
+            if (!writeStarted) {
+                waitingForDescriptor = false;
+                cleanupGattOnly();
+                retryOrFail("Failed to enable notifications");
+                return;
+            }
+
+            scheduleTimeout(OPERATION_TIMEOUT_MS, "Notification setup timed out");
+        }
+
+        @Override
+        public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
+            if (!CCCD_UUID.equals(descriptor.getUuid())) return;
+            waitingForDescriptor = false;
+            timeoutHandler.removeCallbacksAndMessages(null);
+            if (status != BluetoothGatt.GATT_SUCCESS) {
+                cleanupGattOnly();
+                retryOrFail("Notification setup failed: " + status);
+                return;
+            }
+            Log.d(TAG, "Notifications enabled, starting unlock flow");
             mainHandler.post(() -> startUnlockFlow());
         }
 
@@ -267,7 +351,8 @@ public class BleUnlockManager {
     private void startUnlockFlow() {
         executor.execute(() -> {
             try {
-                int deviceId = cache.getDeviceId();
+                unlockFlowStarted = true;
+                int deviceId = activeDeviceId != 0 ? activeDeviceId : cache.getDeviceId();
                 String credentialHex = cache.getCredentialHex();
 
                 // Step 1: Send 0x74 credential header
@@ -374,25 +459,45 @@ public class BleUnlockManager {
 
             Log.d(TAG, "Refetch: packets=" + packetCount + " credLen=" + credentialLength + " expectedCrc=" + expectedCrc);
 
-            byte[] credentialBytes = new byte[0];
+            if (packetCount <= 0 || credentialLength <= 0) {
+                fail("Credential refetch returned invalid packet metadata");
+                return;
+            }
+
+            byte[][] chunks = new byte[packetCount][];
             for (int i = 0; i < packetCount; i++) {
                 byte[] readCmd = BleCommandBuilder.buildReadPacket(deviceId, i);
                 byte[] readResp = sendAndWaitForNotification(readCmd);
-                if (readResp != null) {
-                    BleResponse readResponse = BleCommandBuilder.parseResponse(deviceId, readResp);
-                    if (!isValidResponse(readResponse, BleCommandBuilder.CMD_READ_PACKET, "Read packet " + i)) {
-                        return;
-                    }
-                    if (readResponse.plainData.length <= 1) {
-                        fail("Read packet " + i + " response too short");
-                        return;
-                    }
-                    byte[] chunk = Arrays.copyOfRange(readResponse.plainData, 1, readResponse.plainData.length);
-                    byte[] newCred = new byte[credentialBytes.length + chunk.length];
-                    System.arraycopy(credentialBytes, 0, newCred, 0, credentialBytes.length);
-                    System.arraycopy(chunk, 0, newCred, credentialBytes.length, chunk.length);
-                    credentialBytes = newCred;
+                if (readResp == null) {
+                    fail("No response to read packet " + i);
+                    return;
                 }
+                BleResponse readResponse = BleCommandBuilder.parseResponse(deviceId, readResp);
+                if (!isValidResponse(readResponse, BleCommandBuilder.CMD_READ_PACKET, "Read packet " + i)) {
+                    return;
+                }
+                if (readResponse.plainData.length <= 1) {
+                    fail("Read packet " + i + " response too short");
+                    return;
+                }
+                int packetIndex = readResponse.plainData[0] & 0xFF;
+                if (packetIndex >= packetCount) {
+                    fail("Read packet index out of range: " + packetIndex);
+                    return;
+                }
+                chunks[packetIndex] = Arrays.copyOfRange(readResponse.plainData, 1, readResponse.plainData.length);
+            }
+
+            byte[] credentialBytes = new byte[0];
+            for (int i = 0; i < packetCount; i++) {
+                if (chunks[i] == null) {
+                    fail("Missing credential packet " + i);
+                    return;
+                }
+                byte[] newCred = new byte[credentialBytes.length + chunks[i].length];
+                System.arraycopy(credentialBytes, 0, newCred, 0, credentialBytes.length);
+                System.arraycopy(chunks[i], 0, newCred, credentialBytes.length, chunks[i].length);
+                credentialBytes = newCred;
             }
 
             if (credentialLength > 0 && credentialBytes.length >= credentialLength) {
@@ -488,14 +593,19 @@ public class BleUnlockManager {
 
     private void scheduleTimeout(int delayMs, String message) {
         timeoutHandler.postDelayed(() -> {
-            if (pendingCallback != null) {
-                cleanupGatt();
-                pendingCallback.onError(message);
+            if (pendingCallback != null && !operationFinished) {
+                if (!unlockFlowStarted && targetDevice != null) {
+                    cleanupGattOnly();
+                    retryOrFail(message);
+                } else {
+                    fail(message);
+                }
             }
         }, delayMs);
     }
 
     private void success(String message) {
+        operationFinished = true;
         cleanupGatt();
         mainHandler.post(() -> {
             if (pendingCallback != null) pendingCallback.onSuccess(message);
@@ -503,6 +613,7 @@ public class BleUnlockManager {
     }
 
     private void fail(String message) {
+        operationFinished = true;
         cleanupGatt();
         mainHandler.post(() -> {
             if (pendingCallback != null) pendingCallback.onError(message);
@@ -512,6 +623,11 @@ public class BleUnlockManager {
     @SuppressLint("MissingPermission")
     private void cleanupGatt() {
         timeoutHandler.removeCallbacksAndMessages(null);
+        cleanupGattOnly();
+    }
+
+    @SuppressLint("MissingPermission")
+    private void cleanupGattOnly() {
         if (bluetoothGatt != null) {
             bluetoothGatt.disconnect();
             bluetoothGatt.close();
@@ -519,6 +635,32 @@ public class BleUnlockManager {
         }
         writeCharacteristic = null;
         readCharacteristic = null;
+        waitingForDescriptor = false;
+    }
+
+    private static boolean hasDoorService(ScanRecord scanRecord) {
+        if (scanRecord == null) return false;
+        List<ParcelUuid> serviceUuids = scanRecord.getServiceUuids();
+        if (serviceUuids == null) return false;
+        for (ParcelUuid parcelUuid : serviceUuids) {
+            if (SERVICE_UUID.equals(parcelUuid.getUuid())) return true;
+        }
+        return false;
+    }
+
+    private static int parseDeviceId(String deviceName) {
+        if (deviceName == null || !deviceName.startsWith("XN-")) return 0;
+        int start = 3;
+        int end = start;
+        while (end < deviceName.length() && Character.isDigit(deviceName.charAt(end))) {
+            end++;
+        }
+        if (end == start) return 0;
+        try {
+            return Integer.parseInt(deviceName.substring(start, end));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     private static String bytesToHex(byte[] bytes) {
