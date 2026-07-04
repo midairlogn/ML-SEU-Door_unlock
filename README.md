@@ -1,70 +1,43 @@
-# SEU Door Lock
+<div align="center">
+<h1>SEU Door Lock</h1>
+东南大学九龙湖校区门锁控制 Android 客户端，替代原"住理生活"混合应用。<br><br>
 
-Native Android app (Java) for Southeast University (SEU) Jiulonghu Campus door lock control. Replaces the original 住理生活 (Zhuli Life) hybrid WebView app with a clean native implementation.
+**中文简体** | [**English**](README_EN.md)
+</div>
 
-## Features
+## 使用方法
 
-- **Phone + Password Login** — 6-digit numeric password, session persisted locally via Android Keystore + AES-256-GCM
-- **NFC Door Unlock** — Tap phone on door lock NFC tag, `NfcA.transceive()` sends 40-byte encrypted command in one shot
-- **BLE Door Unlock** — Connect via Bluetooth Low Energy, cached MAC direct connect with scan fallback
-- **Alipay Auth** — AIDL-based Alipay payment authentication
-- **Credential Sync** — Automatic door lock info and credential synchronization from server
-- **Offline-capable** — Credentials cached locally, NFC unlock works without network after initial sync
-- **Settings** — Language (English/Chinese/system), theme (light/dark/system), default unlock method
-- **i18n** — English and Chinese localization
+1. **登录**：推荐使用支付宝快捷登录，也支持手机号 + 6 位数字密码登录。凭据经 Android Keystore + AES-256-GCM 加密存储在本地。
+2. **NFC 开锁**：将手机贴近门锁 NFC 标签即可开锁，无需打开应用（需保持屏幕亮起）。
+3. **蓝牙开锁**：在主界面点击开锁按钮，自动连接附近门锁并开锁。
+4. **设置**：支持切换语言（中文/英文/跟随系统）和主题（浅色/深色/跟随系统）。
 
-## Requirements
+> 首次使用需联网同步门锁信息和凭据，之后 NFC 开锁可离线使用。
 
-- Android 7.0+ (SDK 24)
-- NFC-enabled device (required)
-- Bluetooth LE (optional, for BLE unlock)
+## 系统要求
 
-## Build
+- Android 7.0 (SDK 24) 及以上
+- NFC 功能（必需）
+- 蓝牙 LE（可选，用于蓝牙开锁）
 
-Open in Android Studio or build from command line:
+## 安装
+
+前往 [Release](https://github.com/midairlogn/ML-SEU-Door_unlock/releases) 页面下载最新 APK 安装。
+
+或从源码构建：
 
 ```bash
+git clone https://github.com/midairlogn/ML-SEU-Door_unlock.git
 ./gradlew assembleDebug
 ```
 
-The `applicationId` is `com.whxinna.userplatform` — this must match the AAR embedded in existing NFC tags in the field.
+## 技术栈
 
-## Architecture
+- **语言**：Java
+- **网络**：OkHttp 3
+- **UI**：AndroidX, Material Design 3
+- **加密**：Android Keystore + AES-256-GCM, RC4, CRC8
 
-```
-App.java, SettingsActivity.java   Application class, settings (language/theme/default method)
-crypto/       CRC8, RC4, KeyDerivation (shared NFC/BLE primitives)
-nfc/          NfcCommandBuilder (40-byte frame), NfcUnlockManager (reader mode + transceive)
-ble/          BleCommandBuilder (20-byte frame), BleUnlockManager (GATT connect + unlock flow)
-api/          AuthApi (login, captcha), CredentialApi (door lock sync), ApiClient (signing)
-alipay/       AlipayAuth (AIDL payment authentication)
-storage/      SecurePrefs (Keystore + AES-GCM), CredentialCache (typed accessors)
-ui/           LoginActivity, MainActivity, CaptchaDialogFragment
-model/        LoginResponse, DoorLockInfo, DoorResponse, BleResponse
-```
-
-## Protocol
-
-See [docs/PROTOCOL_REFERENCE.md](docs/PROTOCOL_REFERENCE.md) for full protocol documentation including:
-
-- Login endpoint and request signing
-- Cryptographic primitives (deriveKey, RC4, CRC8)
-- NFC 40-byte command frame format
-- BLE 20-byte command frame and GATT UUIDs
-- Response parsing and result codes
-
-## Project Constants
-
-| Constant | Value | Note |
-|---|---|---|
-| `applicationId` | `com.whxinna.userplatform` | Must match NFC tag AAR |
-| Project ID | `21048` | SEU Jiulonghu Campus |
-| App ID | `20104` | Server app identifier |
-| Auth Server | `https://pm.whxinna.com` | Login, captcha |
-| BLE Service UUID | `0xFF12` | Door lock GATT service |
-| BLE Write UUID | `0xFF01` | Write characteristic |
-| BLE Read UUID | `0xFF02` | Read/notify characteristic |
-
-## License
+## 许可证
 
 [GNU General Public License v3.0](LICENSE)
