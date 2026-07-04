@@ -45,7 +45,6 @@
     <string name="settings_title">设置</string>
     <string name="settings_language">语言</string>
     <string name="settings_theme">主题</string>
-    <string name="settings_default_method">默认开门方式</string>
     <string name="settings_language_system">跟随系统</string>
     <string name="settings_language_en">英语</string>
     <string name="settings_language_zh">中文</string>

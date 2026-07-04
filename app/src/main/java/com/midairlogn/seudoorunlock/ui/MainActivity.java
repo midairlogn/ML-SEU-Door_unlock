@@ -193,8 +193,7 @@ public class MainActivity extends AppCompatActivity {
         toggleGroup = findViewById(R.id.toggleGroup);
         btnLogout = findViewById(R.id.btnLogout);
 
-        String defaultMethod = SettingsActivity.getDefaultMethod(prefs);
-        selectedMethod = prefs.getString(PREF_SELECTED_METHOD, defaultMethod);
+        selectedMethod = prefs.getString(PREF_SELECTED_METHOD, METHOD_NFC);
         updateTabSelection();
         updateStatusDisplay();
     }

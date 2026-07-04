@@ -18,7 +18,6 @@ public class SettingsActivity extends AppCompatActivity {
     public static final String PREFS_NAME = "app_settings";
     public static final String KEY_LANGUAGE = "language";
     public static final String KEY_THEME = "theme";
-    public static final String KEY_DEFAULT_METHOD = "default_method";
 
     public static final String LANG_SYSTEM = "system";
     public static final String LANG_EN = "en";
@@ -28,12 +27,8 @@ public class SettingsActivity extends AppCompatActivity {
     public static final String THEME_LIGHT = "light";
     public static final String THEME_DARK = "dark";
 
-    public static final String METHOD_NFC = "nfc";
-    public static final String METHOD_BLE = "ble";
-
     private RadioGroup rgLanguage;
     private RadioGroup rgTheme;
-    private RadioGroup rgDefaultMethod;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,7 +42,6 @@ public class SettingsActivity extends AppCompatActivity {
 
         rgLanguage = findViewById(R.id.rgLanguage);
         rgTheme = findViewById(R.id.rgTheme);
-        rgDefaultMethod = findViewById(R.id.rgDefaultMethod);
 
         loadSettings();
         setupListeners();
@@ -81,12 +75,6 @@ public class SettingsActivity extends AppCompatActivity {
             case THEME_DARK: rgTheme.check(R.id.rbThemeDark); break;
             default: rgTheme.check(R.id.rbThemeSystem); break;
         }
-
-        String method = prefs.getString(KEY_DEFAULT_METHOD, METHOD_NFC);
-        switch (method) {
-            case METHOD_BLE: rgDefaultMethod.check(R.id.rbMethodBle); break;
-            default: rgDefaultMethod.check(R.id.rbMethodNfc); break;
-        }
     }
 
     private void setupListeners() {
@@ -110,12 +98,6 @@ public class SettingsActivity extends AppCompatActivity {
             getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
                 .edit().putString(KEY_THEME, theme).apply();
             applyTheme();
-        });
-
-        rgDefaultMethod.setOnCheckedChangeListener((group, checkedId) -> {
-            String method = (checkedId == R.id.rbMethodBle) ? METHOD_BLE : METHOD_NFC;
-            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                .edit().putString(KEY_DEFAULT_METHOD, method).apply();
         });
     }
 
@@ -148,9 +130,5 @@ public class SettingsActivity extends AppCompatActivity {
             appLocale = LocaleListCompat.getEmptyLocaleList();
         }
         AppCompatDelegate.setApplicationLocales(appLocale);
-    }
-
-    public static String getDefaultMethod(SharedPreferences prefs) {
-        return prefs.getString(KEY_DEFAULT_METHOD, METHOD_NFC);
     }
 }

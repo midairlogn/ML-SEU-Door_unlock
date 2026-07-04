@@ -127,47 +127,6 @@
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Default Method -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
-                android:layout_marginBottom="8dp"
-                android:text="@string/settings_default_method"
-                android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
-                android:textColor="@color/primary"/>
-
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="@color/surface_container"
-                app:strokeWidth="0dp">
-
-                <RadioGroup
-                    android:id="@+id/rgDefaultMethod"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:padding="8dp">
-
-                    <com.google.android.material.radiobutton.MaterialRadioButton
-                        android:id="@+id/rbMethodNfc"
-                        android:layout_width="match_parent"
-                        android:layout_height="56dp"
-                        android:text="@string/settings_method_nfc"/>
-
-                    <com.google.android.material.radiobutton.MaterialRadioButton
-                        android:id="@+id/rbMethodBle"
-                        android:layout_width="match_parent"
-                        android:layout_height="56dp"
-                        android:text="@string/settings_method_ble"/>
-
-                </RadioGroup>
-
-            </com.google.android.material.card.MaterialCardView>
-
             <!-- About -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
