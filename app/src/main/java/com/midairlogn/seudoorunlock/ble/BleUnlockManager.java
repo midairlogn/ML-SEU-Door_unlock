@@ -272,7 +272,15 @@ public class BleUnlockManager {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Log.d(TAG, "Connected, discovering services");
                 timeoutHandler.removeCallbacksAndMessages(null);
-                gatt.discoverServices();
+                try {
+                    if (!gatt.discoverServices()) {
+                        cleanupGattOnly();
+                        retryOrFail("Failed to start service discovery");
+                    }
+                } catch (RuntimeException e) {
+                    cleanupGattOnly();
+                    retryOrFail("Service discovery failed: " + safeMessage(e));
+                }
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.d(TAG, "Disconnected");
                 cleanupGattOnly();
@@ -315,12 +323,19 @@ public class BleUnlockManager {
             }
 
             // Enable notifications or indications on read characteristic.
-            if (!gatt.setCharacteristicNotification(readCharacteristic, true)) {
+            BluetoothGattDescriptor descriptor;
+            try {
+                if (!gatt.setCharacteristicNotification(readCharacteristic, true)) {
+                    cleanupGattOnly();
+                    retryOrFail("Failed to enable notifications");
+                    return;
+                }
+                descriptor = readCharacteristic.getDescriptor(CCCD_UUID);
+            } catch (RuntimeException e) {
                 cleanupGattOnly();
-                retryOrFail("Failed to enable notifications");
+                retryOrFail("Failed to enable notifications: " + safeMessage(e));
                 return;
             }
-            BluetoothGattDescriptor descriptor = readCharacteristic.getDescriptor(CCCD_UUID);
             if (descriptor == null) {
                 cleanupGattOnly();
                 retryOrFail("Notification descriptor not found");
@@ -341,12 +356,19 @@ public class BleUnlockManager {
 
             waitingForDescriptor = true;
             boolean writeStarted;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                writeStarted = gatt.writeDescriptor(descriptor,
-                    cccValue) == BluetoothStatusCodes.SUCCESS;
-            } else {
-                descriptor.setValue(cccValue);
-                writeStarted = gatt.writeDescriptor(descriptor);
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    writeStarted = gatt.writeDescriptor(descriptor,
+                        cccValue) == BluetoothStatusCodes.SUCCESS;
+                } else {
+                    descriptor.setValue(cccValue);
+                    writeStarted = gatt.writeDescriptor(descriptor);
+                }
+            } catch (RuntimeException e) {
+                waitingForDescriptor = false;
+                cleanupGattOnly();
+                retryOrFail("Failed to enable notifications: " + safeMessage(e));
+                return;
             }
             if (!writeStarted) {
                 waitingForDescriptor = false;

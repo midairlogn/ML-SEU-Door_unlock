@@ -81,7 +81,7 @@ public class LoginActivity extends AppCompatActivity {
                 Log.d(TAG, "Got auth_info, launching Alipay...");
 
                 String authCode = AlipayAuth.authorize(LoginActivity.this, authInfo);
-                Log.d(TAG, "Got auth_code: " + authCode.substring(0, Math.min(8, authCode.length())) + "...");
+                Log.d(TAG, "Got auth_code from Alipay");
 
                 runOnUiThread(() -> Toast.makeText(LoginActivity.this, "Completing login...", Toast.LENGTH_SHORT).show());
 

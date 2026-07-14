@@ -18,7 +18,6 @@ import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
 
 public class SecurePrefs {
 
@@ -103,15 +102,17 @@ public class SecurePrefs {
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to init keystore key", e);
-            byte[] fallbackKey = new byte[32];
-            byte[] seed = "MLSEUDoorLock2026SecureKey!!".getBytes();
-            System.arraycopy(seed, 0, fallbackKey, 0, Math.min(seed.length, 32));
-            secretKey = new SecretKeySpec(fallbackKey, "AES");
+            secretKey = null;
         }
     }
 
     public void putString(String key, String value) {
         awaitKey();
+        if (secretKey == null) {
+            Log.e(TAG, "Encryption unavailable; refusing to store key: " + key);
+            prefs.edit().remove(key).apply();
+            return;
+        }
         try {
             Cipher cipher = Cipher.getInstance(AES_MODE);
             cipher.init(Cipher.ENCRYPT_MODE, secretKey);
@@ -123,7 +124,7 @@ public class SecurePrefs {
             prefs.edit().putString(key, encoded).apply();
         } catch (Exception e) {
             Log.e(TAG, "Encrypt failed for key: " + key, e);
-            prefs.edit().putString(key, value).apply();
+            prefs.edit().remove(key).apply();
         }
     }
 
@@ -131,9 +132,10 @@ public class SecurePrefs {
         String stored = prefs.getString(key, null);
         if (stored == null) return defValue;
 
-        if (!stored.contains("|")) return stored;
+        if (!stored.contains("|")) return defValue;
 
         awaitKey();
+        if (secretKey == null) return defValue;
         try {
             String[] parts = stored.split("\\|", 2);
             byte[] iv = Base64.decode(parts[0], Base64.NO_WRAP);
@@ -147,7 +149,7 @@ public class SecurePrefs {
         } catch (Exception e) {
             Log.e(TAG, "Decrypt failed for key: " + key, e);
         }
-        return stored;
+        return defValue;
     }
 
     public boolean contains(String key) {

@@ -47,7 +47,7 @@ public final class NfcCommandBuilder {
     }
 
     public static DoorResponse parseResponse(int deviceId, byte[] frame) {
-        if (frame == null || frame.length < 4) {
+        if (frame == null || frame.length < 4 || frame[0] != HEADER) {
             return new DoorResponse(0, 0, -1, false, new byte[0]);
         }
 

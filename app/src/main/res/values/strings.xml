@@ -25,6 +25,8 @@
     <string name="ble_error">Bluetooth connection failed</string>
     <string name="network_error">Network error. Please try again.</string>
     <string name="session_expired">Session expired. Re-logging in…</string>
+    <string name="session_expired_relogin_required">Sign in again required</string>
+    <string name="session_expired_relogin_detail">Your session expired and cannot be refreshed silently. Please sign in again.</string>
     <string name="battery_level">Battery: %d%%</string>
     <string name="logout_confirm">Are you sure you want to logout?</string>
     <string name="yes">Yes</string>

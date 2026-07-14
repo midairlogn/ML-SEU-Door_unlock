@@ -25,6 +25,8 @@
     <string name="ble_error">蓝牙连接失败</string>
     <string name="network_error">网络错误，请重试</string>
     <string name="session_expired">会话过期，重新登录中…</string>
+    <string name="session_expired_relogin_required">需要重新登录</string>
+    <string name="session_expired_relogin_detail">会话已过期，且无法静默刷新。请重新登录。</string>
     <string name="battery_level">电量: %d%%</string>
     <string name="logout_confirm">确定要退出登录吗？</string>
     <string name="yes">是</string>

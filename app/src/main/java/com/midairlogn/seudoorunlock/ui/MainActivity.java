@@ -4,8 +4,6 @@ import android.Manifest;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
-import android.content.ClipData;
-import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.BroadcastReceiver;
 import android.content.Intent;
@@ -428,18 +426,19 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        String message = getString(R.string.credential_info_content, credentialId, credential);
+        String message = getString(R.string.credential_info_content, credentialId, maskCredential(credential));
 
         new AlertDialog.Builder(this)
             .setTitle(R.string.credential_info_title)
             .setMessage(message)
             .setPositiveButton(android.R.string.ok, null)
-            .setNeutralButton(R.string.btn_copy, (dialog, which) -> {
-                ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                clipboard.setPrimaryClip(ClipData.newPlainText("credential_info", message));
-                Toast.makeText(this, R.string.copied, Toast.LENGTH_SHORT).show();
-            })
             .show();
+    }
+
+    private String maskCredential(String credential) {
+        if (credential == null || credential.isEmpty()) return getString(R.string.activation_pending_detail);
+        if (credential.length() <= 8) return "********";
+        return credential.substring(0, 4) + "..." + credential.substring(credential.length() - 4);
     }
 
     private void startBreathingAnimation() {
@@ -649,6 +648,7 @@ public class MainActivity extends AppCompatActivity {
                 String password = cache.getPassword();
                 if (phone.isEmpty() || password.isEmpty()) {
                     Log.w(TAG, "No stored credentials for fallback re-login");
+                    runOnUiThread(MainActivity.this::promptReLogin);
                     return;
                 }
                 getAuthApi().autoReLogin(cache, new AuthApi.AuthCallback() {
@@ -686,6 +686,20 @@ public class MainActivity extends AppCompatActivity {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
+    }
+
+    private void promptReLogin() {
+        tvStatusTitle.setText(R.string.session_expired_relogin_required);
+        tvStatusDetail.setText(R.string.session_expired_relogin_detail);
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.session_expired_relogin_required)
+            .setMessage(R.string.session_expired_relogin_detail)
+            .setPositiveButton(R.string.btn_login, (dialog, which) -> {
+                cache.clear();
+                navigateToLogin();
+            })
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show();
     }
 
     private void requestPermissions() {
