@@ -79,18 +79,28 @@ public class NfcUnlockManager {
         int flags = NfcAdapter.FLAG_READER_NFC_A
             | NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK
             | NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS;
-        nfcAdapter.enableReaderMode(activity, tag -> {
-            handleTagDiscovered(tag);
-        }, flags, null);
-        readerModeEnabled = true;
-        Log.d(TAG, "Reader mode enabled");
+        try {
+            nfcAdapter.enableReaderMode(activity, tag -> {
+                handleTagDiscovered(tag);
+            }, flags, null);
+            readerModeEnabled = true;
+            Log.d(TAG, "Reader mode enabled");
+        } catch (RuntimeException e) {
+            readerModeEnabled = false;
+            Log.w(TAG, "Failed to enable reader mode", e);
+        }
     }
 
     public void disableReaderMode(Activity activity) {
         if (nfcAdapter != null && readerModeEnabled) {
-            nfcAdapter.disableReaderMode(activity);
-            readerModeEnabled = false;
-            Log.d(TAG, "Reader mode disabled");
+            try {
+                nfcAdapter.disableReaderMode(activity);
+                Log.d(TAG, "Reader mode disabled");
+            } catch (RuntimeException e) {
+                Log.w(TAG, "Failed to disable reader mode", e);
+            } finally {
+                readerModeEnabled = false;
+            }
         }
     }
 

@@ -22,10 +22,8 @@ import com.midairlogn.seudoorunlock.storage.CredentialCache;
 public class CaptchaDialogFragment extends DialogFragment {
 
     private static final String ARG_PHONE = "phone";
-    private static final String ARG_PASSWORD = "password";
 
     private String phone;
-    private String password;
     private OnCaptchaSubmitListener listener;
     private WebView webViewCaptcha;
     private TextInputEditText etCaptcha;
@@ -35,11 +33,10 @@ public class CaptchaDialogFragment extends DialogFragment {
         void onSubmit(String captcha);
     }
 
-    public static CaptchaDialogFragment newInstance(String phone, String password) {
+    public static CaptchaDialogFragment newInstance(String phone) {
         CaptchaDialogFragment fragment = new CaptchaDialogFragment();
         Bundle args = new Bundle();
         args.putString(ARG_PHONE, phone);
-        args.putString(ARG_PASSWORD, password);
         fragment.setArguments(args);
         return fragment;
     }
@@ -53,7 +50,6 @@ public class CaptchaDialogFragment extends DialogFragment {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
             phone = getArguments().getString(ARG_PHONE, "");
-            password = getArguments().getString(ARG_PASSWORD, "");
         }
     }
 

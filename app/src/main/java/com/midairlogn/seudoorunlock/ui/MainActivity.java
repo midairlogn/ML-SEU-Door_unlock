@@ -117,6 +117,7 @@ public class MainActivity extends AppCompatActivity {
     private static final long NFC_STATE_DEBOUNCE_MS = 500;
     private boolean isResumed = false;
     private boolean isBusy = false;
+    private boolean reloginPromptShowing = false;
 
     private final NfcUnlockManager.NfcCallback nfcCallback = new NfcUnlockManager.NfcCallback() {
         @Override
@@ -670,11 +671,13 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onCaptchaRequired() {
                         Log.w(TAG, "Captcha required during re-login fallback");
+                        runOnUiThread(MainActivity.this::promptReLogin);
                     }
 
                     @Override
                     public void onError(String msg) {
                         Log.e(TAG, "Fallback re-login failed: " + msg);
+                        runOnUiThread(MainActivity.this::promptReLogin);
                     }
                 });
             }
@@ -689,6 +692,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void promptReLogin() {
+        if (isFinishing() || isDestroyed() || reloginPromptShowing) return;
+        reloginPromptShowing = true;
         tvStatusTitle.setText(R.string.session_expired_relogin_required);
         tvStatusDetail.setText(R.string.session_expired_relogin_detail);
         new AlertDialog.Builder(this)
@@ -698,7 +703,8 @@ public class MainActivity extends AppCompatActivity {
                 cache.clear();
                 navigateToLogin();
             })
-            .setNegativeButton(R.string.btn_cancel, null)
+            .setNegativeButton(R.string.btn_cancel, (dialog, which) -> reloginPromptShowing = false)
+            .setOnCancelListener(dialog -> reloginPromptShowing = false)
             .show();
     }
 

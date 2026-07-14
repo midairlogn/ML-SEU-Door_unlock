@@ -137,7 +137,7 @@ public class PhoneLoginBottomSheet extends BottomSheetDialogFragment {
                                      TextInputEditText etPhone, TextInputEditText etPassword,
                                      SharedPreferences rememberPrefs, SecurePrefs securePrefs,
                                      MaterialCheckBox cbRemember) {
-        CaptchaDialogFragment dialog = CaptchaDialogFragment.newInstance(phone, password);
+        CaptchaDialogFragment dialog = CaptchaDialogFragment.newInstance(phone);
         dialog.setOnCaptchaSubmitListener(captcha -> {
             setLoading(true, btnLogin, progressBar, etPhone, etPassword);
             authApi.login(phone, password, captcha, new AuthApi.AuthCallback() {

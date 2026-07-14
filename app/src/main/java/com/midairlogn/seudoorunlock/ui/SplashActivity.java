@@ -15,7 +15,7 @@ public class SplashActivity extends Activity {
         super.onCreate(savedInstanceState);
 
         CredentialCache cache = CredentialCache.getInstance(this);
-        boolean loggedIn = cache.hasSessionFast();
+        boolean loggedIn = cache.hasSession();
 
         new Handler(Looper.getMainLooper()).post(() -> {
             Intent intent;

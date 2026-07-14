@@ -689,13 +689,18 @@ public class BleUnlockManager {
     @SuppressLint("MissingPermission")
     private boolean writeCharacteristic(byte[] data) {
         if (bluetoothGatt == null || writeCharacteristic == null) return false;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            return bluetoothGatt.writeCharacteristic(writeCharacteristic, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
-                == BluetoothStatusCodes.SUCCESS;
-        } else {
-            writeCharacteristic.setValue(data);
-            writeCharacteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
-            return bluetoothGatt.writeCharacteristic(writeCharacteristic);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                return bluetoothGatt.writeCharacteristic(writeCharacteristic, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+                    == BluetoothStatusCodes.SUCCESS;
+            } else {
+                writeCharacteristic.setValue(data);
+                writeCharacteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+                return bluetoothGatt.writeCharacteristic(writeCharacteristic);
+            }
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Failed to write BLE characteristic", e);
+            return false;
         }
     }
 
@@ -740,10 +745,19 @@ public class BleUnlockManager {
 
     @SuppressLint("MissingPermission")
     private void cleanupGattOnly() {
-        if (bluetoothGatt != null) {
-            bluetoothGatt.disconnect();
-            bluetoothGatt.close();
-            bluetoothGatt = null;
+        BluetoothGatt gatt = bluetoothGatt;
+        bluetoothGatt = null;
+        if (gatt != null) {
+            try {
+                gatt.disconnect();
+            } catch (RuntimeException e) {
+                Log.w(TAG, "Failed to disconnect BLE GATT", e);
+            }
+            try {
+                gatt.close();
+            } catch (RuntimeException e) {
+                Log.w(TAG, "Failed to close BLE GATT", e);
+            }
         }
         writeCharacteristic = null;
         readCharacteristic = null;
