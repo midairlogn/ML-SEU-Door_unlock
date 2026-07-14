@@ -196,6 +196,7 @@ public class BleUnlockManager {
 
     private void retryOrFail(String message) {
         if (operationFinished) return;
+        timeoutHandler.removeCallbacksAndMessages(null);
         if (targetDevice != null && connectAttempt < CONNECT_RETRY_COUNT) {
             Log.w(TAG, message + ", retrying BLE connection");
             timeoutHandler.postDelayed(this::connectNextAttempt, RETRY_DELAY_MS);
@@ -292,6 +293,8 @@ public class BleUnlockManager {
                     if (!gatt.discoverServices()) {
                         cleanupGattOnly();
                         retryOrFail("Failed to start service discovery");
+                    } else {
+                        scheduleTimeout(CONNECT_TIMEOUT_MS, "Service discovery timed out");
                     }
                 } catch (RuntimeException e) {
                     cleanupGattOnly();
@@ -314,6 +317,7 @@ public class BleUnlockManager {
         @Override
         @SuppressLint("MissingPermission")
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+            timeoutHandler.removeCallbacksAndMessages(null);
             if (status != BluetoothGatt.GATT_SUCCESS) {
                 Log.e(TAG, "Service discovery failed: " + status);
                 cleanupGattOnly();
