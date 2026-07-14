@@ -57,7 +57,9 @@ public class CredentialCache {
         securePrefs.putString(KEY_SERVER_URL, serverUrl);
         securePrefs.putString(KEY_AUTH_SERVER_URL, "https://pm.whxinna.com");
         if (projectId > 0) securePrefs.putString(KEY_PROJECT_ID, String.valueOf(projectId));
+        else securePrefs.remove(KEY_PROJECT_ID);
         if (appId > 0) securePrefs.putString(KEY_APP_ID, String.valueOf(appId));
+        else securePrefs.remove(KEY_APP_ID);
     }
 
     public void saveDoorLock(int deviceId, String bleMac, String credentialHex, int credentialId) {

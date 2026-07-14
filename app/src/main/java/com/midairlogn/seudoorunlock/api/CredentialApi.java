@@ -361,7 +361,7 @@ public class CredentialApi {
                     appId > 0 ? appId : ApiClient.APP_ID);
                 String dataStr = ApiClient.extractDataField(responseJson);
 
-                JSONObject data = new JSONObject(dataStr);
+                Object data = parseJsonValue(dataStr);
                 String credentialId = extractCredentialId(data);
                 if (credentialId == null || credentialId.isEmpty()) {
                     mainHandler.post(() -> callback.onError("Server did not return digital credential ID"));
@@ -608,18 +608,48 @@ public class CredentialApi {
         return new NfcActivationStep(root, packets, credentialId, credentialHex);
     }
 
-    private static String findString(JSONObject obj, String... keys) {
-        for (String key : keys) {
-            String val = obj.optString(key, "");
-            if (!val.isEmpty()) return val;
+    private static Object parseJsonValue(String dataStr) throws JSONException {
+        String trimmed = dataStr.trim();
+        if (trimmed.startsWith("[")) return new JSONArray(trimmed);
+        if (trimmed.startsWith("{")) return new JSONObject(trimmed);
+        return trimmed;
+    }
+
+    private static String findString(Object node, String... keys) {
+        if (node instanceof JSONObject) {
+            JSONObject obj = (JSONObject) node;
+            for (String key : keys) {
+                Object val = obj.opt(key);
+                if (val != null && !JSONObject.NULL.equals(val)) {
+                    String str = String.valueOf(val);
+                    if (!str.isEmpty()) return str;
+                }
+            }
+            Iterator<String> names = obj.keys();
+            while (names.hasNext()) {
+                Object child = obj.opt(names.next());
+                if (child != null && !JSONObject.NULL.equals(child)) {
+                    String result = findString(child, keys);
+                    if (!result.isEmpty()) return result;
+                }
+            }
+        } else if (node instanceof JSONArray) {
+            JSONArray array = (JSONArray) node;
+            for (int i = 0; i < array.length(); i++) {
+                String result = findString(array.opt(i), keys);
+                if (!result.isEmpty()) return result;
+            }
         }
         return "";
     }
 
-    private static int findPositiveInt(JSONObject obj, String... keys) {
-        for (String key : keys) {
-            int val = obj.optInt(key, 0);
-            if (val > 0) return val;
+    private static int findPositiveInt(Object node, String... keys) {
+        String value = findString(node, keys);
+        if (!value.isEmpty()) {
+            try {
+                int parsed = Integer.parseInt(value);
+                if (parsed > 0) return parsed;
+            } catch (NumberFormatException ignored) {}
         }
         return 0;
     }
@@ -678,10 +708,12 @@ public class CredentialApi {
         }
     }
 
-    private static String extractCredentialId(JSONObject data) {
-        String id = data.optString("credential_id", "");
-        if (id.isEmpty()) id = data.optString("credentialId", "");
-        if (id.isEmpty()) id = data.optString("id", "");
+    private static String extractCredentialId(Object data) {
+        if (!(data instanceof JSONObject) && !(data instanceof JSONArray)) {
+            String id = String.valueOf(data).trim();
+            return id.isEmpty() ? null : id;
+        }
+        String id = findString(data, "credential_id", "credentialId", "id");
         return id.isEmpty() ? null : id;
     }
 

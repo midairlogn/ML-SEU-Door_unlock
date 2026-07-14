@@ -37,8 +37,8 @@ public class LoginResponse {
             findString(serverInfoJson, "server_addr", "serverAddr"),
             findString(serverInfoJson, "session_secret", "sessionSecret"),
             serverInfoJson.optString("appsecret", ""),
-            findPositiveInt(serverInfoJson, "project_id", "projectId", "server_appid"),
-            findPositiveInt(serverInfoJson, "app_id", "appId", "server_id")
+            findPositiveInt(serverInfoJson, "server_appid", "project_id", "projectId"),
+            findPositiveInt(serverInfoJson, "server_id", "app_id", "appId")
         );
 
         String platformToken = findString(root, "platform_token", "platformToken");
