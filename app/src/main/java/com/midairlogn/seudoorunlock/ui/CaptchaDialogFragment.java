@@ -10,6 +10,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.DialogFragment;
 
 import com.google.android.material.button.MaterialButton;
@@ -73,10 +74,14 @@ public class CaptchaDialogFragment extends DialogFragment {
 
         loadCaptcha();
 
-        return new MaterialAlertDialogBuilder(requireContext())
+        AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.captcha_title)
             .setView(view)
-            .setPositiveButton(R.string.btn_submit, (dialog, which) -> {
+            .setPositiveButton(R.string.btn_submit, null)
+            .setNegativeButton(R.string.btn_cancel, null)
+            .create();
+
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
                 String captcha = etCaptcha.getText() != null ? etCaptcha.getText().toString().trim() : "";
                 if (captcha.length() != 4) {
                     Toast.makeText(getContext(), R.string.error_captcha, Toast.LENGTH_SHORT).show();
@@ -85,9 +90,10 @@ public class CaptchaDialogFragment extends DialogFragment {
                 if (listener != null) {
                     listener.onSubmit(captcha);
                 }
-            })
-            .setNegativeButton(R.string.btn_cancel, null)
-            .create();
+                dialog.dismiss();
+            }));
+
+        return dialog;
     }
 
     private void loadCaptcha() {

@@ -79,6 +79,7 @@ public class BleUnlockManager {
     private int activeDeviceId;
     private boolean unlockFlowStarted;
     private boolean operationFinished;
+    private boolean scanFallbackOnConnectFailure;
 
     private boolean waitingForNotification = false;
     private byte[] lastNotificationData;
@@ -120,6 +121,7 @@ public class BleUnlockManager {
         clearActivationState();
         unlockFlowStarted = false;
         operationFinished = false;
+        scanFallbackOnConnectFailure = false;
 
         int deviceId = cache.getDeviceId();
         if (deviceId == 0) {
@@ -145,7 +147,7 @@ public class BleUnlockManager {
             try {
                 BluetoothDevice device = bluetoothAdapter.getRemoteDevice(cachedMac);
                 if (device != null) {
-                    connectToDevice(device, deviceId);
+                    connectToDevice(device, deviceId, true);
                     return;
                 }
             } catch (IllegalArgumentException e) {
@@ -160,11 +162,17 @@ public class BleUnlockManager {
 
     @SuppressLint("MissingPermission")
     private void connectToDevice(BluetoothDevice device, int deviceId) {
+        connectToDevice(device, deviceId, false);
+    }
+
+    @SuppressLint("MissingPermission")
+    private void connectToDevice(BluetoothDevice device, int deviceId, boolean allowScanFallback) {
         targetDevice = device;
         activeDeviceId = deviceId;
         connectAttempt = 0;
         unlockFlowStarted = false;
         operationFinished = false;
+        scanFallbackOnConnectFailure = allowScanFallback;
         connectNextAttempt();
     }
 
@@ -172,7 +180,8 @@ public class BleUnlockManager {
     private void connectNextAttempt() {
         cleanupGattOnly();
         connectAttempt++;
-        Log.d(TAG, "Connecting to " + targetDevice.getAddress() + " attempt " + connectAttempt);
+        String address = safeDeviceAddress(targetDevice);
+        Log.d(TAG, "Connecting to " + (address.isEmpty() ? "unknown" : address) + " attempt " + connectAttempt);
         scheduleTimeout(CONNECT_TIMEOUT_MS, "Connection timed out");
         try {
             bluetoothGatt = targetDevice.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE);
@@ -190,6 +199,12 @@ public class BleUnlockManager {
         if (targetDevice != null && connectAttempt < CONNECT_RETRY_COUNT) {
             Log.w(TAG, message + ", retrying BLE connection");
             timeoutHandler.postDelayed(this::connectNextAttempt, RETRY_DELAY_MS);
+        } else if (scanFallbackOnConnectFailure) {
+            Log.w(TAG, message + ", falling back to BLE scan");
+            scanFallbackOnConnectFailure = false;
+            targetDevice = null;
+            connectAttempt = 0;
+            startScanAndConnect();
         } else {
             fail(message);
         }
@@ -220,8 +235,9 @@ public class BleUnlockManager {
                 ScanRecord scanRecord = result.getScanRecord();
                 String deviceName = scanRecord != null && scanRecord.getDeviceName() != null
                     ? scanRecord.getDeviceName()
-                    : device.getName();
-                String normalizedAddr = device.getAddress().toUpperCase().replace(":", "").replace("-", "");
+                    : safeDeviceName(device);
+                String deviceAddress = safeDeviceAddress(device);
+                String normalizedAddr = deviceAddress.toUpperCase().replace(":", "").replace("-", "");
                 int advertisedDeviceId = parseDeviceId(deviceName);
 
                 boolean nameMatch = matchesTargetName(deviceName, targetName);
@@ -237,7 +253,7 @@ public class BleUnlockManager {
 
                 if ((nameMatch || addrMatch || deviceIdMatch) && matched.compareAndSet(false, true)) {
                     stopScanQuietly(scanner, this);
-                    Log.d(TAG, "Found device: " + (deviceName != null ? deviceName : device.getAddress())
+                    Log.d(TAG, "Found device: " + (deviceName != null ? deviceName : deviceAddress)
                         + " match=" + (nameMatch ? "name" : addrMatch ? "address" : "deviceId"));
                     int resolvedDeviceId = advertisedDeviceId != 0 ? advertisedDeviceId : cachedDeviceId;
                     mainHandler.post(() -> connectToDevice(device, resolvedDeviceId));
@@ -256,7 +272,7 @@ public class BleUnlockManager {
             stopScanQuietly(scanner, scanCallback);
             if (bluetoothGatt == null && pendingCallback != null && matched.compareAndSet(false, true)) {
                 if (fallbackDevice[0] != null) {
-                    Log.d(TAG, "Using BLE service UUID fallback: " + fallbackDevice[0].getAddress());
+                    Log.d(TAG, "Using BLE service UUID fallback: " + safeDeviceAddress(fallbackDevice[0]));
                     connectToDevice(fallbackDevice[0], fallbackDeviceId[0]);
                 } else {
                     fail("Device not found nearby");
@@ -793,6 +809,27 @@ public class BleUnlockManager {
         return false;
     }
 
+    @SuppressLint("MissingPermission")
+    private static String safeDeviceAddress(BluetoothDevice device) {
+        if (device == null) return "";
+        try {
+            String address = device.getAddress();
+            return address != null ? address : "";
+        } catch (RuntimeException e) {
+            return "";
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private static String safeDeviceName(BluetoothDevice device) {
+        if (device == null) return null;
+        try {
+            return device.getName();
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
     private static int parseDeviceId(String deviceName) {
         if (deviceName == null || !deviceName.startsWith("XN-")) return 0;
         int start = 3;
@@ -914,7 +951,7 @@ public class BleUnlockManager {
                         try {
                             BluetoothDevice device = bluetoothAdapter.getRemoteDevice(cachedMac);
                             if (device != null) {
-                                connectToDevice(device, deviceId);
+                                connectToDevice(device, deviceId, true);
                                 return;
                             }
                         } catch (IllegalArgumentException e) {

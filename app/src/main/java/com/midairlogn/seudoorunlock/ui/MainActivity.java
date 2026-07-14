@@ -664,6 +664,7 @@ public class MainActivity extends AppCompatActivity {
                             @Override
                             public void onError(String msg) {
                                 Log.e(TAG, "Credential sync after re-login failed: " + msg);
+                                runOnUiThread(MainActivity.this::promptReLogin);
                             }
                         });
                     }

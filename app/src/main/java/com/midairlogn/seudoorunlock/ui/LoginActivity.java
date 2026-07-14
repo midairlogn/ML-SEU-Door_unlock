@@ -168,4 +168,10 @@ public class LoginActivity extends AppCompatActivity {
             btnPhoneLogin.setEnabled(!loading);
         });
     }
+
+    @Override
+    protected void onDestroy() {
+        oauthExecutor.shutdownNow();
+        super.onDestroy();
+    }
 }
