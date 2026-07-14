@@ -95,8 +95,8 @@ public class CredentialApi {
 
                 String normalizedCredential = credential.toUpperCase();
                 if (!normalizedCredential.matches("^[0-9A-F]{64}$")) {
-                    mainHandler.post(() -> callback.onError("Server returned invalid credential"));
-                    return;
+                    Log.d(TAG, "No offline credential returned; caching activation-pending lock");
+                    normalizedCredential = "";
                 }
 
                 cache.saveDoorLock(Integer.parseInt(deviceId), bleMac, normalizedCredential, credentialId,
@@ -444,7 +444,11 @@ public class CredentialApi {
         while (keys.hasNext()) {
             String key = keys.next();
             Object val = reqData.opt(key);
-            if (val != null && !JSONObject.NULL.equals(val)) {
+            if (val != null && !JSONObject.NULL.equals(val)
+                    && !"payload".equals(key)
+                    && !"type".equals(key)
+                    && !"user_id".equals(key)
+                    && !"identitycode".equals(key)) {
                 urlBuilder.addQueryParameter(key, String.valueOf(val));
             }
         }

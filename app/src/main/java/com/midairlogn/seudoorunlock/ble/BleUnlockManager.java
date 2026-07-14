@@ -651,6 +651,7 @@ public class BleUnlockManager {
 
     private void success(String message) {
         operationFinished = true;
+        clearActivationState();
         cleanupGatt();
         mainHandler.post(() -> {
             if (pendingCallback != null) pendingCallback.onSuccess(message);
@@ -659,6 +660,7 @@ public class BleUnlockManager {
 
     private void fail(String message) {
         operationFinished = true;
+        clearActivationState();
         cleanupGatt();
         mainHandler.post(() -> {
             if (pendingCallback != null) pendingCallback.onError(message);
@@ -864,6 +866,14 @@ public class BleUnlockManager {
                 fail("BLE activation error: " + e.getMessage());
             }
         });
+    }
+
+    private void clearActivationState() {
+        pendingActivationStep = null;
+        pendingActivationApi = null;
+        pendingActivationProjectId = 0;
+        pendingActivationAppId = 0;
+        isActivationFlow = false;
     }
 
     // Activation state fields

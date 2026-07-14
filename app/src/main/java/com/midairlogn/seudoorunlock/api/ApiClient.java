@@ -9,6 +9,7 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -168,7 +169,10 @@ public class ApiClient {
 
         FormBody.Builder formBuilder = new FormBody.Builder();
         for (String name : url.queryParameterNames()) {
-            formBuilder.add(name, url.queryParameter(name));
+            List<String> values = url.queryParameterValues(name);
+            if (!values.isEmpty()) {
+                formBuilder.add(name, values.get(values.size() - 1));
+            }
         }
         formBuilder.add("pid", "" + projectId);
         formBuilder.add("appid", "" + appId);
