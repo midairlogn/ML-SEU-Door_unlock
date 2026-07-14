@@ -81,8 +81,10 @@ public class CredentialApi {
                 int credentialId = info.doorLock != null ? info.doorLock.credentialId : 0;
                 String bleMac = info.doorLock != null ? info.doorLock.bleMac : "";
 
-                if (credential.isEmpty() || !credential.matches("^[0-9A-Fa-f]{64}$")) {
-                    Log.d(TAG, "Credential missing or invalid, fetching staff credentials endpoint");
+                boolean credentialMissingOrInvalid = credential.isEmpty()
+                    || !credential.matches("^[0-9A-Fa-f]{64}$");
+                if (deviceId.isEmpty() || credentialMissingOrInvalid) {
+                    Log.d(TAG, "Device ID or credential missing, fetching staff credentials endpoint");
                     CredentialRecord staffRecord = fetchStaffCredentialRecord(serverUrl, projectId, appId);
                     if (deviceId.isEmpty() && !staffRecord.deviceId.isEmpty()) deviceId = staffRecord.deviceId;
                     if (credentialId == 0 && staffRecord.credentialId != 0) credentialId = staffRecord.credentialId;
@@ -681,9 +683,7 @@ public class CredentialApi {
         if (record == null) return CredentialRecord.EMPTY;
 
         String credential = findString(record, "credential", "chain_key", "chainKey");
-        int credentialId = record.optInt("credential_id", 0);
-        if (credentialId == 0) credentialId = record.optInt("credentialId", 0);
-        if (credentialId == 0) credentialId = record.optInt("id", 0);
+        int credentialId = findPositiveInt(record, "credential_id", "credentialId", "id");
         return new CredentialRecord(
             findString(record, "device_id", "deviceId"),
             findString(record, "ble_mac", "bleMac"),

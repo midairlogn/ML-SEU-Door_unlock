@@ -23,6 +23,7 @@ import com.midairlogn.seudoorunlock.R;
 import com.midairlogn.seudoorunlock.api.AuthApi;
 import com.midairlogn.seudoorunlock.model.LoginResponse;
 import com.midairlogn.seudoorunlock.storage.CredentialCache;
+import com.midairlogn.seudoorunlock.storage.SecurePrefs;
 
 import java.nio.charset.StandardCharsets;
 
@@ -65,15 +66,17 @@ public class PhoneLoginBottomSheet extends BottomSheetDialogFragment {
         CredentialCache cache = CredentialCache.getInstance(requireContext());
         AuthApi authApi = new AuthApi(cache);
         SharedPreferences rememberPrefs = requireContext().getSharedPreferences(REMEMBER_PREFS, 0);
+        SecurePrefs securePrefs = SecurePrefs.getInstance(requireContext());
+        migrateRememberedCredentials(rememberPrefs, securePrefs);
 
         // Load remembered credentials
         boolean remember = rememberPrefs.getBoolean(KEY_REMEMBER, false);
         cbRemember.setChecked(remember);
         if (remember) {
-            String phone = rememberPrefs.getString(KEY_PHONE, "");
-            String encodedPwd = rememberPrefs.getString(KEY_PASSWORD, "");
+            String phone = securePrefs.getString(KEY_PHONE, "");
+            String password = securePrefs.getString(KEY_PASSWORD, "");
             if (!phone.isEmpty()) etPhone.setText(phone);
-            if (!encodedPwd.isEmpty()) etPassword.setText(decodePassword(encodedPwd));
+            if (!password.isEmpty()) etPassword.setText(password);
         }
 
         // Clear errors on text change
@@ -107,7 +110,7 @@ public class PhoneLoginBottomSheet extends BottomSheetDialogFragment {
                 @Override
                 public void onSuccess(LoginResponse response) {
                     setLoading(false, btnLogin, progressBar, etPhone, etPassword);
-                    saveRemembered(rememberPrefs, cbRemember.isChecked(), phone, password);
+                    saveRemembered(rememberPrefs, securePrefs, cbRemember.isChecked(), phone, password);
                     Toast.makeText(requireContext(), "Login successful", Toast.LENGTH_SHORT).show();
                     if (listener != null) listener.onLoginSuccess();
                     dismiss();
@@ -116,7 +119,8 @@ public class PhoneLoginBottomSheet extends BottomSheetDialogFragment {
                 @Override
                 public void onCaptchaRequired() {
                     setLoading(false, btnLogin, progressBar, etPhone, etPassword);
-                    showCaptchaDialog(authApi, phone, password, btnLogin, progressBar, etPhone, etPassword, rememberPrefs, cbRemember);
+                    showCaptchaDialog(authApi, phone, password, btnLogin, progressBar, etPhone, etPassword,
+                        rememberPrefs, securePrefs, cbRemember);
                 }
 
                 @Override
@@ -129,9 +133,10 @@ public class PhoneLoginBottomSheet extends BottomSheetDialogFragment {
     }
 
     private void showCaptchaDialog(AuthApi authApi, String phone, String password,
-                                    MaterialButton btnLogin, ProgressBar progressBar,
-                                    TextInputEditText etPhone, TextInputEditText etPassword,
-                                    SharedPreferences rememberPrefs, MaterialCheckBox cbRemember) {
+                                     MaterialButton btnLogin, ProgressBar progressBar,
+                                     TextInputEditText etPhone, TextInputEditText etPassword,
+                                     SharedPreferences rememberPrefs, SecurePrefs securePrefs,
+                                     MaterialCheckBox cbRemember) {
         CaptchaDialogFragment dialog = CaptchaDialogFragment.newInstance(phone, password);
         dialog.setOnCaptchaSubmitListener(captcha -> {
             setLoading(true, btnLogin, progressBar, etPhone, etPassword);
@@ -139,7 +144,7 @@ public class PhoneLoginBottomSheet extends BottomSheetDialogFragment {
                 @Override
                 public void onSuccess(LoginResponse response) {
                     setLoading(false, btnLogin, progressBar, etPhone, etPassword);
-                    saveRemembered(rememberPrefs, cbRemember.isChecked(), phone, password);
+                    saveRemembered(rememberPrefs, securePrefs, cbRemember.isChecked(), phone, password);
                     Toast.makeText(requireContext(), "Login successful", Toast.LENGTH_SHORT).show();
                     if (listener != null) listener.onLoginSuccess();
                     dismiss();
@@ -170,27 +175,35 @@ public class PhoneLoginBottomSheet extends BottomSheetDialogFragment {
         etPassword.setEnabled(!loading);
     }
 
-    private void saveRemembered(SharedPreferences prefs, boolean remember, String phone, String password) {
+    private void saveRemembered(SharedPreferences prefs, SecurePrefs securePrefs, boolean remember,
+                                String phone, String password) {
         if (remember) {
             prefs.edit()
                 .putBoolean(KEY_REMEMBER, true)
-                .putString(KEY_PHONE, phone)
-                .putString(KEY_PASSWORD, encodePassword(password))
                 .apply();
+            securePrefs.putString(KEY_PHONE, phone);
+            securePrefs.putString(KEY_PASSWORD, password);
         } else {
             prefs.edit()
                 .putBoolean(KEY_REMEMBER, false)
-                .remove(KEY_PHONE)
-                .remove(KEY_PASSWORD)
                 .apply();
+            securePrefs.remove(KEY_PHONE);
+            securePrefs.remove(KEY_PASSWORD);
         }
     }
 
-    private String encodePassword(String password) {
-        return Base64.encodeToString(password.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
-    }
-
-    private String decodePassword(String encoded) {
-        return new String(Base64.decode(encoded, Base64.NO_WRAP), StandardCharsets.UTF_8);
+    private void migrateRememberedCredentials(SharedPreferences prefs, SecurePrefs securePrefs) {
+        String oldPhone = prefs.getString(KEY_PHONE, "");
+        String oldPassword = prefs.getString(KEY_PASSWORD, "");
+        if (!oldPhone.isEmpty() && securePrefs.getString(KEY_PHONE, "").isEmpty()) {
+            securePrefs.putString(KEY_PHONE, oldPhone);
+        }
+        if (!oldPassword.isEmpty() && securePrefs.getString(KEY_PASSWORD, "").isEmpty()) {
+            try {
+                String decoded = new String(Base64.decode(oldPassword, Base64.NO_WRAP), StandardCharsets.UTF_8);
+                securePrefs.putString(KEY_PASSWORD, decoded);
+            } catch (IllegalArgumentException ignored) {}
+        }
+        prefs.edit().remove(KEY_PHONE).remove(KEY_PASSWORD).apply();
     }
 }

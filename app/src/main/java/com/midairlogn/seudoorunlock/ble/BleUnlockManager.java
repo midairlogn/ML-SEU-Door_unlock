@@ -116,6 +116,10 @@ public class BleUnlockManager {
         }
 
         this.pendingCallback = callback;
+        timeoutHandler.removeCallbacksAndMessages(null);
+        clearActivationState();
+        unlockFlowStarted = false;
+        operationFinished = false;
 
         int deviceId = cache.getDeviceId();
         if (deviceId == 0) {
@@ -138,10 +142,14 @@ public class BleUnlockManager {
         String cachedMac = cache.getBleMac();
         if (!cachedMac.isEmpty()) {
             Log.d(TAG, "Attempting direct connect to cached MAC: " + cachedMac);
-            BluetoothDevice device = bluetoothAdapter.getRemoteDevice(cachedMac);
-            if (device != null) {
-                connectToDevice(device, deviceId);
-                return;
+            try {
+                BluetoothDevice device = bluetoothAdapter.getRemoteDevice(cachedMac);
+                if (device != null) {
+                    connectToDevice(device, deviceId);
+                    return;
+                }
+            } catch (IllegalArgumentException e) {
+                Log.w(TAG, "Cached BLE MAC is invalid, falling back to scan", e);
             }
         }
 
@@ -166,7 +174,15 @@ public class BleUnlockManager {
         connectAttempt++;
         Log.d(TAG, "Connecting to " + targetDevice.getAddress() + " attempt " + connectAttempt);
         scheduleTimeout(CONNECT_TIMEOUT_MS, "Connection timed out");
-        bluetoothGatt = targetDevice.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE);
+        try {
+            bluetoothGatt = targetDevice.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE);
+            if (bluetoothGatt == null) {
+                throw new IllegalStateException("connectGatt returned null");
+            }
+        } catch (RuntimeException e) {
+            timeoutHandler.removeCallbacksAndMessages(null);
+            retryOrFail("BLE connection start failed: " + safeMessage(e));
+        }
     }
 
     private void retryOrFail(String message) {
@@ -188,7 +204,7 @@ public class BleUnlockManager {
 
         BluetoothLeScanner scanner = bluetoothAdapter.getBluetoothLeScanner();
         if (scanner == null) {
-            if (pendingCallback != null) pendingCallback.onError("Bluetooth scanner not available");
+            fail("Bluetooth scanner not available");
             return;
         }
 
@@ -213,14 +229,14 @@ public class BleUnlockManager {
                 boolean deviceIdMatch = advertisedDeviceId != 0 && advertisedDeviceId == cachedDeviceId;
                 boolean serviceMatch = hasDoorService(scanRecord);
 
-                if (serviceMatch && deviceIdMatch && result.getRssi() > fallbackRssi[0]) {
+                if (serviceMatch && result.getRssi() > fallbackRssi[0]) {
                     fallbackDevice[0] = device;
-                    fallbackDeviceId[0] = advertisedDeviceId;
+                    fallbackDeviceId[0] = advertisedDeviceId != 0 ? advertisedDeviceId : cachedDeviceId;
                     fallbackRssi[0] = result.getRssi();
                 }
 
                 if ((nameMatch || addrMatch || deviceIdMatch) && matched.compareAndSet(false, true)) {
-                    scanner.stopScan(this);
+                    stopScanQuietly(scanner, this);
                     Log.d(TAG, "Found device: " + (deviceName != null ? deviceName : device.getAddress())
                         + " match=" + (nameMatch ? "name" : addrMatch ? "address" : "deviceId"));
                     int resolvedDeviceId = advertisedDeviceId != 0 ? advertisedDeviceId : cachedDeviceId;
@@ -229,16 +245,21 @@ public class BleUnlockManager {
             }
         };
 
-        scanner.startScan(scanCallback);
+        try {
+            scanner.startScan(scanCallback);
+        } catch (RuntimeException e) {
+            fail("Failed to start BLE scan: " + safeMessage(e));
+            return;
+        }
 
         timeoutHandler.postDelayed(() -> {
-            scanner.stopScan(scanCallback);
+            stopScanQuietly(scanner, scanCallback);
             if (bluetoothGatt == null && pendingCallback != null && matched.compareAndSet(false, true)) {
                 if (fallbackDevice[0] != null) {
                     Log.d(TAG, "Using BLE service UUID fallback: " + fallbackDevice[0].getAddress());
                     connectToDevice(fallbackDevice[0], fallbackDeviceId[0]);
                 } else {
-                    pendingCallback.onError("Device not found nearby");
+                    fail("Device not found nearby");
                 }
             }
         }, SCAN_TIMEOUT_MS);
@@ -255,10 +276,13 @@ public class BleUnlockManager {
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.d(TAG, "Disconnected");
                 cleanupGattOnly();
-                if (!unlockFlowStarted && !operationFinished) {
+                if (operationFinished) {
+                    return;
+                }
+                if (!unlockFlowStarted) {
                     retryOrFail("Disconnected");
-                } else if (pendingCallback != null && !waitingForNotification && !operationFinished) {
-                    mainHandler.post(() -> pendingCallback.onError("Disconnected"));
+                } else {
+                    fail("Disconnected");
                 }
             }
         }
@@ -290,8 +314,12 @@ public class BleUnlockManager {
                 return;
             }
 
-            // Enable notifications on read characteristic
-            gatt.setCharacteristicNotification(readCharacteristic, true);
+            // Enable notifications or indications on read characteristic.
+            if (!gatt.setCharacteristicNotification(readCharacteristic, true)) {
+                cleanupGattOnly();
+                retryOrFail("Failed to enable notifications");
+                return;
+            }
             BluetoothGattDescriptor descriptor = readCharacteristic.getDescriptor(CCCD_UUID);
             if (descriptor == null) {
                 cleanupGattOnly();
@@ -299,13 +327,25 @@ public class BleUnlockManager {
                 return;
             }
 
+            int properties = readCharacteristic.getProperties();
+            byte[] cccValue;
+            if ((properties & BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0) {
+                cccValue = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE;
+            } else if ((properties & BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0) {
+                cccValue = BluetoothGattDescriptor.ENABLE_INDICATION_VALUE;
+            } else {
+                cleanupGattOnly();
+                retryOrFail("Response characteristic does not support notifications");
+                return;
+            }
+
             waitingForDescriptor = true;
             boolean writeStarted;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 writeStarted = gatt.writeDescriptor(descriptor,
-                    BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) == BluetoothStatusCodes.SUCCESS;
+                    cccValue) == BluetoothStatusCodes.SUCCESS;
             } else {
-                descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                descriptor.setValue(cccValue);
                 writeStarted = gatt.writeDescriptor(descriptor);
             }
             if (!writeStarted) {
@@ -542,20 +582,21 @@ public class BleUnlockManager {
             }
 
             String hex = bytesToHex(credentialBytes).toUpperCase();
-            if (hex.length() >= 64) {
-                hex = hex.substring(0, 64);
-                cache.saveDoorLock(deviceId, cache.getBleMac(), hex, cache.getCredentialId());
-
-                // Re-sync with server in background
-                credentialApi.syncCredential(cache.getCredentialId(), new CredentialApi.SyncCallback() {
-                    @Override public void onSuccess(com.midairlogn.seudoorunlock.model.DoorLockInfo info) {
-                        Log.d(TAG, "Server credential re-synced after BLE refresh");
-                    }
-                    @Override public void onError(String message) {
-                        Log.w(TAG, "Server credential re-sync failed: " + message);
-                    }
-                });
+            if (!hex.matches("^[0-9A-F]{64}$")) {
+                fail("Door lock returned invalid refreshed credential");
+                return;
             }
+            cache.saveDoorLock(deviceId, cache.getBleMac(), hex, cache.getCredentialId());
+
+            // Re-sync with server in background
+            credentialApi.syncCredential(cache.getCredentialId(), new CredentialApi.SyncCallback() {
+                @Override public void onSuccess(com.midairlogn.seudoorunlock.model.DoorLockInfo info) {
+                    Log.d(TAG, "Server credential re-synced after BLE refresh");
+                }
+                @Override public void onError(String message) {
+                    Log.w(TAG, "Server credential re-sync failed: " + message);
+                }
+            });
 
             byte[] openCmd = BleCommandBuilder.buildOpenDoor(deviceId);
             byte[] openResp = sendAndWaitForNotification(openCmd);
@@ -650,6 +691,7 @@ public class BleUnlockManager {
     }
 
     private void success(String message) {
+        if (operationFinished) return;
         operationFinished = true;
         clearActivationState();
         cleanupGatt();
@@ -659,6 +701,7 @@ public class BleUnlockManager {
     }
 
     private void fail(String message) {
+        if (operationFinished) return;
         operationFinished = true;
         clearActivationState();
         cleanupGatt();
@@ -682,8 +725,26 @@ public class BleUnlockManager {
         }
         writeCharacteristic = null;
         readCharacteristic = null;
-        waitingForWrite = false;
-        waitingForDescriptor = false;
+        synchronized (this) {
+            waitingForWrite = false;
+            waitingForNotification = false;
+            waitingForDescriptor = false;
+            notifyAll();
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private void stopScanQuietly(BluetoothLeScanner scanner, ScanCallback callback) {
+        try {
+            scanner.stopScan(callback);
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Failed to stop BLE scan", e);
+        }
+    }
+
+    private static String safeMessage(Throwable throwable) {
+        String message = throwable.getMessage();
+        return message != null && !message.isEmpty() ? message : throwable.getClass().getSimpleName();
     }
 
     private static boolean hasDoorService(ScanRecord scanRecord) {
@@ -814,10 +875,14 @@ public class BleUnlockManager {
 
                     String cachedMac = cache.getBleMac();
                     if (!cachedMac.isEmpty()) {
-                        BluetoothDevice device = bluetoothAdapter.getRemoteDevice(cachedMac);
-                        if (device != null) {
-                            connectToDevice(device, deviceId);
-                            return;
+                        try {
+                            BluetoothDevice device = bluetoothAdapter.getRemoteDevice(cachedMac);
+                            if (device != null) {
+                                connectToDevice(device, deviceId);
+                                return;
+                            }
+                        } catch (IllegalArgumentException e) {
+                            Log.w(TAG, "Cached BLE MAC is invalid during activation, falling back to scan", e);
                         }
                     }
                     startScanAndConnect();

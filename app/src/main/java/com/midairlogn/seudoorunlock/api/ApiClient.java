@@ -109,12 +109,33 @@ public class ApiClient {
     }
 
     public String executeRequest(Request request) throws IOException {
-        Log.d(TAG, "Request: " + request.url());
+        Log.d(TAG, "Request: " + describeRequest(request));
         try (Response response = client.newCall(request).execute()) {
             String body = response.body() != null ? response.body().string() : "";
             Log.d(TAG, "Response code: " + response.code());
             return body;
         }
+    }
+
+    private static String describeRequest(Request request) {
+        HttpUrl url = request.url();
+        StringBuilder sb = new StringBuilder(request.method())
+            .append(' ')
+            .append(url.scheme())
+            .append("://")
+            .append(url.host());
+        if (url.port() != HttpUrl.defaultPort(url.scheme())) {
+            sb.append(':').append(url.port());
+        }
+        sb.append(url.encodedPath());
+        if (url.querySize() > 0) {
+            sb.append('?');
+            for (int i = 0; i < url.querySize(); i++) {
+                if (i > 0) sb.append('&');
+                sb.append(url.queryParameterName(i)).append("=<redacted>");
+            }
+        }
+        return sb.toString();
     }
 
     public String executeAuthRequest(HttpUrl.Builder urlBuilder) throws IOException {

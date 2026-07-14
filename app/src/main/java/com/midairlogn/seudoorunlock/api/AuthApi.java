@@ -65,7 +65,6 @@ public class AuthApi {
 
                 String responseJson = api.executeAuthRequest(urlBuilder);
                 Log.d(TAG, "Login response length: " + responseJson.length());
-                Log.d(TAG, "Login response preview: " + responseJson.substring(0, Math.min(300, responseJson.length())));
 
                 if (ApiClient.isCaptchaRequired(responseJson)) {
                     Log.d(TAG, "Captcha required");
@@ -78,19 +77,15 @@ public class AuthApi {
                     dataStr = ApiClient.extractDataField(responseJson);
                 } catch (Exception e) {
                     Log.e(TAG, "Failed to extract data field from response", e);
-                    Log.d(TAG, "Raw response: " + responseJson);
                     mainHandler.post(() -> callback.onError("Server response error: " + e.getMessage()));
                     return;
                 }
-
-                Log.d(TAG, "Decoded data preview: " + dataStr.substring(0, Math.min(300, dataStr.length())));
 
                 LoginResponse loginResponse;
                 try {
                     loginResponse = LoginResponse.fromJson(dataStr);
                 } catch (Exception e) {
                     Log.e(TAG, "Failed to parse login response from data", e);
-                    Log.d(TAG, "Data string: " + dataStr);
                     mainHandler.post(() -> callback.onError("Failed to parse server response: " + e.getMessage()));
                     return;
                 }
