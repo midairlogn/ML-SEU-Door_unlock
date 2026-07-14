@@ -70,7 +70,7 @@ public class BleUnlockManager {
     private final Handler timeoutHandler;
 
     private BluetoothAdapter bluetoothAdapter;
-    private BluetoothGatt bluetoothGatt;
+    private volatile BluetoothGatt bluetoothGatt;
     private BluetoothGattCharacteristic writeCharacteristic;
     private BluetoothGattCharacteristic readCharacteristic;
     private BleCallback pendingCallback;
@@ -286,6 +286,7 @@ public class BleUnlockManager {
         @Override
         @SuppressLint("MissingPermission")
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+            if (isStaleGatt(gatt)) return;
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Log.d(TAG, "Connected, discovering services");
                 timeoutHandler.removeCallbacksAndMessages(null);
@@ -317,6 +318,7 @@ public class BleUnlockManager {
         @Override
         @SuppressLint("MissingPermission")
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+            if (isStaleGatt(gatt)) return;
             timeoutHandler.removeCallbacksAndMessages(null);
             if (status != BluetoothGatt.GATT_SUCCESS) {
                 Log.e(TAG, "Service discovery failed: " + status);
@@ -402,6 +404,7 @@ public class BleUnlockManager {
 
         @Override
         public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
+            if (isStaleGatt(gatt)) return;
             if (!CCCD_UUID.equals(descriptor.getUuid())) return;
             waitingForDescriptor = false;
             timeoutHandler.removeCallbacksAndMessages(null);
@@ -416,6 +419,7 @@ public class BleUnlockManager {
 
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+            if (isStaleGatt(gatt)) return;
             if (WRITE_UUID.equals(characteristic.getUuid())) {
                 synchronized (BleUnlockManager.this) {
                     lastWriteStatus = status;
@@ -430,11 +434,13 @@ public class BleUnlockManager {
 
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+            if (isStaleGatt(gatt)) return;
             handleCharacteristicChanged(characteristic.getUuid(), characteristic.getValue());
         }
 
         @Override
         public void onCharacteristicChanged(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
+            if (isStaleGatt(gatt)) return;
             handleCharacteristicChanged(characteristic.getUuid(), value);
         }
 
@@ -735,6 +741,10 @@ public class BleUnlockManager {
                 }
             }
         }, delayMs);
+    }
+
+    private boolean isStaleGatt(BluetoothGatt gatt) {
+        return gatt == null || gatt != bluetoothGatt;
     }
 
     private void success(String message) {

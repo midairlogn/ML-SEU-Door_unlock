@@ -143,22 +143,28 @@ public class PhoneLoginBottomSheet extends BottomSheetDialogFragment {
             authApi.login(phone, password, captcha, new AuthApi.AuthCallback() {
                 @Override
                 public void onSuccess(LoginResponse response) {
+                    if (!isAdded()) return;
                     setLoading(false, btnLogin, progressBar, etPhone, etPassword);
                     saveRemembered(rememberPrefs, securePrefs, cbRemember.isChecked(), phone, password);
                     Toast.makeText(requireContext(), "Login successful", Toast.LENGTH_SHORT).show();
                     if (listener != null) listener.onLoginSuccess();
+                    dialog.dismissAllowingStateLoss();
                     dismiss();
                 }
 
                 @Override
                 public void onCaptchaRequired() {
+                    if (!isAdded()) return;
                     setLoading(false, btnLogin, progressBar, etPhone, etPassword);
+                    dialog.resetForRetry();
                     Toast.makeText(requireContext(), "Captcha required again", Toast.LENGTH_SHORT).show();
                 }
 
                 @Override
                 public void onError(String message) {
+                    if (!isAdded()) return;
                     setLoading(false, btnLogin, progressBar, etPhone, etPassword);
+                    dialog.setSubmitting(false);
                     Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
                 }
             });

@@ -29,6 +29,7 @@ public class CaptchaDialogFragment extends DialogFragment {
     private WebView webViewCaptcha;
     private TextInputEditText etCaptcha;
     private MaterialButton btnRefresh;
+    private boolean submitting;
 
     public interface OnCaptchaSubmitListener {
         void onSubmit(String captcha);
@@ -88,12 +89,29 @@ public class CaptchaDialogFragment extends DialogFragment {
                     return;
                 }
                 if (listener != null) {
+                    setSubmitting(true);
                     listener.onSubmit(captcha);
                 }
-                dialog.dismiss();
             }));
 
         return dialog;
+    }
+
+    public void setSubmitting(boolean submitting) {
+        this.submitting = submitting;
+        Dialog currentDialog = getDialog();
+        if (currentDialog instanceof AlertDialog) {
+            android.widget.Button positive = ((AlertDialog) currentDialog).getButton(AlertDialog.BUTTON_POSITIVE);
+            if (positive != null) positive.setEnabled(!submitting);
+        }
+        if (btnRefresh != null) btnRefresh.setEnabled(!submitting);
+        if (etCaptcha != null) etCaptcha.setEnabled(!submitting);
+    }
+
+    public void resetForRetry() {
+        if (etCaptcha != null) etCaptcha.setText("");
+        setSubmitting(false);
+        loadCaptcha();
     }
 
     private void loadCaptcha() {
@@ -118,7 +136,7 @@ public class CaptchaDialogFragment extends DialogFragment {
                         + "</body></html>";
                     webViewCaptcha.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
                 }
-                if (btnRefresh != null) btnRefresh.setEnabled(true);
+                if (btnRefresh != null) btnRefresh.setEnabled(!submitting);
             }
 
             @Override
@@ -126,7 +144,7 @@ public class CaptchaDialogFragment extends DialogFragment {
                 if (getContext() != null) {
                     Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
                 }
-                if (btnRefresh != null) btnRefresh.setEnabled(true);
+                if (btnRefresh != null) btnRefresh.setEnabled(!submitting);
             }
         });
     }
