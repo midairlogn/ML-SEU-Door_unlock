@@ -792,22 +792,6 @@ public class BleUnlockManager {
             new CredentialApi.ActivationCallback() {
                 @Override
                 public void onSuccess(com.midairlogn.seudoorunlock.model.NfcActivationStep step) {
-                    // Connect BLE and run activation loop
-                    String cachedMac = cache.getBleMac();
-                    BluetoothDevice device = null;
-                    if (!cachedMac.isEmpty()) {
-                        device = bluetoothAdapter.getRemoteDevice(cachedMac);
-                    }
-                    if (device == null) {
-                        fail("No BLE device for activation");
-                        return;
-                    }
-                    activeDeviceId = deviceId;
-                    targetDevice = device;
-                    connectAttempt = 0;
-                    unlockFlowStarted = false;
-                    operationFinished = false;
-
                     // Store activation state for use after connection
                     pendingActivationStep = step;
                     pendingActivationApi = activationApi;
@@ -815,7 +799,15 @@ public class BleUnlockManager {
                     pendingActivationAppId = appId;
                     isActivationFlow = true;
 
-                    connectNextAttempt();
+                    String cachedMac = cache.getBleMac();
+                    if (!cachedMac.isEmpty()) {
+                        BluetoothDevice device = bluetoothAdapter.getRemoteDevice(cachedMac);
+                        if (device != null) {
+                            connectToDevice(device, deviceId);
+                            return;
+                        }
+                    }
+                    startScanAndConnect();
                 }
                 @Override
                 public void onError(String message) {
@@ -840,7 +832,7 @@ public class BleUnlockManager {
                             throw new Exception("Activation did not return local credential");
                         }
                         cache.saveDoorLock(deviceId, cache.getBleMac(),
-                            credentialHex, cache.getCredentialId(),
+                            credentialHex, parseCredentialId(currentStep.credentialId, cache.getCredentialId()),
                             projectId, appId);
                         success("Digital key activated");
                         return;
@@ -874,6 +866,11 @@ public class BleUnlockManager {
         pendingActivationProjectId = 0;
         pendingActivationAppId = 0;
         isActivationFlow = false;
+    }
+
+    private static int parseCredentialId(String credentialId, int fallback) {
+        if (credentialId == null || credentialId.isEmpty()) return fallback;
+        try { return Integer.parseInt(credentialId); } catch (NumberFormatException e) { return fallback; }
     }
 
     // Activation state fields

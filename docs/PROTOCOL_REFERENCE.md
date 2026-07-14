@@ -65,11 +65,11 @@ GET https://pm.whxinna.com/webapi/users/login
 | `phone` | Phone number |
 | `pwd` | 6-digit numeric password (plaintext) |
 | `code` | Captcha code (required after multiple failed attempts) |
-| `pid` | Project ID: `21048` (SEU Jiulonghu Campus) |
-| `appid` | App ID: `20104` |
 | `timestamp` | Unix timestamp (seconds) |
 | `noncestr` | Random 32-character alphanumeric string (both auth and business) |
 | `sign` | MD5 signature (uppercase, see Appendix A) |
+
+Auth-server requests are signed without `pid`/`appid`. Dynamic project metadata is returned in `server_info` and used for business-server requests.
 
 **Response** (base64-decoded `data` field):
 ```json
@@ -325,9 +325,40 @@ GET {server_addr}/webapi/v1/student/accommodation/details
 }
 ```
 
-### 4.2 Get Credential List (Fallback)
+### 4.2 Credential Lookup Fallbacks
 
-If `accommodation/details` doesn't return `credential`:
+If `accommodation/details` does not return a usable `device_id` and 64-char `credential`, follow the same lookup order as the SEU-Door reference implementation.
+
+#### Staff Credentials
+
+```
+GET {server_addr}/webapi/v1/staff/credentials
+```
+
+| Parameter | Description |
+|---|---|
+| `user_id` | User UUID |
+| `identitycode` | `identity_code` |
+
+The first record may carry `device_id`, `credential_id`, `ble_mac`, and/or `credential`.
+
+#### Door Lock List By Room
+
+If `accommodation/details` has `room_id` but no `device_id`:
+
+```
+GET {server_addr}/webapi/v1/door_lock/list
+```
+
+| Parameter | Description |
+|---|---|
+| `room_id` | Room ID from accommodation details |
+| `user_id` | User UUID |
+| `identitycode` | `identity_code` |
+
+#### Door Lock Credentials
+
+If a `device_id` is known but the local credential is still missing:
 
 ```
 GET {server_addr}/webapi/v1/staff/door_lock/credentials
@@ -338,6 +369,8 @@ GET {server_addr}/webapi/v1/staff/door_lock/credentials
 | `device_id` | Door lock device ID |
 | `user_id` | User UUID |
 | `identitycode` | `identity_code` |
+
+If `device_id` is still unknown, the endpoint may be called without `device_id` to list this user's assigned door-lock credential rows.
 
 ### 4.3 NFC/BLE Digital Credential Activation
 
@@ -933,10 +966,10 @@ Where:
 
 ### Example
 
-Given params `appid=20104&noncestr=abc123&phone=13800138000&pid=21048&pwd=123456&timestamp=1700000000`:
+Given auth-login params `noncestr=abc123&phone=13800138000&pwd=123456&timestamp=1700000000`:
 
 ```
-signSource = "appid=20104&noncestr=abc123&phone=13800138000&pid=21048&pwd=123456&timestamp=1700000000&key=6d5dbb85b949447a95ff8fda9a9b759b"
+signSource = "noncestr=abc123&phone=13800138000&pwd=123456&timestamp=1700000000&key=6d5dbb85b949447a95ff8fda9a9b759b"
 sign = MD5(signSource).toUpperCase()
 ```
 

@@ -73,6 +73,7 @@ public class CredentialApi {
                     appId > 0 ? appId : ApiClient.APP_ID);
 
                 String dataStr = ApiClient.extractDataField(responseJson);
+                JSONObject detailJson = new JSONObject(dataStr);
                 DoorLockInfo info = DoorLockInfo.fromJson(dataStr);
 
                 String deviceId = info.doorLock != null ? "" + info.doorLock.deviceId : "";
@@ -80,16 +81,48 @@ public class CredentialApi {
                 int credentialId = info.doorLock != null ? info.doorLock.credentialId : 0;
                 String bleMac = info.doorLock != null ? info.doorLock.bleMac : "";
 
+                if (credential.isEmpty() || !credential.matches("^[0-9A-Fa-f]{64}$")) {
+                    Log.d(TAG, "Credential missing or invalid, fetching staff credentials endpoint");
+                    CredentialRecord staffRecord = fetchStaffCredentialRecord(serverUrl, projectId, appId);
+                    if (deviceId.isEmpty() && !staffRecord.deviceId.isEmpty()) deviceId = staffRecord.deviceId;
+                    if (credentialId == 0 && staffRecord.credentialId != 0) credentialId = staffRecord.credentialId;
+                    if (bleMac.isEmpty() && !staffRecord.bleMac.isEmpty()) bleMac = staffRecord.bleMac;
+                    if (!staffRecord.credential.isEmpty()) credential = staffRecord.credential;
+                }
+
+                if (deviceId.isEmpty()) {
+                    String roomId = findString(detailJson, "room_id", "roomId");
+                    if (!roomId.isEmpty()) {
+                        Log.d(TAG, "Device ID missing, fetching door lock list by room_id");
+                        CredentialRecord roomLock = fetchDoorLockListRecord(serverUrl, roomId, projectId, appId);
+                        if (!roomLock.deviceId.isEmpty()) deviceId = roomLock.deviceId;
+                        if (credentialId == 0 && roomLock.credentialId != 0) credentialId = roomLock.credentialId;
+                        if (bleMac.isEmpty() && !roomLock.bleMac.isEmpty()) bleMac = roomLock.bleMac;
+                        if (!roomLock.credential.isEmpty()) credential = roomLock.credential;
+                    }
+                }
+
+                if (deviceId.isEmpty()) {
+                    Log.d(TAG, "Device ID still missing, fetching all door-lock credentials");
+                    CredentialRecord lockRecord = fetchDoorLockCredentialRecord(serverUrl, "", projectId, appId);
+                    if (!lockRecord.deviceId.isEmpty()) deviceId = lockRecord.deviceId;
+                    if (credentialId == 0 && lockRecord.credentialId != 0) credentialId = lockRecord.credentialId;
+                    if (bleMac.isEmpty() && !lockRecord.bleMac.isEmpty()) bleMac = lockRecord.bleMac;
+                    if (!lockRecord.credential.isEmpty()) credential = lockRecord.credential;
+                }
+
                 if (deviceId.isEmpty()) {
                     mainHandler.post(() -> callback.onError("Server returned missing device_id"));
                     return;
                 }
 
                 if (credential.isEmpty() || !credential.matches("^[0-9A-Fa-f]{64}$")) {
-                    Log.d(TAG, "Credential missing or invalid, fetching from credentials endpoint");
-                    credential = fetchCredentialFromCredentialsEndpoint(serverUrl, deviceId, projectId, appId);
-                    if (credential == null) {
-                        credential = "";
+                    Log.d(TAG, "Credential still missing, fetching door-lock credentials endpoint");
+                    CredentialRecord lockRecord = fetchDoorLockCredentialRecord(serverUrl, deviceId, projectId, appId);
+                    if (credentialId == 0 && lockRecord.credentialId != 0) credentialId = lockRecord.credentialId;
+                    if (bleMac.isEmpty() && !lockRecord.bleMac.isEmpty()) bleMac = lockRecord.bleMac;
+                    if (!lockRecord.credential.isEmpty()) {
+                        credential = lockRecord.credential;
                     }
                 }
 
@@ -124,40 +157,66 @@ public class CredentialApi {
         });
     }
 
-    private String fetchCredentialFromCredentialsEndpoint(String serverUrl, String deviceId,
-                                                           int projectId, int appId) {
+    private CredentialRecord fetchStaffCredentialRecord(String serverUrl, int projectId, int appId) {
         try {
-            HttpUrl credUrl = HttpUrl.parse(serverUrl + "/webapi/v1/staff/door_lock/credentials");
-            if (credUrl == null) return null;
+            HttpUrl credUrl = HttpUrl.parse(serverUrl + "/webapi/v1/staff/credentials");
+            if (credUrl == null) return CredentialRecord.EMPTY;
 
             HttpUrl.Builder credBuilder = credUrl.newBuilder()
-                .addQueryParameter("device_id", deviceId)
                 .addQueryParameter("user_id", cache.getUserId())
                 .addQueryParameter("identitycode", cache.getIdentityCode());
 
             String credResponse = api.executeBusinessRequest(credBuilder, cache.getSessionSecret(),
                 projectId > 0 ? projectId : ApiClient.PROJECT_ID,
                 appId > 0 ? appId : ApiClient.APP_ID);
-            String credDataStr = ApiClient.extractDataField(credResponse);
-            JSONObject credData = new JSONObject(credDataStr);
+            return parseCredentialRecord(ApiClient.extractDataField(credResponse));
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to fetch staff credentials", e);
+            return CredentialRecord.EMPTY;
+        }
+    }
 
-            String credential = credData.optString("credential", "");
-            if (credential.isEmpty()) credential = credData.optString("chain_key", "");
-            if (credential.isEmpty()) credential = credData.optString("chainKey", "");
+    private CredentialRecord fetchDoorLockCredentialRecord(String serverUrl, String deviceId,
+                                                            int projectId, int appId) {
+        try {
+            HttpUrl credUrl = HttpUrl.parse(serverUrl + "/webapi/v1/staff/door_lock/credentials");
+            if (credUrl == null) return CredentialRecord.EMPTY;
 
-            int newCredentialId = credData.optInt("credential_id", 0);
-            if (newCredentialId == 0) {
-                newCredentialId = extractCredentialIdFromRows(credData);
+            HttpUrl.Builder credBuilder = credUrl.newBuilder()
+                .addQueryParameter("user_id", cache.getUserId())
+                .addQueryParameter("identitycode", cache.getIdentityCode());
+            if (deviceId != null && !deviceId.isEmpty()) {
+                credBuilder.addQueryParameter("device_id", deviceId);
             }
-            if (newCredentialId != 0) {
-                cache.saveDoorLock(Integer.parseInt(deviceId), cache.getBleMac(),
-                    credential.toUpperCase(), newCredentialId, projectId, appId);
-            }
 
-            return credential;
+            String credResponse = api.executeBusinessRequest(credBuilder, cache.getSessionSecret(),
+                projectId > 0 ? projectId : ApiClient.PROJECT_ID,
+                appId > 0 ? appId : ApiClient.APP_ID);
+            return parseCredentialRecord(ApiClient.extractDataField(credResponse));
         } catch (Exception e) {
             Log.w(TAG, "Failed to fetch credential from credentials endpoint", e);
-            return null;
+            return CredentialRecord.EMPTY;
+        }
+    }
+
+    private CredentialRecord fetchDoorLockListRecord(String serverUrl, String roomId,
+                                                      int projectId, int appId) {
+        try {
+            HttpUrl lockUrl = HttpUrl.parse(serverUrl + "/webapi/v1/door_lock/list");
+            if (lockUrl == null) return CredentialRecord.EMPTY;
+
+            HttpUrl.Builder lockBuilder = lockUrl.newBuilder()
+                .addQueryParameter("room_id", roomId)
+                .addQueryParameter("user_id", cache.getUserId())
+                .addQueryParameter("identitycode", cache.getIdentityCode());
+
+            String response = api.executeBusinessRequest(lockBuilder, cache.getSessionSecret(),
+                projectId > 0 ? projectId : ApiClient.PROJECT_ID,
+                appId > 0 ? appId : ApiClient.APP_ID);
+            return parseCredentialRecord(ApiClient.extractDataField(response));
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to fetch door lock list", e);
+            return CredentialRecord.EMPTY;
         }
     }
 
@@ -237,8 +296,8 @@ public class CredentialApi {
                 String dataStr = ApiClient.extractDataField(responseJson);
 
                 JSONObject data = new JSONObject(dataStr);
-                int projectId = findPositiveInt(data, "project_id", "server_appid", "id");
-                int appId = findPositiveInt(data, "app_id", "server_id");
+                int projectId = findPositiveInt(data, "server_appid", "project_id", "projectId", "id");
+                int appId = findPositiveInt(data, "server_id", "app_id", "appId");
 
                 if (projectId > 0 && cache.getProjectId() == 0) {
                     cache.saveSession(cache.getPhone(), cache.getPassword(), cache.getUserId(),
@@ -268,6 +327,15 @@ public class CredentialApi {
                     return;
                 }
 
+                if (cache.getCredentialId() > 0) {
+                    String credentialId = String.valueOf(cache.getCredentialId());
+                    JSONObject result = new JSONObject();
+                    result.put("credential_id", credentialId);
+                    mainHandler.post(() -> callback.onSuccess(
+                        new NfcActivationStep(result, new ArrayList<>(), credentialId, null)));
+                    return;
+                }
+
                 // Try to find existing type-3 credential
                 String existingId = fetchDigitalCredentialId(serverUrl, deviceId, projectId, appId);
                 if (existingId != null) {
@@ -287,7 +355,7 @@ public class CredentialApi {
                 HttpUrl.Builder urlBuilder = httpUrl.newBuilder()
                     .addQueryParameter("device_id", String.valueOf(deviceId))
                     .addQueryParameter("type", "3")
-                    .addQueryParameter("value", String.valueOf((int) (Math.random() * 1000000)))
+                    .addQueryParameter("value", String.format(java.util.Locale.US, "%06d", (int) (Math.random() * 1000000)))
                     .addQueryParameter("user_id", cache.getUserId())
                     .addQueryParameter("identitycode", cache.getIdentityCode());
 
@@ -508,6 +576,54 @@ public class CredentialApi {
         if (value == null) return null;
         String upper = value.trim().toUpperCase();
         return upper.matches("^[0-9A-F]{64}$") ? upper : null;
+    }
+
+    private static CredentialRecord parseCredentialRecord(String dataStr) throws JSONException {
+        String trimmed = dataStr.trim();
+        JSONObject record;
+        if (trimmed.startsWith("[")) {
+            JSONArray array = new JSONArray(trimmed);
+            record = array.length() > 0 ? array.optJSONObject(0) : null;
+        } else {
+            JSONObject root = new JSONObject(trimmed);
+            JSONArray rows = root.optJSONArray("rows");
+            JSONArray data = root.optJSONArray("data");
+            if (rows != null && rows.length() > 0) {
+                record = rows.optJSONObject(0);
+            } else if (data != null && data.length() > 0) {
+                record = data.optJSONObject(0);
+            } else {
+                record = root;
+            }
+        }
+        if (record == null) return CredentialRecord.EMPTY;
+
+        String credential = findString(record, "credential", "chain_key", "chainKey");
+        int credentialId = record.optInt("credential_id", 0);
+        if (credentialId == 0) credentialId = record.optInt("credentialId", 0);
+        if (credentialId == 0) credentialId = record.optInt("id", 0);
+        return new CredentialRecord(
+            findString(record, "device_id", "deviceId"),
+            findString(record, "ble_mac", "bleMac"),
+            credential != null ? credential.toUpperCase() : "",
+            credentialId
+        );
+    }
+
+    private static class CredentialRecord {
+        static final CredentialRecord EMPTY = new CredentialRecord("", "", "", 0);
+
+        final String deviceId;
+        final String bleMac;
+        final String credential;
+        final int credentialId;
+
+        CredentialRecord(String deviceId, String bleMac, String credential, int credentialId) {
+            this.deviceId = deviceId != null ? deviceId : "";
+            this.bleMac = bleMac != null ? bleMac : "";
+            this.credential = credential != null ? credential : "";
+            this.credentialId = credentialId;
+        }
     }
 
     private static String extractCredentialId(JSONObject data) {

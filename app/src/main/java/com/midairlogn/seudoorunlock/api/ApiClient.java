@@ -118,7 +118,7 @@ public class ApiClient {
     }
 
     public String executeAuthRequest(HttpUrl.Builder urlBuilder) throws IOException {
-        return executeAuthRequest(urlBuilder, true);
+        return executeAuthRequest(urlBuilder, false);
     }
 
     public String executeAuthRequest(HttpUrl.Builder urlBuilder, boolean includeProjectIds) throws IOException {

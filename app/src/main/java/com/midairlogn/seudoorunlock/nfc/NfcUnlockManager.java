@@ -127,6 +127,7 @@ public class NfcUnlockManager {
         }
 
         executor.execute(() -> {
+            final boolean[] continuingActivation = new boolean[]{false};
             try {
                 nfcA.connect();
                 nfcA.setTimeout(TIMEOUT_MS);
@@ -152,7 +153,7 @@ public class NfcUnlockManager {
 
                 if (cache.requiresDigitalCredentialActivation()) {
                     nfcA.close();
-                    isProcessing.set(false);
+                    continuingActivation[0] = true;
                     activateDigitalCredential(tag, deviceId);
                     return;
                 }
@@ -243,7 +244,9 @@ public class NfcUnlockManager {
                 try {
                     nfcA.close();
                 } catch (Exception ignored) {}
-                isProcessing.set(false);
+                if (!continuingActivation[0]) {
+                    isProcessing.set(false);
+                }
             }
         });
         return true;
@@ -413,6 +416,7 @@ public class NfcUnlockManager {
                 public void onSuccess(NfcActivationStep step) {
                     String credentialId = step.credentialId;
                     if (credentialId == null || credentialId.isEmpty()) {
+                        isProcessing.set(false);
                         mainHandler.post(() -> {
                             if (pendingCallback != null) {
                                 pendingCallback.onError("Server did not return credential ID");
@@ -424,6 +428,7 @@ public class NfcUnlockManager {
                 }
                 @Override
                 public void onError(String message) {
+                    isProcessing.set(false);
                     mainHandler.post(() -> {
                         if (pendingCallback != null) {
                             pendingCallback.onError("Credential lookup failed: " + message);
@@ -462,7 +467,7 @@ public class NfcUnlockManager {
                             throw new Exception("Activation did not return local credential");
                         }
                         cache.saveDoorLock(deviceId, cache.getBleMac(),
-                            credentialHex, cache.getCredentialId(),
+                            credentialHex, parseCredentialId(currentStep.credentialId, cache.getCredentialId()),
                             projectId, appId);
                         nfcA.close();
                         mainHandler.post(() -> {
@@ -499,6 +504,7 @@ public class NfcUnlockManager {
                 if (nfcA != null) {
                     try { nfcA.close(); } catch (Exception ignored) {}
                 }
+                isProcessing.set(false);
             }
         });
     }
@@ -509,5 +515,10 @@ public class NfcUnlockManager {
             sb.append(String.format("%02X", b & 0xFF));
         }
         return sb.toString();
+    }
+
+    private static int parseCredentialId(String credentialId, int fallback) {
+        if (credentialId == null || credentialId.isEmpty()) return fallback;
+        try { return Integer.parseInt(credentialId); } catch (NumberFormatException e) { return fallback; }
     }
 }
