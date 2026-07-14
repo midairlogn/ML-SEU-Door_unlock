@@ -28,6 +28,8 @@ import com.midairlogn.seudoorunlock.AppExecutors;
 import com.midairlogn.seudoorunlock.api.ApiClient;
 import com.midairlogn.seudoorunlock.api.CredentialApi;
 import com.midairlogn.seudoorunlock.model.BleResponse;
+import com.midairlogn.seudoorunlock.model.NfcActivationStep;
+import com.midairlogn.seudoorunlock.nfc.NfcCommandBuilder;
 import com.midairlogn.seudoorunlock.storage.CredentialCache;
 
 import java.util.Arrays;
@@ -370,6 +372,12 @@ public class BleUnlockManager {
         executor.execute(() -> {
             try {
                 unlockFlowStarted = true;
+
+                if (isActivationFlow && pendingActivationStep != null) {
+                    runBleActivationLoop();
+                    return;
+                }
+
                 int deviceId = activeDeviceId != 0 ? activeDeviceId : cache.getDeviceId();
                 String credentialHex = cache.getCredentialHex();
                 int projectId = getEffectiveProjectId();
@@ -805,12 +813,6 @@ public class BleUnlockManager {
                     pendingActivationAppId = appId;
                     isActivationFlow = true;
 
-                    mainHandler.post(() -> {
-                        if (pendingCallback != null) {
-                            pendingCallback.onSuccess("Starting BLE activation");
-                        }
-                    });
-
                     connectNextAttempt();
                 }
                 @Override
@@ -818,6 +820,50 @@ public class BleUnlockManager {
                     fail("BLE activation start failed: " + message);
                 }
             });
+    }
+
+    private void runBleActivationLoop() {
+        executor.execute(() -> {
+            try {
+                NfcActivationStep currentStep = pendingActivationStep;
+                CredentialApi activationApi = pendingActivationApi;
+                int projectId = pendingActivationProjectId;
+                int appId = pendingActivationAppId;
+                int deviceId = activeDeviceId != 0 ? activeDeviceId : cache.getDeviceId();
+
+                for (int round = 0; round < MAX_ACTIVATION_ROUNDS; round++) {
+                    if (currentStep.isComplete()) {
+                        String credentialHex = currentStep.credentialHex;
+                        if (credentialHex == null || credentialHex.isEmpty()) {
+                            throw new Exception("Activation did not return local credential");
+                        }
+                        cache.saveDoorLock(deviceId, cache.getBleMac(),
+                            credentialHex, cache.getCredentialId(),
+                            projectId, appId);
+                        success("Digital key activated");
+                        return;
+                    }
+
+                    java.util.List<String> responses = new java.util.ArrayList<>();
+                    for (String packet : currentStep.packets) {
+                        byte[] request = NfcCommandBuilder.hexToBytes(packet);
+                        byte[] resp = sendAndWaitForNotification(request);
+                        if (resp == null || resp.length == 0) {
+                            throw new Exception("Door lock returned no activation response");
+                        }
+                        responses.add(bytesToHex(resp));
+                    }
+
+                    currentStep = activationApi.submitActivationResponsesSync(currentStep, responses,
+                        "ble", projectId, appId);
+                }
+
+                throw new Exception("BLE activation round limit exceeded");
+            } catch (Exception e) {
+                Log.e(TAG, "BLE activation error", e);
+                fail("BLE activation error: " + e.getMessage());
+            }
+        });
     }
 
     // Activation state fields

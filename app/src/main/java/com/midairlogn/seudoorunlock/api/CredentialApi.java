@@ -409,46 +409,6 @@ public class CredentialApi {
         return parseActivationStep(dataStr, credentialId);
     }
 
-    private void startDigitalCredentialActivation(int deviceId, String credentialId,
-                                                    String transport, String command,
-                                                    int projectId, int appId,
-                                                    ActivationCallback callback) {
-        executor.execute(() -> {
-            try {
-                String serverUrl = ApiClient.normalizeServerUrl(cache.getServerUrl());
-                if (serverUrl.isEmpty()) {
-                    mainHandler.post(() -> callback.onError("No server URL"));
-                    return;
-                }
-
-                HttpUrl httpUrl = HttpUrl.parse(serverUrl + "/webapi/v1/door_lock/command/create");
-                if (httpUrl == null) {
-                    mainHandler.post(() -> callback.onError("Invalid server URL"));
-                    return;
-                }
-
-                HttpUrl.Builder urlBuilder = httpUrl.newBuilder()
-                    .addQueryParameter("device_id", String.valueOf(deviceId))
-                    .addQueryParameter("command", command)
-                    .addQueryParameter("type", transport)
-                    .addQueryParameter("credential_id", credentialId)
-                    .addQueryParameter("user_id", cache.getUserId())
-                    .addQueryParameter("identitycode", cache.getIdentityCode());
-
-                String responseJson = api.executeBusinessRequest(urlBuilder, cache.getSessionSecret(),
-                    projectId > 0 ? projectId : ApiClient.PROJECT_ID,
-                    appId > 0 ? appId : ApiClient.APP_ID);
-                String dataStr = ApiClient.extractDataField(responseJson);
-
-                NfcActivationStep step = parseActivationStep(dataStr, credentialId);
-                mainHandler.post(() -> callback.onSuccess(step));
-            } catch (Exception e) {
-                Log.e(TAG, "startDigitalCredentialActivation error", e);
-                mainHandler.post(() -> callback.onError("Error: " + e.getMessage()));
-            }
-        });
-    }
-
     public void submitActivationResponses(NfcActivationStep step, List<String> responses,
                                             String transport, int projectId, int appId,
                                             ActivationCallback callback) {

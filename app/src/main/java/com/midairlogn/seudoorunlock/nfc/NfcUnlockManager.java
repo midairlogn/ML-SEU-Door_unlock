@@ -437,11 +437,12 @@ public class NfcUnlockManager {
                                             int projectId, int appId,
                                             CredentialApi activationApi) {
         executor.execute(() -> {
+            NfcA nfcA = null;
             try {
                 NfcActivationStep step = activationApi.startNfcActivationSync(deviceId, credentialId,
                     projectId, appId);
 
-                NfcA nfcA = NfcA.get(tag);
+                nfcA = NfcA.get(tag);
                 if (nfcA == null) {
                     mainHandler.post(() -> {
                         if (pendingCallback != null) {
@@ -486,7 +487,6 @@ public class NfcUnlockManager {
                         "nfc", projectId, appId);
                 }
 
-                nfcA.close();
                 throw new Exception("NFC activation round limit exceeded");
             } catch (Exception e) {
                 Log.e(TAG, "NFC activation error", e);
@@ -495,6 +495,10 @@ public class NfcUnlockManager {
                         pendingCallback.onError("NFC activation error: " + e.getMessage());
                     }
                 });
+            } finally {
+                if (nfcA != null) {
+                    try { nfcA.close(); } catch (Exception ignored) {}
+                }
             }
         });
     }
