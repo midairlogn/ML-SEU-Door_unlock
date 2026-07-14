@@ -3,9 +3,9 @@
 package com.alipay.android.app;
 
 interface IRemoteServiceCallback {
-    void startActivity(String packageName, String className, int flag, in Bundle data); // 1
-    void payEnd(boolean isOk, String result);                                            // 2
-    boolean isHideLoadingScreen();                                                        // 3
-    int getVersion();                                                                     // 4
-    void r03(String a, String b, in Map data);                                            // 5
+    void startActivity(String packageName, String className, int flag, in Bundle data);
+    void payEnd(boolean isOk, String result);
+    boolean isHideLoadingScreen();
+    int getVersion();
+    void r03(String a, String b, in Map data);
 }
