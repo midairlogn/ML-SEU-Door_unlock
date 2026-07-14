@@ -149,6 +149,14 @@ public class NfcUnlockManager {
                 if (cachedDeviceId != 0 && cachedDeviceId != deviceId) {
                     Log.w(TAG, "NFC tag device_id differs from cache: tag=" + deviceId
                         + " cache=" + cachedDeviceId);
+                    if (cache.requiresDigitalCredentialActivation()) {
+                        mainHandler.post(() -> {
+                            if (pendingCallback != null) {
+                                pendingCallback.onError("NFC tag device_id does not match cached door lock");
+                            }
+                        });
+                        return;
+                    }
                 }
 
                 if (cache.requiresDigitalCredentialActivation()) {
@@ -383,18 +391,30 @@ public class NfcUnlockManager {
         return projectId > 0 ? projectId : ApiClient.PROJECT_ID;
     }
 
+    private int getEffectiveAppId() {
+        int appId = cache.getAppId();
+        return appId > 0 ? appId : ApiClient.APP_ID;
+    }
+
+    private boolean shouldResolveProjectIds() {
+        int projectId = cache.getProjectId();
+        int appId = cache.getAppId();
+        return projectId <= 0 || appId <= 0
+            || (projectId == ApiClient.PROJECT_ID && appId == ApiClient.APP_ID);
+    }
+
     private void activateDigitalCredential(Tag tag, int deviceId) {
         int projectId = getEffectiveProjectId();
-        int appId = cache.getAppId() > 0 ? cache.getAppId() : ApiClient.APP_ID;
+        int appId = getEffectiveAppId();
         CredentialApi activationApi = new CredentialApi(cache);
 
-        // Step 1: Resolve project IDs if missing
-        if (cache.getProjectId() == 0) {
+        // Step 1: Resolve project IDs if missing or still using legacy defaults
+        if (shouldResolveProjectIds()) {
             activationApi.fetchProjectByDeviceId(deviceId,
                 new CredentialApi.ActivationCallback() {
                     @Override
                     public void onSuccess(NfcActivationStep step) {
-                        proceedWithCredentialLookup(tag, deviceId, getEffectiveProjectId(), appId, activationApi);
+                        proceedWithCredentialLookup(tag, deviceId, getEffectiveProjectId(), getEffectiveAppId(), activationApi);
                     }
                     @Override
                     public void onError(String message) {
@@ -458,6 +478,12 @@ public class NfcUnlockManager {
                 }
                 nfcA.connect();
                 nfcA.setTimeout(ACTIVATION_TIMEOUT_MS);
+
+                int tagDeviceId = readDeviceIdFromTag(nfcA);
+                if (tagDeviceId != deviceId) {
+                    throw new Exception("NFC tag device_id=" + tagDeviceId
+                        + " does not match cached door lock " + deviceId);
+                }
 
                 NfcActivationStep currentStep = step;
                 for (int round = 0; round < MAX_ACTIVATION_ROUNDS; round++) {

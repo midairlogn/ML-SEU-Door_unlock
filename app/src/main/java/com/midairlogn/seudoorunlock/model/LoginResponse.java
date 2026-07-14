@@ -92,8 +92,8 @@ public class LoginResponse {
             this.serverAddr = serverAddr;
             this.sessionSecret = sessionSecret;
             this.appSecret = appSecret;
-            this.projectId = projectId > 0 ? projectId : 21048;
-            this.appId = appId > 0 ? appId : 20104;
+            this.projectId = projectId;
+            this.appId = appId;
             this.serverAppId = this.projectId;
             this.serverId = this.appId;
         }

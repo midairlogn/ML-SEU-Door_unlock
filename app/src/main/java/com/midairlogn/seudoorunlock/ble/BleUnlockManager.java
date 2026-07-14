@@ -402,9 +402,9 @@ public class BleUnlockManager {
                 int ran = headerResponse.getRandom();
                 Log.d(TAG, "Got random: " + ran);
 
-                // Step 2: Send 0x75 × 3 credential packets
+                // Step 2: Send 0x75 credential packets
                 byte[][] packets = BleCommandBuilder.buildCredentialPackets(deviceId, ran, projectId, credentialHex);
-                for (int i = 0; i < 3; i++) {
+                for (int i = 0; i < packets.length; i++) {
                     byte[] packetResp = sendAndWaitForNotification(packets[i]);
                     if (packetResp == null) {
                         fail("No response to credential packet " + (i + 1));
@@ -734,22 +734,35 @@ public class BleUnlockManager {
         return projectId > 0 ? projectId : ApiClient.PROJECT_ID;
     }
 
+    private int getEffectiveAppId() {
+        int appId = cache.getAppId();
+        return appId > 0 ? appId : ApiClient.APP_ID;
+    }
+
+    private boolean shouldResolveProjectIds() {
+        int projectId = cache.getProjectId();
+        int appId = cache.getAppId();
+        return projectId <= 0 || appId <= 0
+            || (projectId == ApiClient.PROJECT_ID && appId == ApiClient.APP_ID);
+    }
+
     @SuppressLint("MissingPermission")
     private void activateDigitalCredential() {
         int deviceId = cache.getDeviceId();
         int projectId = getEffectiveProjectId();
-        int appId = cache.getAppId() > 0 ? cache.getAppId() : ApiClient.APP_ID;
+        int appId = getEffectiveAppId();
 
         CredentialApi activationApi = new CredentialApi(cache);
 
-        // Step 1: Resolve project IDs if missing
-        if (cache.getProjectId() == 0) {
+        // Step 1: Resolve project IDs if missing or still using legacy defaults
+        if (shouldResolveProjectIds()) {
             activationApi.fetchProjectByDeviceId(deviceId,
                 new CredentialApi.ActivationCallback() {
                     @Override
                     public void onSuccess(com.midairlogn.seudoorunlock.model.NfcActivationStep step) {
                         int resolvedProjectId = getEffectiveProjectId();
-                        proceedWithCredentialLookup(deviceId, resolvedProjectId, appId, activationApi);
+                        int resolvedAppId = getEffectiveAppId();
+                        proceedWithCredentialLookup(deviceId, resolvedProjectId, resolvedAppId, activationApi);
                     }
                     @Override
                     public void onError(String message) {

@@ -221,9 +221,9 @@ Both WeChat, Alipay, and CMIC OAuth use the **same request format** — GET with
 
 ```
 GET /webapi/oauth/login
-  ?base64_systemInfo=<base64_url_encode(JSON({"appVersion":"1.0.0","systemType":"android","systemVersion":"14","deviceModel":"Pixel 7","deviceToken":""}))>
+  ?base64_systemInfo=<base64_url_encode(JSON({"appVersion":"3.11.51","systemType":"Android","deviceToken":""}))>
   &base64_authInfo=<base64_url_encode(JSON({"auth_code":"xxx","oauth_type":"alipay_app","sign_type":"RSA"}))>
-  &app_version=1.0.0
+  &app_version=3.11.51
   &timestamp=xxx
   &noncestr=xxx
   &sign=xxx
@@ -693,7 +693,7 @@ fun buildBleCommand(deviceId: Int, commandType: Int, data: ByteArray): ByteArray
 ```
 1. Connect BLE (prefer cached ble_mac for direct connection)
 2. Send 0x74 credential header → parse ran (random number)
-3. Send 0x75 × 3 (ran + projectId + credential split into 3 packets)
+3. Send 0x75 packets (ran + projectId + credential split into 15-byte chunks)
 4. Wait 50ms
 5. Send 0x78 open door → parse result code
 ```
@@ -719,7 +719,7 @@ fun buildBleCommand(deviceId: Int, commandType: Int, data: ByteArray): ByteArray
 ### 7.5 BLE Credential Refresh (Result Code 27)
 
 ```
-1. Send 0x76 with device_id as ASCII string bytes (rest zeros)
+1. Send 0x76 with device_id as a 4-byte little-endian integer (rest zeros)
 2. Parse response: [1]=packet_count, [2..3]=credential_total_length, [4]=CRC8
 3. Send 0x77 × packet_count to read each packet
 4. Merge packets, verify CRC8, validate 64-char hex format

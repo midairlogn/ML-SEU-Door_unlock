@@ -116,6 +116,19 @@ public class CredentialApi {
                     return;
                 }
 
+                int deviceIdInt;
+                try {
+                    deviceIdInt = Integer.parseInt(deviceId);
+                } catch (NumberFormatException e) {
+                    final String invalidDeviceId = deviceId;
+                    mainHandler.post(() -> callback.onError("Invalid device_id: " + invalidDeviceId));
+                    return;
+                }
+
+                int[] resolvedIds = resolveProjectIdsForDevice(deviceIdInt, projectId, appId);
+                projectId = resolvedIds[0];
+                appId = resolvedIds[1];
+
                 if (credential.isEmpty() || !credential.matches("^[0-9A-Fa-f]{64}$")) {
                     Log.d(TAG, "Credential still missing, fetching door-lock credentials endpoint");
                     CredentialRecord lockRecord = fetchDoorLockCredentialRecord(serverUrl, deviceId, projectId, appId);
@@ -132,9 +145,8 @@ public class CredentialApi {
                     normalizedCredential = "";
                 }
 
-                cache.saveDoorLock(Integer.parseInt(deviceId), bleMac, normalizedCredential, credentialId,
-                    projectId > 0 ? projectId : ApiClient.PROJECT_ID,
-                    appId > 0 ? appId : ApiClient.APP_ID);
+                cache.saveDoorLock(deviceIdInt, bleMac, normalizedCredential, credentialId,
+                    projectId, appId);
 
                 if (info.accommodation != null) {
                     double battery = info.doorLock != null ? info.doorLock.batteryLevel : 100;
@@ -247,20 +259,21 @@ public class CredentialApi {
                     appId > 0 ? appId : ApiClient.APP_ID);
 
                 String dataStr = ApiClient.extractDataField(responseJson);
-                JSONObject data = new JSONObject(dataStr);
+                CredentialRecord record = parseCredentialRecord(dataStr);
 
-                String credential = data.optString("credential", "");
-                if (credential.isEmpty()) credential = data.optString("chain_key", "");
-                if (credential.isEmpty()) credential = data.optString("chainKey", "");
-                int newCredentialId = data.optInt("credential_id", credentialId);
-                if (newCredentialId == 0) {
-                    newCredentialId = extractCredentialIdFromRows(data);
+                String credential = normalizeCredentialHex(record.credential);
+                int newCredentialId = record.credentialId != 0 ? record.credentialId : credentialId;
+                int deviceId = cache.getDeviceId();
+                if (!record.deviceId.isEmpty()) {
+                    try { deviceId = Integer.parseInt(record.deviceId); }
+                    catch (NumberFormatException ignored) {}
                 }
-                if (newCredentialId == 0) newCredentialId = credentialId;
+                String bleMac = !record.bleMac.isEmpty() ? record.bleMac : cache.getBleMac();
 
-                if (!credential.isEmpty()) {
-                    cache.saveDoorLock(cache.getDeviceId(), cache.getBleMac(), credential.toUpperCase(),
-                        newCredentialId, projectId, appId);
+                if (credential != null) {
+                    int[] resolvedIds = resolveProjectIdsForDevice(deviceId, projectId, appId);
+                    cache.saveDoorLock(deviceId, bleMac, credential,
+                        newCredentialId, resolvedIds[0], resolvedIds[1]);
                 }
 
                 DoorLockInfo info = DoorLockInfo.fromJson(dataStr);
@@ -284,26 +297,10 @@ public class CredentialApi {
     public void fetchProjectByDeviceId(int deviceId, ActivationCallback callback) {
         executor.execute(() -> {
             try {
-                HttpUrl httpUrl = HttpUrl.parse(api.getAuthBaseUrl() + "/webapi/project/get_by_device_id");
-                if (httpUrl == null) {
-                    mainHandler.post(() -> callback.onError("Invalid auth URL"));
-                    return;
-                }
-                HttpUrl.Builder urlBuilder = httpUrl.newBuilder()
-                    .addQueryParameter("device_id", String.valueOf(deviceId));
-
-                String responseJson = api.executeAuthRequest(urlBuilder, false);
-                String dataStr = ApiClient.extractDataField(responseJson);
-
-                JSONObject data = new JSONObject(dataStr);
-                int projectId = findPositiveInt(data, "server_appid", "project_id", "projectId", "id");
-                int appId = findPositiveInt(data, "server_id", "app_id", "appId");
-
-                if (projectId > 0 && cache.getProjectId() == 0) {
-                    cache.saveSession(cache.getPhone(), cache.getPassword(), cache.getUserId(),
-                        cache.getIdentityCode(), cache.getPlatformToken(),
-                        cache.getSessionSecret(), cache.getServerUrl(), projectId, appId);
-                }
+                int[] ids = fetchProjectIdsByDeviceIdSync(deviceId);
+                int projectId = ids[0];
+                int appId = ids[1];
+                persistProjectIds(projectId, appId);
 
                 JSONObject result = new JSONObject();
                 result.put("projectId", projectId);
@@ -416,8 +413,63 @@ public class CredentialApi {
         return null;
     }
 
+    private int[] resolveProjectIdsForDevice(int deviceId, int projectId, int appId) {
+        int resolvedProjectId = projectId;
+        int resolvedAppId = appId;
+
+        if (deviceId > 0 && shouldLookupProjectIds(projectId, appId)) {
+            try {
+                int[] ids = fetchProjectIdsByDeviceIdSync(deviceId);
+                if (ids[0] > 0) resolvedProjectId = ids[0];
+                if (ids[1] > 0) resolvedAppId = ids[1];
+                persistProjectIds(resolvedProjectId, resolvedAppId);
+            } catch (Exception e) {
+                Log.w(TAG, "Project lookup failed for device_id=" + deviceId, e);
+            }
+        }
+
+        if (resolvedProjectId <= 0) resolvedProjectId = ApiClient.PROJECT_ID;
+        if (resolvedAppId <= 0) resolvedAppId = ApiClient.APP_ID;
+        return new int[]{resolvedProjectId, resolvedAppId};
+    }
+
+    private boolean shouldLookupProjectIds(int projectId, int appId) {
+        return projectId <= 0 || appId <= 0
+            || (projectId == ApiClient.PROJECT_ID && appId == ApiClient.APP_ID);
+    }
+
+    private int[] fetchProjectIdsByDeviceIdSync(int deviceId) throws Exception {
+        HttpUrl httpUrl = HttpUrl.parse(api.getAuthBaseUrl() + "/webapi/project/get_by_device_id");
+        if (httpUrl == null) throw new Exception("Invalid auth URL");
+
+        HttpUrl.Builder urlBuilder = httpUrl.newBuilder()
+            .addQueryParameter("device_id", String.valueOf(deviceId));
+
+        String responseJson = api.executeAuthRequest(urlBuilder, false);
+        String dataStr = ApiClient.extractDataField(responseJson);
+        JSONObject data = new JSONObject(dataStr);
+        return new int[]{
+            findPositiveInt(data, "server_appid", "project_id", "projectId"),
+            findPositiveInt(data, "server_id", "app_id", "appId")
+        };
+    }
+
+    private void persistProjectIds(int projectId, int appId) {
+        if (projectId <= 0 && appId <= 0) return;
+
+        int cachedProjectId = cache.getProjectId();
+        int cachedAppId = cache.getAppId();
+        int nextProjectId = projectId > 0 ? projectId : cachedProjectId;
+        int nextAppId = appId > 0 ? appId : cachedAppId;
+        if (nextProjectId == cachedProjectId && nextAppId == cachedAppId) return;
+
+        cache.saveSession(cache.getPhone(), cache.getPassword(), cache.getUserId(),
+            cache.getIdentityCode(), cache.getPlatformToken(), cache.getSessionSecret(),
+            cache.getServerUrl(), nextProjectId, nextAppId);
+    }
+
     public void startNfcActivation(int deviceId, String credentialId, int projectId, int appId,
-                                    ActivationCallback callback) {
+                                     ActivationCallback callback) {
         executor.execute(() -> {
             try {
                 NfcActivationStep step = startNfcActivationSync(deviceId, credentialId, projectId, appId);

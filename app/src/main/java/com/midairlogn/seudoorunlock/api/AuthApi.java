@@ -243,10 +243,8 @@ public class AuthApi {
         executor.execute(() -> {
             try {
                 String systemInfoJson = new org.json.JSONObject()
-                    .put("appVersion", "1.0.0")
-                    .put("systemType", "android")
-                    .put("systemVersion", android.os.Build.VERSION.RELEASE)
-                    .put("deviceModel", android.os.Build.MODEL)
+                    .put("appVersion", "3.11.51")
+                    .put("systemType", "Android")
                     .put("deviceToken", "")
                     .toString();
 
@@ -263,7 +261,7 @@ public class AuthApi {
                     .newBuilder()
                     .addQueryParameter("base64_systemInfo", b64Sys)
                     .addQueryParameter("base64_authInfo", b64Auth)
-                    .addQueryParameter("app_version", "1.0.0");
+                    .addQueryParameter("app_version", "3.11.51");
 
                 String responseJson = api.executeAuthRequest(urlBuilder);
                 Log.d(TAG, "OAuth login response length: " + responseJson.length());

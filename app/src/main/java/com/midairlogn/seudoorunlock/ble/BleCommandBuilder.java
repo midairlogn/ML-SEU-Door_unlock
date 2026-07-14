@@ -72,13 +72,14 @@ public final class BleCommandBuilder {
         byte[] ranBytes = littleEndianInt(ran);
         byte[] pidBytes = littleEndianInt(projectId);
 
-        byte[] payload = new byte[40];
+        byte[] payload = new byte[4 + 4 + credential.length];
         System.arraycopy(ranBytes, 0, payload, 0, 4);
         System.arraycopy(pidBytes, 0, payload, 4, 4);
-        System.arraycopy(credential, 0, payload, 8, 32);
+        System.arraycopy(credential, 0, payload, 8, credential.length);
 
-        byte[][] packets = new byte[3][FRAME_SIZE];
-        for (int i = 0; i < 3; i++) {
+        int packetCount = (payload.length + 14) / 15;
+        byte[][] packets = new byte[packetCount][FRAME_SIZE];
+        for (int i = 0; i < packetCount; i++) {
             byte[] chunk = new byte[15];
             int offset = i * 15;
             int len = Math.min(15, payload.length - offset);
@@ -111,8 +112,8 @@ public final class BleCommandBuilder {
 
     public static byte[] buildCredentialRefetch(int deviceId, int deviceIdForRefetch) {
         byte[] data = new byte[16];
-        byte[] idStr = String.valueOf(deviceIdForRefetch).getBytes();
-        System.arraycopy(idStr, 0, data, 0, Math.min(idStr.length, 16));
+        byte[] idBytes = littleEndianInt(deviceIdForRefetch);
+        System.arraycopy(idBytes, 0, data, 0, idBytes.length);
         return buildCommand(deviceId, CMD_CREDENTIAL_REFETCH, data);
     }
 
