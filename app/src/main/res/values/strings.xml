@@ -95,4 +95,12 @@
     <string name="credential_info_title">Credential Info</string>
     <string name="credential_info_content">Credential ID: %1$d\nCredential: %2$s</string>
     <string name="err_credential_unavailable">No credential available</string>
+
+    <!-- Activation -->
+    <string name="activation_pending">Digital key pending activation</string>
+    <string name="activation_pending_nfc_hint">Tap phone on NFC tag to complete activation</string>
+    <string name="activation_pending_ble_hint">Press button to activate via Bluetooth</string>
+    <string name="activation_pending_detail">Digital key needs activation</string>
+    <string name="activation_success">Digital key activated successfully</string>
+    <string name="activation_in_progress">Activating digital key…</string>
 </resources>

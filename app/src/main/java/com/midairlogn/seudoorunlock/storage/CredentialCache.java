@@ -12,6 +12,8 @@ public class CredentialCache {
     private static final String KEY_SESSION_SECRET = "session_secret";
     private static final String KEY_SERVER_URL = "server_url";
     private static final String KEY_AUTH_SERVER_URL = "auth_server_url";
+    private static final String KEY_PROJECT_ID = "project_id";
+    private static final String KEY_APP_ID = "app_id";
     private static final String KEY_DEVICE_ID = "device_id";
     private static final String KEY_BLE_MAC = "ble_mac";
     private static final String KEY_CREDENTIAL_HEX = "credential_hex";
@@ -38,6 +40,14 @@ public class CredentialCache {
     public void saveSession(String phone, String password, String userId,
                             String identityCode, String platformToken,
                             String sessionSecret, String serverUrl) {
+        saveSession(phone, password, userId, identityCode, platformToken,
+                    sessionSecret, serverUrl, 0, 0);
+    }
+
+    public void saveSession(String phone, String password, String userId,
+                            String identityCode, String platformToken,
+                            String sessionSecret, String serverUrl,
+                            int projectId, int appId) {
         securePrefs.putString(KEY_PHONE, phone);
         securePrefs.putString(KEY_PASSWORD, password);
         securePrefs.putString(KEY_USER_ID, userId);
@@ -46,13 +56,22 @@ public class CredentialCache {
         securePrefs.putString(KEY_SESSION_SECRET, sessionSecret);
         securePrefs.putString(KEY_SERVER_URL, serverUrl);
         securePrefs.putString(KEY_AUTH_SERVER_URL, "https://pm.whxinna.com");
+        if (projectId > 0) securePrefs.putString(KEY_PROJECT_ID, String.valueOf(projectId));
+        if (appId > 0) securePrefs.putString(KEY_APP_ID, String.valueOf(appId));
     }
 
     public void saveDoorLock(int deviceId, String bleMac, String credentialHex, int credentialId) {
-        securePrefs.putString(KEY_DEVICE_ID, "" + deviceId);
+        securePrefs.putString(KEY_DEVICE_ID, String.valueOf(deviceId));
         securePrefs.putString(KEY_BLE_MAC, bleMac);
         securePrefs.putString(KEY_CREDENTIAL_HEX, credentialHex);
         securePrefs.putString(KEY_CREDENTIAL_ID, String.valueOf(credentialId));
+    }
+
+    public void saveDoorLock(int deviceId, String bleMac, String credentialHex, int credentialId,
+                             int projectId, int appId) {
+        saveDoorLock(deviceId, bleMac, credentialHex, credentialId);
+        if (projectId > 0) securePrefs.putString(KEY_PROJECT_ID, String.valueOf(projectId));
+        if (appId > 0) securePrefs.putString(KEY_APP_ID, String.valueOf(appId));
     }
 
     public void saveAccommodationInfo(String buildingName, double batteryLevel) {
@@ -86,6 +105,16 @@ public class CredentialCache {
         try { return Integer.parseInt(val); } catch (Exception e) { return 0; }
     }
 
+    public int getProjectId() {
+        String val = securePrefs.getString(KEY_PROJECT_ID, "0");
+        try { return Integer.parseInt(val); } catch (Exception e) { return 0; }
+    }
+
+    public int getAppId() {
+        String val = securePrefs.getString(KEY_APP_ID, "0");
+        try { return Integer.parseInt(val); } catch (Exception e) { return 0; }
+    }
+
     public double getBatteryLevel() {
         String val = securePrefs.getString(KEY_BATTERY_LEVEL, "100");
         try { return Double.parseDouble(val); } catch (Exception e) { return 100; }
@@ -105,7 +134,16 @@ public class CredentialCache {
     }
 
     public boolean hasDoorLock() {
-        return getDeviceId() != 0 && !getCredentialHex().isEmpty();
+        return getDeviceId() != 0;
+    }
+
+    public boolean hasOfflineCredential() {
+        String hex = getCredentialHex();
+        return hex != null && hex.matches("^[0-9A-Fa-f]{64}$");
+    }
+
+    public boolean requiresDigitalCredentialActivation() {
+        return getDeviceId() > 0 && !hasOfflineCredential() && !getSessionSecret().isEmpty();
     }
 
     public boolean needsRefresh() {
@@ -114,6 +152,22 @@ public class CredentialCache {
     }
 
     public void clear() {
-        securePrefs.clear();
+        securePrefs.remove(KEY_PHONE);
+        securePrefs.remove(KEY_PASSWORD);
+        securePrefs.remove(KEY_USER_ID);
+        securePrefs.remove(KEY_IDENTITY_CODE);
+        securePrefs.remove(KEY_PLATFORM_TOKEN);
+        securePrefs.remove(KEY_SESSION_SECRET);
+        securePrefs.remove(KEY_SERVER_URL);
+        securePrefs.remove(KEY_AUTH_SERVER_URL);
+        securePrefs.remove(KEY_PROJECT_ID);
+        securePrefs.remove(KEY_APP_ID);
+        securePrefs.remove(KEY_DEVICE_ID);
+        securePrefs.remove(KEY_BLE_MAC);
+        securePrefs.remove(KEY_CREDENTIAL_HEX);
+        securePrefs.remove(KEY_CREDENTIAL_ID);
+        securePrefs.remove(KEY_BUILDING_NAME);
+        securePrefs.remove(KEY_BATTERY_LEVEL);
+        securePrefs.remove(KEY_UPDATED_AT);
     }
 }

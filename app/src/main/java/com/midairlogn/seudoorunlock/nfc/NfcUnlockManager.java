@@ -15,8 +15,10 @@ import android.util.Log;
 import androidx.core.content.IntentCompat;
 
 import com.midairlogn.seudoorunlock.AppExecutors;
+import com.midairlogn.seudoorunlock.api.ApiClient;
 import com.midairlogn.seudoorunlock.api.CredentialApi;
 import com.midairlogn.seudoorunlock.model.DoorResponse;
+import com.midairlogn.seudoorunlock.model.NfcActivationStep;
 import com.midairlogn.seudoorunlock.storage.CredentialCache;
 
 import java.nio.charset.StandardCharsets;
@@ -34,6 +36,8 @@ public class NfcUnlockManager {
     private static final int DEFAULT_USER_BYTES = 144;
     private static final int PAGE_SIZE = 4;
     private static final int READ_BLOCK_PAGES = 4;
+    private static final int ACTIVATION_TIMEOUT_MS = 3000;
+    private static final int MAX_ACTIVATION_ROUNDS = 8;
 
     public interface NfcCallback {
         void onSuccess(DoorResponse response);
@@ -130,7 +134,7 @@ public class NfcUnlockManager {
                 int deviceId = readDeviceIdFromTag(nfcA);
                 int cachedDeviceId = cache.getDeviceId();
                 String credentialHex = cache.getCredentialHex();
-                int projectId = 21048;
+                int projectId = getEffectiveProjectId();
 
                 if (deviceId == 0) {
                     mainHandler.post(() -> {
@@ -144,6 +148,13 @@ public class NfcUnlockManager {
                 if (cachedDeviceId != 0 && cachedDeviceId != deviceId) {
                     Log.w(TAG, "NFC tag device_id differs from cache: tag=" + deviceId
                         + " cache=" + cachedDeviceId);
+                }
+
+                if (cache.requiresDigitalCredentialActivation()) {
+                    nfcA.close();
+                    isProcessing.set(false);
+                    activateDigitalCredential(tag, deviceId);
+                    return;
                 }
 
                 if (credentialHex.isEmpty()) {
@@ -362,5 +373,137 @@ public class NfcUnlockManager {
                 Log.w(TAG, "Server credential re-sync failed: " + message);
             }
         });
+    }
+
+    private int getEffectiveProjectId() {
+        int projectId = cache.getProjectId();
+        return projectId > 0 ? projectId : ApiClient.PROJECT_ID;
+    }
+
+    private void activateDigitalCredential(Tag tag, int deviceId) {
+        int projectId = getEffectiveProjectId();
+        int appId = cache.getAppId() > 0 ? cache.getAppId() : ApiClient.APP_ID;
+        CredentialApi activationApi = new CredentialApi(cache);
+
+        // Step 1: Resolve project IDs if missing
+        if (cache.getProjectId() == 0) {
+            activationApi.fetchProjectByDeviceId(deviceId,
+                new CredentialApi.ActivationCallback() {
+                    @Override
+                    public void onSuccess(NfcActivationStep step) {
+                        proceedWithCredentialLookup(tag, deviceId, getEffectiveProjectId(), appId, activationApi);
+                    }
+                    @Override
+                    public void onError(String message) {
+                        Log.w(TAG, "fetchProjectByDeviceId failed: " + message + ", using defaults");
+                        proceedWithCredentialLookup(tag, deviceId, projectId, appId, activationApi);
+                    }
+                });
+        } else {
+            proceedWithCredentialLookup(tag, deviceId, projectId, appId, activationApi);
+        }
+    }
+
+    private void proceedWithCredentialLookup(Tag tag, int deviceId, int projectId, int appId,
+                                              CredentialApi activationApi) {
+        // Step 2: Find or create digital credential
+        activationApi.findOrCreateDigitalCredential(deviceId, projectId, appId,
+            new CredentialApi.ActivationCallback() {
+                @Override
+                public void onSuccess(NfcActivationStep step) {
+                    String credentialId = step.credentialId;
+                    if (credentialId == null || credentialId.isEmpty()) {
+                        mainHandler.post(() -> {
+                            if (pendingCallback != null) {
+                                pendingCallback.onError("Server did not return credential ID");
+                            }
+                        });
+                        return;
+                    }
+                    proceedWithNfcActivation(tag, deviceId, credentialId, projectId, appId, activationApi);
+                }
+                @Override
+                public void onError(String message) {
+                    mainHandler.post(() -> {
+                        if (pendingCallback != null) {
+                            pendingCallback.onError("Credential lookup failed: " + message);
+                        }
+                    });
+                }
+            });
+    }
+
+    private void proceedWithNfcActivation(Tag tag, int deviceId, String credentialId,
+                                            int projectId, int appId,
+                                            CredentialApi activationApi) {
+        executor.execute(() -> {
+            try {
+                NfcActivationStep step = activationApi.startNfcActivationSync(deviceId, credentialId,
+                    projectId, appId);
+
+                NfcA nfcA = NfcA.get(tag);
+                if (nfcA == null) {
+                    mainHandler.post(() -> {
+                        if (pendingCallback != null) {
+                            pendingCallback.onError("Not an NFC-A tag");
+                        }
+                    });
+                    return;
+                }
+                nfcA.connect();
+                nfcA.setTimeout(ACTIVATION_TIMEOUT_MS);
+
+                NfcActivationStep currentStep = step;
+                for (int round = 0; round < MAX_ACTIVATION_ROUNDS; round++) {
+                    if (currentStep.isComplete()) {
+                        String credentialHex = currentStep.credentialHex;
+                        if (credentialHex == null || credentialHex.isEmpty()) {
+                            throw new Exception("Activation did not return local credential");
+                        }
+                        cache.saveDoorLock(deviceId, cache.getBleMac(),
+                            credentialHex, cache.getCredentialId(),
+                            projectId, appId);
+                        nfcA.close();
+                        mainHandler.post(() -> {
+                            if (pendingCallback != null) {
+                                pendingCallback.onSuccess(null);
+                            }
+                        });
+                        return;
+                    }
+
+                    java.util.List<String> responses = new java.util.ArrayList<>();
+                    for (String packet : currentStep.packets) {
+                        byte[] request = NfcCommandBuilder.hexToBytes(packet);
+                        byte[] response = nfcA.transceive(request);
+                        if (response == null || response.length == 0) {
+                            throw new Exception("Door lock returned no activation response");
+                        }
+                        responses.add(bytesToHex(response));
+                    }
+
+                    currentStep = activationApi.submitActivationResponsesSync(currentStep, responses,
+                        "nfc", projectId, appId);
+                }
+
+                nfcA.close();
+                throw new Exception("NFC activation round limit exceeded");
+            } catch (Exception e) {
+                Log.e(TAG, "NFC activation error", e);
+                mainHandler.post(() -> {
+                    if (pendingCallback != null) {
+                        pendingCallback.onError("NFC activation error: " + e.getMessage());
+                    }
+                });
+            }
+        });
+    }
+
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02X", b & 0xFF));
+        }
+        return sb.toString();
     }
 }

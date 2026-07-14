@@ -123,8 +123,14 @@ public class MainActivity extends AppCompatActivity {
     private final NfcUnlockManager.NfcCallback nfcCallback = new NfcUnlockManager.NfcCallback() {
         @Override
         public void onSuccess(com.midairlogn.seudoorunlock.model.DoorResponse response) {
-            showSuccessState();
-            Toast.makeText(MainActivity.this, R.string.unlock_success, Toast.LENGTH_SHORT).show();
+            if (response != null) {
+                showSuccessState();
+                Toast.makeText(MainActivity.this, R.string.unlock_success, Toast.LENGTH_SHORT).show();
+            } else {
+                // Activation completed
+                updateStatusDisplay();
+                Toast.makeText(MainActivity.this, R.string.activation_success, Toast.LENGTH_SHORT).show();
+            }
             setBusy(false);
         }
 
@@ -366,7 +372,20 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (isReady) {
-            startBreathingAnimation();
+            boolean activationPending = cache.requiresDigitalCredentialActivation();
+            if (activationPending) {
+                stopBreathingAnimation();
+                if (isNfc) {
+                    tvStatusTitle.setText(R.string.activation_pending);
+                    tvStatusDetail.setText(R.string.activation_pending_nfc_hint);
+                } else {
+                    tvStatusTitle.setText(R.string.activation_pending);
+                    tvStatusDetail.setText(R.string.activation_pending_ble_hint);
+                    btnBleUnlock.setEnabled(true);
+                }
+            } else {
+                startBreathingAnimation();
+            }
         } else {
             stopBreathingAnimation();
         }
@@ -386,9 +405,13 @@ public class MainActivity extends AppCompatActivity {
 
         if (cache.hasDoorLock()) {
             if (detail.length() > 0) detail.append("\n");
-            detail.append(getString(R.string.detail_lock, cache.getBuildingName()));
-            detail.append("\n");
-            detail.append(getString(R.string.detail_battery, (int) cache.getBatteryLevel()));
+            if (cache.requiresDigitalCredentialActivation()) {
+                detail.append(getString(R.string.activation_pending_detail));
+            } else {
+                detail.append(getString(R.string.detail_lock, cache.getBuildingName()));
+                detail.append("\n");
+                detail.append(getString(R.string.detail_battery, (int) cache.getBatteryLevel()));
+            }
         }
 
         if (detail.length() > 0) {

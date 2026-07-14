@@ -25,6 +25,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import com.midairlogn.seudoorunlock.AppExecutors;
+import com.midairlogn.seudoorunlock.api.ApiClient;
 import com.midairlogn.seudoorunlock.api.CredentialApi;
 import com.midairlogn.seudoorunlock.model.BleResponse;
 import com.midairlogn.seudoorunlock.storage.CredentialCache;
@@ -51,7 +52,7 @@ public class BleUnlockManager {
     private static final int RETRY_DELAY_MS = 800;
     private static final int INTER_PACKET_DELAY_MS = 10;
     private static final int PRE_OPEN_DELAY_MS = 50;
-    private static final int PROJECT_ID = 21048;
+    private static final int MAX_ACTIVATION_ROUNDS = 8;
 
     public interface BleCallback {
         void onSuccess(String message);
@@ -115,8 +116,18 @@ public class BleUnlockManager {
         this.pendingCallback = callback;
 
         int deviceId = cache.getDeviceId();
+        if (deviceId == 0) {
+            callback.onError("No door lock credentials cached");
+            return;
+        }
+
+        if (cache.requiresDigitalCredentialActivation()) {
+            activateDigitalCredential();
+            return;
+        }
+
         String credentialHex = cache.getCredentialHex();
-        if (deviceId == 0 || credentialHex.isEmpty()) {
+        if (credentialHex.isEmpty()) {
             callback.onError("No door lock credentials cached");
             return;
         }
@@ -361,9 +372,10 @@ public class BleUnlockManager {
                 unlockFlowStarted = true;
                 int deviceId = activeDeviceId != 0 ? activeDeviceId : cache.getDeviceId();
                 String credentialHex = cache.getCredentialHex();
+                int projectId = getEffectiveProjectId();
 
                 // Step 1: Send 0x74 credential header
-                byte[] headerCmd = BleCommandBuilder.buildCredentialHeaderForDevice(deviceId, PROJECT_ID, credentialHex);
+                byte[] headerCmd = BleCommandBuilder.buildCredentialHeaderForDevice(deviceId, projectId, credentialHex);
                 byte[] headerResp = sendAndWaitForNotification(headerCmd);
                 if (headerResp == null) {
                     fail("No response to credential header");
@@ -383,7 +395,7 @@ public class BleUnlockManager {
                 Log.d(TAG, "Got random: " + ran);
 
                 // Step 2: Send 0x75 × 3 credential packets
-                byte[][] packets = BleCommandBuilder.buildCredentialPackets(deviceId, ran, PROJECT_ID, credentialHex);
+                byte[][] packets = BleCommandBuilder.buildCredentialPackets(deviceId, ran, projectId, credentialHex);
                 for (int i = 0; i < 3; i++) {
                     byte[] packetResp = sendAndWaitForNotification(packets[i]);
                     if (packetResp == null) {
@@ -435,8 +447,7 @@ public class BleUnlockManager {
 
     private void handleCredentialRefetch(int deviceId) {
         try {
-            int credentialId = cache.getCredentialId();
-            byte[] refetchCmd = BleCommandBuilder.buildCredentialRefetch(deviceId, credentialId);
+            byte[] refetchCmd = BleCommandBuilder.buildCredentialRefetch(deviceId, deviceId);
             byte[] refetchResp = sendAndWaitForNotification(refetchCmd);
 
             if (refetchResp == null) {
@@ -525,10 +536,10 @@ public class BleUnlockManager {
             String hex = bytesToHex(credentialBytes).toUpperCase();
             if (hex.length() >= 64) {
                 hex = hex.substring(0, 64);
-                cache.saveDoorLock(deviceId, cache.getBleMac(), hex, credentialId);
+                cache.saveDoorLock(deviceId, cache.getBleMac(), hex, cache.getCredentialId());
 
                 // Re-sync with server in background
-                credentialApi.syncCredential(credentialId, new CredentialApi.SyncCallback() {
+                credentialApi.syncCredential(cache.getCredentialId(), new CredentialApi.SyncCallback() {
                     @Override public void onSuccess(com.midairlogn.seudoorunlock.model.DoorLockInfo info) {
                         Log.d(TAG, "Server credential re-synced after BLE refresh");
                     }
@@ -707,6 +718,114 @@ public class BleUnlockManager {
         }
         return sb.toString();
     }
+
+    private int getEffectiveProjectId() {
+        int projectId = cache.getProjectId();
+        return projectId > 0 ? projectId : ApiClient.PROJECT_ID;
+    }
+
+    @SuppressLint("MissingPermission")
+    private void activateDigitalCredential() {
+        int deviceId = cache.getDeviceId();
+        int projectId = getEffectiveProjectId();
+        int appId = cache.getAppId() > 0 ? cache.getAppId() : ApiClient.APP_ID;
+
+        CredentialApi activationApi = new CredentialApi(cache);
+
+        // Step 1: Resolve project IDs if missing
+        if (cache.getProjectId() == 0) {
+            activationApi.fetchProjectByDeviceId(deviceId,
+                new CredentialApi.ActivationCallback() {
+                    @Override
+                    public void onSuccess(com.midairlogn.seudoorunlock.model.NfcActivationStep step) {
+                        int resolvedProjectId = getEffectiveProjectId();
+                        proceedWithCredentialLookup(deviceId, resolvedProjectId, appId, activationApi);
+                    }
+                    @Override
+                    public void onError(String message) {
+                        Log.w(TAG, "fetchProjectByDeviceId failed: " + message + ", using defaults");
+                        proceedWithCredentialLookup(deviceId, projectId, appId, activationApi);
+                    }
+                });
+        } else {
+            proceedWithCredentialLookup(deviceId, projectId, appId, activationApi);
+        }
+    }
+
+    private void proceedWithCredentialLookup(int deviceId, int projectId, int appId,
+                                              CredentialApi activationApi) {
+        // Step 2: Find or create digital credential
+        activationApi.findOrCreateDigitalCredential(deviceId, projectId, appId,
+            new CredentialApi.ActivationCallback() {
+                @Override
+                public void onSuccess(com.midairlogn.seudoorunlock.model.NfcActivationStep step) {
+                    String credentialId = step.credentialId;
+                    if (credentialId == null || credentialId.isEmpty()) {
+                        fail("Server did not return credential ID");
+                        return;
+                    }
+                    proceedWithBleActivation(deviceId, credentialId, projectId, appId, activationApi);
+                }
+                @Override
+                public void onError(String message) {
+                    fail("Credential lookup failed: " + message);
+                }
+            });
+    }
+
+    @SuppressLint("MissingPermission")
+    private void proceedWithBleActivation(int deviceId, String credentialId,
+                                           int projectId, int appId,
+                                           CredentialApi activationApi) {
+        // Step 3: Start BLE activation
+        activationApi.startBleActivation(deviceId, credentialId, projectId, appId,
+            new CredentialApi.ActivationCallback() {
+                @Override
+                public void onSuccess(com.midairlogn.seudoorunlock.model.NfcActivationStep step) {
+                    // Connect BLE and run activation loop
+                    String cachedMac = cache.getBleMac();
+                    BluetoothDevice device = null;
+                    if (!cachedMac.isEmpty()) {
+                        device = bluetoothAdapter.getRemoteDevice(cachedMac);
+                    }
+                    if (device == null) {
+                        fail("No BLE device for activation");
+                        return;
+                    }
+                    activeDeviceId = deviceId;
+                    targetDevice = device;
+                    connectAttempt = 0;
+                    unlockFlowStarted = false;
+                    operationFinished = false;
+
+                    // Store activation state for use after connection
+                    pendingActivationStep = step;
+                    pendingActivationApi = activationApi;
+                    pendingActivationProjectId = projectId;
+                    pendingActivationAppId = appId;
+                    isActivationFlow = true;
+
+                    mainHandler.post(() -> {
+                        if (pendingCallback != null) {
+                            pendingCallback.onSuccess("Starting BLE activation");
+                        }
+                    });
+
+                    connectNextAttempt();
+                }
+                @Override
+                public void onError(String message) {
+                    fail("BLE activation start failed: " + message);
+                }
+            });
+    }
+
+    // Activation state fields
+    private com.midairlogn.seudoorunlock.model.NfcActivationStep pendingActivationStep;
+    private CredentialApi pendingActivationApi;
+    private int pendingActivationProjectId;
+    private int pendingActivationAppId;
+    private boolean isActivationFlow = false;
 
     public void onDestroy() {
         cleanupGatt();

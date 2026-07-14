@@ -12,9 +12,11 @@ import java.security.MessageDigest;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import okhttp3.FormBody;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
 import okhttp3.Response;
 
 public class ApiClient {
@@ -115,8 +117,14 @@ public class ApiClient {
     }
 
     public String executeAuthRequest(HttpUrl.Builder urlBuilder) throws IOException {
-        urlBuilder.addQueryParameter("pid", "" + PROJECT_ID);
-        urlBuilder.addQueryParameter("appid", "" + APP_ID);
+        return executeAuthRequest(urlBuilder, true);
+    }
+
+    public String executeAuthRequest(HttpUrl.Builder urlBuilder, boolean includeProjectIds) throws IOException {
+        if (includeProjectIds) {
+            urlBuilder.addQueryParameter("pid", "" + PROJECT_ID);
+            urlBuilder.addQueryParameter("appid", "" + APP_ID);
+        }
         String nonce = generateNonce(32);
         long ts = getTimestamp();
         urlBuilder.addQueryParameter("timestamp", "" + ts);
@@ -132,9 +140,15 @@ public class ApiClient {
 
     public String executeBusinessRequest(HttpUrl.Builder urlBuilder,
                                           String sessionSecret) throws IOException {
-        urlBuilder.addQueryParameter("pid", "" + PROJECT_ID);
-        urlBuilder.addQueryParameter("appid", "" + APP_ID);
-        String nonce = generateNonce(16);
+        return executeBusinessRequest(urlBuilder, sessionSecret, PROJECT_ID, APP_ID);
+    }
+
+    public String executeBusinessRequest(HttpUrl.Builder urlBuilder,
+                                          String sessionSecret,
+                                          int projectId, int appId) throws IOException {
+        urlBuilder.addQueryParameter("pid", "" + projectId);
+        urlBuilder.addQueryParameter("appid", "" + appId);
+        String nonce = generateNonce(32);
         long ts = getTimestamp();
         urlBuilder.addQueryParameter("timestamp", "" + ts);
         urlBuilder.addQueryParameter("noncestr", nonce);
@@ -145,6 +159,49 @@ public class ApiClient {
             .get()
             .build();
         return executeRequest(request);
+    }
+
+    public String executeBusinessPost(HttpUrl.Builder urlBuilder,
+                                       String sessionSecret,
+                                       int projectId, int appId) throws IOException {
+        HttpUrl url = urlBuilder.build();
+
+        FormBody.Builder formBuilder = new FormBody.Builder();
+        for (String name : url.queryParameterNames()) {
+            formBuilder.add(name, url.queryParameter(name));
+        }
+        formBuilder.add("pid", "" + projectId);
+        formBuilder.add("appid", "" + appId);
+        String nonce = generateNonce(32);
+        long ts = getTimestamp();
+        formBuilder.add("timestamp", "" + ts);
+        formBuilder.add("noncestr", nonce);
+
+        // Sign the form params
+        HttpUrl.Builder signBuilder = HttpUrl.parse("http://x/?" + formToString(formBuilder)).newBuilder();
+        String sign = signParams(signBuilder, sessionSecret);
+        formBuilder.add("sign", sign);
+
+        RequestBody body = formBuilder.build();
+        HttpUrl cleanUrl = HttpUrl.parse(url.scheme() + "://" + url.host()
+            + (url.port() != HttpUrl.defaultPort(url.scheme()) ? ":" + url.port() : "")
+            + url.encodedPath());
+
+        Request request = new Request.Builder()
+            .url(cleanUrl)
+            .post(body)
+            .build();
+        return executeRequest(request);
+    }
+
+    private static String formToString(FormBody.Builder builder) {
+        FormBody body = builder.build();
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < body.size(); i++) {
+            if (i > 0) sb.append("&");
+            sb.append(body.name(i)).append("=").append(body.value(i));
+        }
+        return sb.toString();
     }
 
     public static String base64Decode(String input) {

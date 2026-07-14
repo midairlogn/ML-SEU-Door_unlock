@@ -45,10 +45,13 @@ public final class BleCommandBuilder {
         System.arraycopy(pidBytes, 0, crcData, 0, 4);
         System.arraycopy(credential, 0, crcData, 4, credential.length);
 
+        int totalLength = crcData.length + 4;
+        int packetCount = (totalLength + 14) / 15;
+
         byte[] plainData = new byte[16];
-        plainData[0] = 0x28;
+        plainData[0] = (byte) totalLength;
         plainData[1] = 0x00;
-        plainData[2] = 0x03;
+        plainData[2] = (byte) packetCount;
         plainData[3] = (byte) CRC8.compute(crcData);
 
         byte[] key = KeyDerivation.deriveKey(deviceId);
@@ -106,10 +109,10 @@ public final class BleCommandBuilder {
         return buildCommand(deviceId, CMD_OPEN_DOOR, new byte[16]);
     }
 
-    public static byte[] buildCredentialRefetch(int deviceId, int credentialId) {
+    public static byte[] buildCredentialRefetch(int deviceId, int deviceIdForRefetch) {
         byte[] data = new byte[16];
-        byte[] cidBytes = littleEndianInt(credentialId);
-        System.arraycopy(cidBytes, 0, data, 0, 4);
+        byte[] idStr = String.valueOf(deviceIdForRefetch).getBytes();
+        System.arraycopy(idStr, 0, data, 0, Math.min(idStr.length, 16));
         return buildCommand(deviceId, CMD_CREDENTIAL_REFETCH, data);
     }
 

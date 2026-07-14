@@ -68,7 +68,7 @@ GET https://pm.whxinna.com/webapi/users/login
 | `pid` | Project ID: `21048` (SEU Jiulonghu Campus) |
 | `appid` | App ID: `20104` |
 | `timestamp` | Unix timestamp (seconds) |
-| `noncestr` | Random 32-character alphanumeric string (auth) or 16-char (business) |
+| `noncestr` | Random 32-character alphanumeric string (both auth and business) |
 | `sign` | MD5 signature (uppercase, see Appendix A) |
 
 **Response** (base64-decoded `data` field):
@@ -89,6 +89,8 @@ GET https://pm.whxinna.com/webapi/users/login
     "appsecret": "app secret",
     "server_appid": 21048,
     "server_id": 20104,
+    "project_id": 21048,
+    "app_id": 20104,
     "projectname": "东南大学九龙湖校区"
   }
 }
@@ -337,7 +339,55 @@ GET {server_addr}/webapi/v1/staff/door_lock/credentials
 | `user_id` | User UUID |
 | `identitycode` | `identity_code` |
 
-### 4.3 NFC Activation (Server-side, rarely used)
+### 4.3 NFC/BLE Digital Credential Activation
+
+When a user has a `device_id` but no valid `credential` (64-char hex), the digital credential must be activated via a multi-step handshake with the door lock.
+
+#### Step 1: Look up project by device ID
+
+```
+GET https://pm.whxinna.com/webapi/project/get_by_device_id
+```
+
+| Parameter | Description |
+|---|---|
+| `device_id` | Door lock device ID |
+
+**Note**: This is an auth request — do NOT include `pid`/`appid` in signing.
+
+**Response**:
+```json
+{
+  "project_id": 21048,
+  "app_id": 20104
+}
+```
+
+#### Step 2: Find or create digital credential
+
+First, check for existing type-3 credential:
+
+```
+GET {server_addr}/webapi/v1/staff/door_lock/credentials
+```
+
+Look for `rows[].type == 3` and extract `rows[].id` as `credential_id`.
+
+If no type-3 credential exists, create one:
+
+```
+POST {server_addr}/webapi/v1/door_lock/credential/create
+```
+
+| Parameter | Value |
+|---|---|
+| `device_id` | Door lock device ID |
+| `type` | `3` |
+| `value` | Random 6-digit string |
+| `user_id` | User UUID |
+| `identitycode` | Identity code |
+
+#### Step 3: Start activation
 
 ```
 GET {server_addr}/webapi/v1/door_lock/command/create
@@ -346,22 +396,41 @@ GET {server_addr}/webapi/v1/door_lock/command/create
 | Parameter | Value |
 |---|---|
 | `device_id` | Door lock device ID |
-| `command` | `1` |
-| `type` | `nfc` |
-| `credential_id` | Credential ID |
+| `command` | `1` (NFC) or `112` (BLE) |
+| `type` | `nfc` or `ble` |
+| `credential_id` | From step 2 |
 | `user_id` | User UUID |
-| `identitycode` | `identity_code` |
+| `identitycode` | Identity code |
 
 **Response**:
 ```json
 {
-  "credential_id": 1234,
-  "command": 1,
-  "payload": "B10105XXXXXXXXXXXX"
+  "credential_id": "1234",
+  "payload": "HEX_PACKET_1,HEX_PACKET_2,..."
 }
 ```
 
-> **Note**: The current client does NOT use this endpoint. NFC offline unlock constructs the 40-byte command locally using synced `credential` and sends it directly via `NfcA.transceive()`.
+#### Step 4: Transceive with door lock
+
+Each hex packet in `payload` is sent to the door lock via NFC (`NfcA.transceive()`) or BLE (GATT write). The responses are collected.
+
+#### Step 5: Submit responses
+
+```
+POST {server_addr}/webapi/v1/door_lock/command/parse
+```
+
+| Parameter | Value |
+|---|---|
+| `payload` | Comma-separated hex responses from door lock |
+| `type` | `nfc` or `ble` |
+| `user_id` | User UUID |
+| `identitycode` | Identity code |
+| (plus any fields from step 3 response) | |
+
+**Response**: Same format as step 3. Repeat steps 4–5 until `payload` is empty, then `credential` (or `chain_key`) contains the 64-char hex credential.
+
+> **Note**: The `command/create` and `command/parse` endpoints use `pid`/`appid` from the project lookup (step 1) in the request signing, NOT the hardcoded defaults.
 
 ---
 
@@ -599,7 +668,7 @@ fun buildBleCommand(deviceId: Int, commandType: Int, data: ByteArray): ByteArray
 **Step-by-step**:
 
 1. **0x74 Credential Header**:
-   - Plaintext: `[0]=0x28(=40), [1]=0x00, [2]=0x03, [3]=CRC8(projectId_LE ++ credential), [4..15]=0`
+   - Plaintext: `[0]=total_length(=credential.length+4+4), [1]=0x00, [2]=packet_count, [3]=CRC8(projectId_LE ++ credential), [4..15]=0`
    - Response: `plainData[0]` = result code (must be 0); `ran = plainData[4..7]` (little-endian)
 
 2. **0x75 Credential Packets ×3**:
@@ -617,7 +686,7 @@ fun buildBleCommand(deviceId: Int, commandType: Int, data: ByteArray): ByteArray
 ### 7.5 BLE Credential Refresh (Result Code 27)
 
 ```
-1. Send 0x76 with credential_id (4 bytes LE, rest zeros)
+1. Send 0x76 with device_id as ASCII string bytes (rest zeros)
 2. Parse response: [1]=packet_count, [2..3]=credential_total_length, [4]=CRC8
 3. Send 0x77 × packet_count to read each packet
 4. Merge packets, verify CRC8, validate 64-char hex format
@@ -859,7 +928,8 @@ sign = MD5(
 
 Where:
 - `sessionSecret` is obtained from the login response (`server_info.session_secret`)
-- Nonce length: 16 characters
+- Nonce length: 32 characters
+- `pid` and `appid` are obtained from the login response (`server_info.project_id` / `server_info.app_id`), falling back to `server_info.server_appid` / `server_info.server_id`
 
 ### Example
 
@@ -884,9 +954,11 @@ After synchronization, the client stores:
 | `password` | Password (for re-sync) |
 | `userId` | User UUID |
 | `identityCode` | Identity code |
+| `projectId` | Project ID (from login response, dynamic per-tenant) |
+| `appId` | App ID (from login response, dynamic per-tenant) |
 | `deviceId` | Door lock device ID (integer) |
 | `credentialId` | Credential ID |
 | `bleMac` | BLE MAC address |
-| `credentialHex` | 64-char uppercase hex credential |
+| `credentialHex` | 64-char uppercase hex credential (blank if activation pending) |
 | `sessionSecret` | Business API signing key |
 | `updatedAt` | Last sync timestamp |

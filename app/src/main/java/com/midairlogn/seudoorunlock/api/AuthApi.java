@@ -113,7 +113,9 @@ public class AuthApi {
                     loginResponse.userInfo.identityCode,
                     loginResponse.platformToken,
                     loginResponse.serverInfo.sessionSecret,
-                    loginResponse.serverInfo.serverAddr
+                    loginResponse.serverInfo.serverAddr,
+                    loginResponse.serverInfo.projectId,
+                    loginResponse.serverInfo.appId
                 );
 
                 Log.d(TAG, "Session saved, navigating to main");
@@ -307,7 +309,9 @@ public class AuthApi {
                     loginResponse.userInfo.identityCode,
                     loginResponse.platformToken,
                     loginResponse.serverInfo.sessionSecret,
-                    loginResponse.serverInfo.serverAddr
+                    loginResponse.serverInfo.serverAddr,
+                    loginResponse.serverInfo.projectId,
+                    loginResponse.serverInfo.appId
                 );
 
                 Log.d(TAG, "OAuth session saved");

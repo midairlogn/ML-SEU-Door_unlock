@@ -37,8 +37,8 @@ public class LoginResponse {
             findString(serverInfoJson, "server_addr", "serverAddr"),
             findString(serverInfoJson, "session_secret", "sessionSecret"),
             serverInfoJson.optString("appsecret", ""),
-            serverInfoJson.optInt("server_appid", 21048),
-            serverInfoJson.optInt("server_id", 20104)
+            findPositiveInt(serverInfoJson, "project_id", "projectId", "server_appid"),
+            findPositiveInt(serverInfoJson, "app_id", "appId", "server_id")
         );
 
         String platformToken = findString(root, "platform_token", "platformToken");
@@ -52,6 +52,14 @@ public class LoginResponse {
             if (!val.isEmpty()) return val;
         }
         return "";
+    }
+
+    private static int findPositiveInt(JSONObject obj, String... keys) {
+        for (String key : keys) {
+            int val = obj.optInt(key, 0);
+            if (val > 0) return val;
+        }
+        return 0;
     }
 
     public static class UserInfo {
@@ -76,13 +84,18 @@ public class LoginResponse {
         public final String appSecret;
         public final int serverAppId;
         public final int serverId;
+        public final int projectId;
+        public final int appId;
 
-        public ServerInfo(String serverAddr, String sessionSecret, String appSecret, int serverAppId, int serverId) {
+        public ServerInfo(String serverAddr, String sessionSecret, String appSecret,
+                          int projectId, int appId) {
             this.serverAddr = serverAddr;
             this.sessionSecret = sessionSecret;
             this.appSecret = appSecret;
-            this.serverAppId = serverAppId;
-            this.serverId = serverId;
+            this.projectId = projectId > 0 ? projectId : 21048;
+            this.appId = appId > 0 ? appId : 20104;
+            this.serverAppId = this.projectId;
+            this.serverId = this.appId;
         }
     }
 }

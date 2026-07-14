@@ -5,7 +5,7 @@
 Android app (Java + XML) for SEU door lock control. Replaces the original 住理生活 (Zhuli Life) hybrid WebView app with a native implementation supporting phone+password login, NFC door unlock, and BLE door unlock.
 
 - **applicationId**: `com.whxinna.userplatform` (MUST match original for NFC AAR routing from screen-off)
-- **Java package**: `com.whxinna.userplatform` (same as applicationId — source lives here)
+- **Java package**: `com.midairlogn.seodorunlock` (source lives here; applicationId differs for NFC AAR compatibility)
 - **Min SDK**: 24 (Android 7.0) / **Target SDK**: 34
 - **Build**: Gradle, AndroidX, Java 11+, AGP 9.2.1
 
@@ -20,19 +20,19 @@ No tests, lint tasks, or CI pipelines exist. The `benchmark/` directory is empty
 
 ## Architecture
 
-Single-module Gradle project. All source under `app/src/main/java/com/whxinna/userplatform/`:
+Single-module Gradle project. All source under `app/src/main/java/com/midairlogn/seodorunlock/`:
 
 | Package | Key Files | Role |
 |---|---|---|
-| (root) | `App.java`, `SettingsActivity.java` | Application class, settings (language/theme/default method) |
+| (root) | `App.java`, `SettingsActivity.java`, `AppExecutors.java` | Application class, settings, thread pool |
 | `crypto/` | `CRC8.java`, `RC4.java`, `KeyDerivation.java` | Shared NFC/BLE crypto primitives |
-| `nfc/` | `NfcCommandBuilder.java`, `NfcUnlockManager.java`, `NfcPendingActivity.java` | 40-byte NFC frame + reader mode transceive |
-| `ble/` | `BleCommandBuilder.java`, `BleUnlockManager.java` | 20-byte BLE frame + GATT connect flow |
-| `api/` | `AuthApi.java`, `CredentialApi.java`, `ApiClient.java` | Login, captcha, door lock sync, request signing |
+| `nfc/` | `NfcCommandBuilder.java`, `NfcUnlockManager.java` | 40-byte NFC frame + reader mode transceive + activation |
+| `ble/` | `BleCommandBuilder.java`, `BleUnlockManager.java` | 20-byte BLE frame + GATT connect flow + activation |
+| `api/` | `AuthApi.java`, `CredentialApi.java`, `ApiClient.java` | Login, captcha, door lock sync, activation, request signing |
 | `alipay/` | `AlipayAuth.java` | Alipay AIDL payment authentication |
 | `storage/` | `SecurePrefs.java`, `CredentialCache.java` | Android Keystore + AES-GCM encrypted prefs |
 | `ui/` | `LoginActivity.java`, `MainActivity.java`, `CaptchaDialogFragment.java` | Phone+password login, main unlock screen |
-| `model/` | `LoginResponse.java`, `DoorLockInfo.java`, `DoorResponse.java`, `BleResponse.java` | Data classes |
+| `model/` | `LoginResponse.java`, `DoorLockInfo.java`, `DoorResponse.java`, `BleResponse.java`, `NfcActivationStep.java` | Data classes |
 
 ## Coding Conventions
 
@@ -50,7 +50,9 @@ Single-module Gradle project. All source under `app/src/main/java/com/whxinna/us
 2. **`NfcA.transceive()` sends the entire 40-byte frame in one shot** — do NOT use page writes (`0xA2`).
 3. **RC4 and CRC8 use exact constants from `docs/PROTOCOL_REFERENCE.md` §5** — any deviation breaks lock communication.
 4. **BLE GATT UUIDs are fixed**: Service `0xFF12`, Write `0xFF01`, Read/Notify `0xFF02`.
-5. **Project ID**: `21048` (SEU Jiulonghu Campus). App ID: `20104`.
+5. **Project ID and App ID are dynamic** — obtained from login response (`server_info.project_id` / `server_info.app_id`). Defaults: `21048` / `20104`.
+6. **Business request nonce is 32 characters** (same as auth). Both use `generateNonce(32)`.
+7. **Digital credential activation** — when `credentialHex` is blank but `deviceId` > 0, the app must run the NFC/BLE activation handshake (`command/create` → transceive → `command/parse` loop) before unlocking.
 
 ## Security Notes
 

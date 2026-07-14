@@ -95,4 +95,12 @@
     <string name="credential_info_title">凭证信息</string>
     <string name="credential_info_content">凭证ID: %1$d\n凭证: %2$s</string>
     <string name="err_credential_unavailable">暂无凭证信息</string>
+
+    <!-- 激活 -->
+    <string name="activation_pending">数字钥匙待激活</string>
+    <string name="activation_pending_nfc_hint">请将手机靠近NFC标签完成激活</string>
+    <string name="activation_pending_ble_hint">点击按钮通过蓝牙激活</string>
+    <string name="activation_pending_detail">数字钥匙需要激活</string>
+    <string name="activation_success">数字钥匙激活成功</string>
+    <string name="activation_in_progress">正在激活数字钥匙…</string>
 </resources>
