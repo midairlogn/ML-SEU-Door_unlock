@@ -38,3 +38,9 @@ jobs:
       with:
         name: app-debug
         path: app/build/outputs/apk/debug/app-debug.apk
+
+    - name: Upload Release APK
+      uses: actions/upload-artifact@v6
+      with:
+        name: app-release
+        path: app/build/outputs/apk/release/app-release.apk
