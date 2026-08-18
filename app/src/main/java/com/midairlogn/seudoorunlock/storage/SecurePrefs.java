@@ -107,10 +107,14 @@ public class SecurePrefs {
     }
 
     public void putString(String key, String value) {
+        if (value == null) {
+            remove(key);
+            return;
+        }
         awaitKey();
         if (secretKey == null) {
             Log.e(TAG, "Encryption unavailable; refusing to store key: " + key);
-            prefs.edit().remove(key).apply();
+            remove(key);
             return;
         }
         try {
@@ -119,12 +123,12 @@ public class SecurePrefs {
             byte[] iv = cipher.getIV();
             byte[] encrypted = cipher.doFinal(value.getBytes(StandardCharsets.UTF_8));
 
-            String encoded = Base64.encodeToString(iv, Base64.NO_WRAP) + "|" +
-                           Base64.encodeToString(encrypted, Base64.NO_WRAP);
-            prefs.edit().putString(key, encoded).apply();
+            String ivStr = Base64.encodeToString(iv, Base64.NO_WRAP);
+            String encryptedStr = Base64.encodeToString(encrypted, Base64.NO_WRAP);
+            prefs.edit().putString(key, ivStr + "|" + encryptedStr).apply();
         } catch (Exception e) {
             Log.e(TAG, "Encrypt failed for key: " + key, e);
-            prefs.edit().remove(key).apply();
+            remove(key);
         }
     }
 
@@ -132,14 +136,14 @@ public class SecurePrefs {
         String stored = prefs.getString(key, null);
         if (stored == null) return defValue;
 
-        if (!stored.contains("|")) return defValue;
+        int separator = stored.indexOf('|');
+        if (separator == -1) return defValue;
 
         awaitKey();
         if (secretKey == null) return defValue;
         try {
-            String[] parts = stored.split("\\|", 2);
-            byte[] iv = Base64.decode(parts[0], Base64.NO_WRAP);
-            byte[] encrypted = Base64.decode(parts[1], Base64.NO_WRAP);
+            byte[] iv = Base64.decode(stored.substring(0, separator), Base64.NO_WRAP);
+            byte[] encrypted = Base64.decode(stored.substring(separator + 1), Base64.NO_WRAP);
 
             Cipher cipher = Cipher.getInstance(AES_MODE);
             GCMParameterSpec spec = new GCMParameterSpec(128, iv);

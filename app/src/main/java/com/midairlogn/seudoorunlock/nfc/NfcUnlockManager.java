@@ -17,6 +17,7 @@ import androidx.core.content.IntentCompat;
 import com.midairlogn.seudoorunlock.AppExecutors;
 import com.midairlogn.seudoorunlock.api.ApiClient;
 import com.midairlogn.seudoorunlock.api.CredentialApi;
+import com.midairlogn.seudoorunlock.crypto.CryptoUtils;
 import com.midairlogn.seudoorunlock.model.DoorResponse;
 import com.midairlogn.seudoorunlock.model.NfcActivationStep;
 import com.midairlogn.seudoorunlock.storage.CredentialCache;
@@ -516,12 +517,12 @@ public class NfcUnlockManager {
 
                     java.util.List<String> responses = new java.util.ArrayList<>();
                     for (String packet : currentStep.packets) {
-                        byte[] request = NfcCommandBuilder.hexToBytes(packet);
+                        byte[] request = CryptoUtils.hexToBytes(packet);
                         byte[] response = nfcA.transceive(request);
                         if (response == null || response.length == 0) {
                             throw new Exception("Door lock returned no activation response");
                         }
-                        responses.add(bytesToHex(response));
+                        responses.add(CryptoUtils.bytesToHex(response));
                     }
 
                     currentStep = activationApi.submitActivationResponsesSync(currentStep, responses,
@@ -543,14 +544,6 @@ public class NfcUnlockManager {
                 isProcessing.set(false);
             }
         });
-    }
-
-    private static String bytesToHex(byte[] bytes) {
-        StringBuilder sb = new StringBuilder();
-        for (byte b : bytes) {
-            sb.append(String.format("%02X", b & 0xFF));
-        }
-        return sb.toString();
     }
 
     private static int parseCredentialId(String credentialId, int fallback) {

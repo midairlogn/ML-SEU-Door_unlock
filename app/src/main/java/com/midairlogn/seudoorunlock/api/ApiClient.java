@@ -2,6 +2,7 @@ package com.midairlogn.seudoorunlock.api;
 
 import android.util.Base64;
 import android.util.Log;
+import com.midairlogn.seudoorunlock.crypto.CryptoUtils;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -10,7 +11,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.FormBody;
@@ -59,13 +59,7 @@ public class ApiClient {
     }
 
     public String generateNonce(int length) {
-        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-        Random rnd = new Random();
-        StringBuilder sb = new StringBuilder(length);
-        for (int i = 0; i < length; i++) {
-            sb.append(chars.charAt(rnd.nextInt(chars.length())));
-        }
-        return sb.toString();
+        return CryptoUtils.generateNonce(length);
     }
 
     public long getTimestamp() {
@@ -97,11 +91,7 @@ public class ApiClient {
 
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] digest = md.digest(raw.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hex = new StringBuilder();
-            for (byte b : digest) {
-                hex.append(String.format("%02X", b & 0xFF));
-            }
-            return hex.toString();
+            return CryptoUtils.bytesToHex(digest);
         } catch (Exception e) {
             Log.e(TAG, "Sign failed", e);
             return "";
@@ -321,8 +311,8 @@ public class ApiClient {
 
     public static String base64UrlEncode(String input) {
         try {
-            byte[] encoded = Base64.encode(input.getBytes("UTF-8"), Base64.NO_WRAP);
-            return new String(encoded, "UTF-8").replace('+', '-').replace('/', '_');
+            return Base64.encodeToString(input.getBytes(StandardCharsets.UTF_8), 
+                Base64.NO_WRAP | Base64.URL_SAFE).trim();
         } catch (Exception e) {
             return "";
         }

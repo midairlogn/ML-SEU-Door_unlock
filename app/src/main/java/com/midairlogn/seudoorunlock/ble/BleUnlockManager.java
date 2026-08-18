@@ -27,9 +27,9 @@ import androidx.annotation.NonNull;
 import com.midairlogn.seudoorunlock.AppExecutors;
 import com.midairlogn.seudoorunlock.api.ApiClient;
 import com.midairlogn.seudoorunlock.api.CredentialApi;
+import com.midairlogn.seudoorunlock.crypto.CryptoUtils;
 import com.midairlogn.seudoorunlock.model.BleResponse;
 import com.midairlogn.seudoorunlock.model.NfcActivationStep;
-import com.midairlogn.seudoorunlock.nfc.NfcCommandBuilder;
 import com.midairlogn.seudoorunlock.storage.CredentialCache;
 
 import java.util.Arrays;
@@ -629,7 +629,7 @@ public class BleUnlockManager {
                 Log.d(TAG, "Credential CRC verified OK");
             }
 
-            String hex = bytesToHex(credentialBytes).toUpperCase();
+            String hex = CryptoUtils.bytesToHex(credentialBytes).toUpperCase();
             if (!hex.matches("^[0-9A-F]{64}$")) {
                 fail("Door lock returned invalid refreshed credential");
                 return;
@@ -869,14 +869,6 @@ public class BleUnlockManager {
         return delimiter == '-' || delimiter == '_' || delimiter == ' ';
     }
 
-    private static String bytesToHex(byte[] bytes) {
-        StringBuilder sb = new StringBuilder();
-        for (byte b : bytes) {
-            sb.append(String.format("%02X", b & 0xFF));
-        }
-        return sb.toString();
-    }
-
     private int getEffectiveProjectId() {
         int projectId = cache.getProjectId();
         return projectId > 0 ? projectId : ApiClient.PROJECT_ID;
@@ -1005,12 +997,12 @@ public class BleUnlockManager {
 
                     java.util.List<String> responses = new java.util.ArrayList<>();
                     for (String packet : currentStep.packets) {
-                        byte[] request = NfcCommandBuilder.hexToBytes(packet);
+                        byte[] request = CryptoUtils.hexToBytes(packet);
                         byte[] resp = sendAndWaitForNotification(request);
                         if (resp == null || resp.length == 0) {
                             throw new Exception("Door lock returned no activation response");
                         }
-                        responses.add(bytesToHex(resp));
+                        responses.add(CryptoUtils.bytesToHex(resp));
                     }
 
                     currentStep = activationApi.submitActivationResponsesSync(currentStep, responses,
