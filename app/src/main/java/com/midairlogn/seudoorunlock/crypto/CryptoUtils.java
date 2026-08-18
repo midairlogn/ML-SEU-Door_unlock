@@ -40,8 +40,12 @@ public class CryptoUtils {
         }
         byte[] data = new byte[s.length() / 2];
         for (int i = 0; i < data.length; i++) {
-            data[i] = (byte) ((Character.digit(s.charAt(i * 2), 16) << 4)
-                              + Character.digit(s.charAt(i * 2 + 1), 16));
+            int high = Character.digit(s.charAt(i * 2), 16);
+            int low = Character.digit(s.charAt(i * 2 + 1), 16);
+            if (high < 0 || low < 0) {
+                throw new IllegalArgumentException("Invalid hexadecimal input");
+            }
+            data[i] = (byte) ((high << 4) + low);
         }
         return data;
     }

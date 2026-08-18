@@ -311,7 +311,7 @@ public class ApiClient {
 
     public static String base64UrlEncode(String input) {
         try {
-            return Base64.encodeToString(input.getBytes(StandardCharsets.UTF_8), 
+            return Base64.encodeToString(input.getBytes(StandardCharsets.UTF_8),
                 Base64.NO_WRAP | Base64.URL_SAFE).trim();
         } catch (Exception e) {
             return "";
