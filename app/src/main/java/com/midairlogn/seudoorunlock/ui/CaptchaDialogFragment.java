@@ -1,11 +1,13 @@
 package com.midairlogn.seudoorunlock.ui;
 
 import android.app.Dialog;
+import android.graphics.Picture;
+import android.graphics.drawable.PictureDrawable;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -13,6 +15,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.DialogFragment;
 
+import com.caverock.androidsvg.SVG;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
@@ -26,7 +29,7 @@ public class CaptchaDialogFragment extends DialogFragment {
 
     private String phone;
     private OnCaptchaSubmitListener listener;
-    private WebView webViewCaptcha;
+    private ImageView ivCaptcha;
     private TextInputEditText etCaptcha;
     private MaterialButton btnRefresh;
     private boolean submitting;
@@ -60,16 +63,9 @@ public class CaptchaDialogFragment extends DialogFragment {
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         View view = LayoutInflater.from(getContext()).inflate(R.layout.dialog_captcha, null);
 
-        webViewCaptcha = view.findViewById(R.id.ivCaptcha);
+        ivCaptcha = view.findViewById(R.id.ivCaptcha);
         etCaptcha = view.findViewById(R.id.etCaptcha);
         btnRefresh = view.findViewById(R.id.btnRefreshCaptcha);
-
-        WebSettings settings = webViewCaptcha.getSettings();
-        settings.setJavaScriptEnabled(false);
-        settings.setLoadWithOverviewMode(true);
-        settings.setUseWideViewPort(true);
-        settings.setBuiltInZoomControls(false);
-        settings.setSupportZoom(false);
 
         btnRefresh.setOnClickListener(v -> loadCaptcha());
 
@@ -123,18 +119,17 @@ public class CaptchaDialogFragment extends DialogFragment {
         authApi.getLoginCaptcha(phone, new AuthApi.SimpleCallback() {
             @Override
             public void onSuccess(String svgData) {
-                if (webViewCaptcha != null && svgData != null) {
-                    String html = "<!DOCTYPE html>"
-                        + "<html><head>"
-                        + "<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'/>"
-                        + "<style>"
-                        + "body { margin:0; padding:0; display:flex; justify-content:center; align-items:center; "
-                        + "background:#FFFFFF; min-height:100%; width:100%; overflow:hidden; }"
-                        + "svg { max-width:100%; max-height:100%; }"
-                        + "</style></head><body>"
-                        + svgData
-                        + "</body></html>";
-                    webViewCaptcha.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
+                if (ivCaptcha != null && svgData != null) {
+                    try {
+                        SVG svg = SVG.getFromString(svgData);
+                        Picture picture = svg.renderToPicture();
+                        ivCaptcha.setImageDrawable(new PictureDrawable(picture));
+                    } catch (Exception e) {
+                        Log.e("ZL_Captcha", "SVG render failed", e);
+                        if (getContext() != null) {
+                            Toast.makeText(getContext(), R.string.captcha_render_failed, Toast.LENGTH_SHORT).show();
+                        }
+                    }
                 }
                 if (btnRefresh != null) btnRefresh.setEnabled(!submitting);
             }

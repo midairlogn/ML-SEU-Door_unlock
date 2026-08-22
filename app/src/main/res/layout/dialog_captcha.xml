@@ -25,11 +25,13 @@
         app:strokeColor="@color/outline_variant"
         app:cardBackgroundColor="@android:color/white">
 
-        <WebView
+        <ImageView
             android:id="@+id/ivCaptcha"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:padding="8dp"/>
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:layerType="software"/>
 
     </com.google.android.material.card.MaterialCardView>
 

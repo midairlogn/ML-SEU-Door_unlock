@@ -9,6 +9,9 @@
 -dontwarn javax.annotation.**
 -dontwarn org.conscrypt.**
 
+# AndroidSVG
+-keep class com.caverock.androidsvg.** { *; }
+
 # Crypto - keep constants used by NFC/BLE protocol
 -keepclassmembers class com.midairlogn.seudoorunlock.crypto.** {
     public static final int *;
