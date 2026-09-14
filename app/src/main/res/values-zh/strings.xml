@@ -57,6 +57,11 @@
     <string name="settings_method_ble">蓝牙</string>
     <string name="settings_about">关于</string>
     <string name="settings_version">版本 %s</string>
+    <string name="settings_unlock_behavior">开门设置</string>
+    <string name="settings_auto_close">开门成功后自动关闭</string>
+    <string name="settings_auto_close_summary">开门成功后数秒自动关闭应用，轻触屏幕可取消。</string>
+    <string name="auto_close_countdown">%d 秒后自动关闭，轻触屏幕可取消</string>
+    <string name="auto_close_cancelled">已取消自动关闭</string>
 
     <!-- 主页面 -->
     <string name="nfc_ready">准备扫描</string>

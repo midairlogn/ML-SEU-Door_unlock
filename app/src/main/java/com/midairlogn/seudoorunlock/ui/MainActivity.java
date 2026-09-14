@@ -51,6 +51,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREF_SELECTED_METHOD = "selected_method";
     private static final String METHOD_NFC = "nfc";
     private static final String METHOD_BLE = "ble";
+    private static final long AUTO_CLOSE_DELAY_MS = 3_000;
 
     private final ActivityResultLauncher<String[]> permissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
@@ -125,6 +126,7 @@ public class MainActivity extends AppCompatActivity {
             if (response != null) {
                 showSuccessState();
                 Toast.makeText(MainActivity.this, R.string.unlock_success, Toast.LENGTH_SHORT).show();
+                scheduleAutoClose();
             } else {
                 // Activation completed
                 updateStatusDisplay();
@@ -151,6 +153,7 @@ public class MainActivity extends AppCompatActivity {
     private AnimatorSet iconAnimator;
     private final Handler handler = new Handler(android.os.Looper.getMainLooper());
     private Runnable restoreRunnable;
+    private Runnable autoCloseRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -517,6 +520,39 @@ public class MainActivity extends AppCompatActivity {
         ivStatusIcon.setColorFilter(ContextCompat.getColor(this, R.color.error));
     }
 
+    private void scheduleAutoClose() {
+        if (!prefs.getBoolean(SettingsActivity.KEY_AUTO_CLOSE, true)) return;
+        cancelAutoClose(false);
+        autoCloseRunnable = this::closeApp;
+        handler.postDelayed(autoCloseRunnable, AUTO_CLOSE_DELAY_MS);
+        Toast.makeText(this, getString(R.string.auto_close_countdown,
+                (int) (AUTO_CLOSE_DELAY_MS / 1000)), Toast.LENGTH_LONG).show();
+    }
+
+    private void cancelAutoClose(boolean notify) {
+        if (autoCloseRunnable == null) return;
+        handler.removeCallbacks(autoCloseRunnable);
+        autoCloseRunnable = null;
+        if (notify) {
+            Toast.makeText(this, R.string.auto_close_cancelled, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void closeApp() {
+        autoCloseRunnable = null;
+        Log.d(TAG, "Auto-closing app after successful unlock");
+        finishAffinity();
+        finishAndRemoveTask();
+    }
+
+    @Override
+    public void onUserInteraction() {
+        super.onUserInteraction();
+        if (autoCloseRunnable != null) {
+            cancelAutoClose(true);
+        }
+    }
+
     private void attemptBleUnlock() {
         if (!getBleManager().isBleSupported()) {
             Toast.makeText(this, R.string.ble_not_supported, Toast.LENGTH_SHORT).show();
@@ -536,6 +572,7 @@ public class MainActivity extends AppCompatActivity {
                 showSuccessState();
                 btnBleUnlock.setEnabled(true);
                 Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+                scheduleAutoClose();
             }
 
             @Override
@@ -771,6 +808,7 @@ public class MainActivity extends AppCompatActivity {
         if (restoreRunnable != null) {
             handler.removeCallbacks(restoreRunnable);
         }
+        cancelAutoClose(false);
         stopBreathingAnimation();
         if (nfcManager != null) nfcManager.onDestroy();
         if (bleManager != null) bleManager.onDestroy();
