@@ -143,6 +143,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onExpired() {
+            cancelAutoClose(false);
             tvStatusTitle.setText(R.string.session_expired);
             refreshCredentials();
             setBusy(false);
@@ -504,6 +505,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showErrorState(String message) {
+        cancelAutoClose(false);
         ivStatusIcon.setImageResource(R.drawable.ic_warning);
         tvStatusTitle.setText(R.string.unlock_failed);
         tvStatusDetail.setText(message);
@@ -590,6 +592,7 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onExpired() {
+                cancelAutoClose(false);
                 tvStatusTitle.setText(R.string.session_expired);
                 refreshCredentials();
                 btnBleUnlock.setEnabled(true);
@@ -738,6 +741,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void promptReLogin() {
         if (isFinishing() || isDestroyed() || reloginPromptShowing) return;
+        cancelAutoClose(false);
         reloginPromptShowing = true;
         tvStatusTitle.setText(R.string.session_expired_relogin_required);
         tvStatusDetail.setText(R.string.session_expired_relogin_detail);
