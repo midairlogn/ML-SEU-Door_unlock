@@ -541,8 +541,8 @@ public class MainActivity extends AppCompatActivity {
     private void closeApp() {
         autoCloseRunnable = null;
         Log.d(TAG, "Auto-closing app after successful unlock");
-        finishAffinity();
         finishAndRemoveTask();
+        finishAffinity();
     }
 
     @Override
@@ -573,6 +573,13 @@ public class MainActivity extends AppCompatActivity {
                 btnBleUnlock.setEnabled(true);
                 Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
                 scheduleAutoClose();
+            }
+
+            @Override
+            public void onActivationSuccess(String message) {
+                updateStatusDisplay();
+                btnBleUnlock.setEnabled(true);
+                Toast.makeText(MainActivity.this, R.string.activation_success, Toast.LENGTH_SHORT).show();
             }
 
             @Override

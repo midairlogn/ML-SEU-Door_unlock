@@ -58,6 +58,7 @@ public class BleUnlockManager {
 
     public interface BleCallback {
         void onSuccess(String message);
+        void onActivationSuccess(String message);
         void onError(String message);
         void onExpired();
     }
@@ -748,12 +749,25 @@ public class BleUnlockManager {
     }
 
     private void success(String message) {
+        complete(message, false);
+    }
+
+    private void activationSuccess(String message) {
+        complete(message, true);
+    }
+
+    private void complete(String message, boolean activation) {
         if (operationFinished) return;
         operationFinished = true;
         clearActivationState();
         cleanupGatt();
         mainHandler.post(() -> {
-            if (pendingCallback != null) pendingCallback.onSuccess(message);
+            if (pendingCallback == null) return;
+            if (activation) {
+                pendingCallback.onActivationSuccess(message);
+            } else {
+                pendingCallback.onSuccess(message);
+            }
         });
     }
 
@@ -991,7 +1005,7 @@ public class BleUnlockManager {
                         cache.saveDoorLock(deviceId, cache.getBleMac(),
                             credentialHex, parseCredentialId(currentStep.credentialId, cache.getCredentialId()),
                             projectId, appId);
-                        success("Digital key activated");
+                        activationSuccess("Digital key activated");
                         return;
                     }
 
