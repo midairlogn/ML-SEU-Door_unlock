@@ -350,9 +350,8 @@ public class CredentialApi {
     private boolean reloginSilently(String rejectedSecret) {
         synchronized (SESSION_REFRESH_LOCK) {
             String currentSecret = cache.getSessionSecret();
-            if (rejectedSecret != null && !rejectedSecret.isEmpty()
-                    && currentSecret != null && !currentSecret.isEmpty()
-                    && !rejectedSecret.equals(currentSecret)) {
+            if (currentSecret != null && !currentSecret.isEmpty()
+                    && !currentSecret.equals(rejectedSecret)) {
                 return true;
             }
 
