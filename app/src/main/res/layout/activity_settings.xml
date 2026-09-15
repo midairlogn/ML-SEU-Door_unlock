@@ -160,8 +160,10 @@
                         android:orientation="vertical">
 
                         <TextView
+                            android:id="@+id/tvAutoCloseLabel"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:labelFor="@id/swAutoClose"
                             android:text="@string/settings_auto_close"
                             android:textAppearance="@style/TextAppearance.Material3.BodyLarge"/>
 
