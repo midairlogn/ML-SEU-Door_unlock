@@ -7,6 +7,8 @@ import android.text.method.LinkMovementMethod;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 
+import com.google.android.material.materialswitch.MaterialSwitch;
+
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.os.LocaleListCompat;
@@ -18,6 +20,7 @@ public class SettingsActivity extends AppCompatActivity {
     public static final String PREFS_NAME = "app_settings";
     public static final String KEY_LANGUAGE = "language";
     public static final String KEY_THEME = "theme";
+    public static final String KEY_AUTO_CLOSE = "auto_close";
 
     public static final String LANG_SYSTEM = "system";
     public static final String LANG_EN = "en";
@@ -29,6 +32,7 @@ public class SettingsActivity extends AppCompatActivity {
 
     private RadioGroup rgLanguage;
     private RadioGroup rgTheme;
+    private MaterialSwitch swAutoClose;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,6 +46,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         rgLanguage = findViewById(R.id.rgLanguage);
         rgTheme = findViewById(R.id.rgTheme);
+        swAutoClose = findViewById(R.id.swAutoClose);
 
         loadSettings();
         setupListeners();
@@ -75,6 +80,8 @@ public class SettingsActivity extends AppCompatActivity {
             case THEME_DARK: rgTheme.check(R.id.rbThemeDark); break;
             default: rgTheme.check(R.id.rbThemeSystem); break;
         }
+
+        swAutoClose.setChecked(prefs.getBoolean(KEY_AUTO_CLOSE, true));
     }
 
     private void setupListeners() {
@@ -99,6 +106,10 @@ public class SettingsActivity extends AppCompatActivity {
                 .edit().putString(KEY_THEME, theme).apply();
             applyTheme();
         });
+
+        swAutoClose.setOnCheckedChangeListener((buttonView, isChecked) ->
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit().putBoolean(KEY_AUTO_CLOSE, isChecked).apply());
     }
 
     private void applyTheme() {

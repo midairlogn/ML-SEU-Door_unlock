@@ -17,6 +17,7 @@ import android.nfc.Tag;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.Menu;
@@ -51,6 +52,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREF_SELECTED_METHOD = "selected_method";
     private static final String METHOD_NFC = "nfc";
     private static final String METHOD_BLE = "ble";
+    private static final long AUTO_CLOSE_DELAY_MS = 3_000;
+    private static final String STATE_AUTO_CLOSE_DEADLINE = "auto_close_deadline_uptime";
 
     private final ActivityResultLauncher<String[]> permissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
@@ -125,6 +128,7 @@ public class MainActivity extends AppCompatActivity {
             if (response != null) {
                 showSuccessState();
                 Toast.makeText(MainActivity.this, R.string.unlock_success, Toast.LENGTH_SHORT).show();
+                scheduleAutoClose();
             } else {
                 // Activation completed
                 updateStatusDisplay();
@@ -141,6 +145,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onExpired() {
+            cancelAutoClose(false);
             tvStatusTitle.setText(R.string.session_expired);
             refreshCredentials();
             setBusy(false);
@@ -151,6 +156,8 @@ public class MainActivity extends AppCompatActivity {
     private AnimatorSet iconAnimator;
     private final Handler handler = new Handler(android.os.Looper.getMainLooper());
     private Runnable restoreRunnable;
+    private Runnable autoCloseRunnable;
+    private long autoCloseDeadlineUptime;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -170,6 +177,7 @@ public class MainActivity extends AppCompatActivity {
         requestPermissions();
         refreshCredentials();
         handleNfcIntent(getIntent());
+        restoreAutoClose(savedInstanceState);
     }
 
     @Override
@@ -501,6 +509,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showErrorState(String message) {
+        cancelAutoClose(false);
         ivStatusIcon.setImageResource(R.drawable.ic_warning);
         tvStatusTitle.setText(R.string.unlock_failed);
         tvStatusDetail.setText(message);
@@ -515,6 +524,72 @@ public class MainActivity extends AppCompatActivity {
         GradientDrawable bg = (GradientDrawable) layerBg.getDrawable(0);
         bg.setColor(ContextCompat.getColor(this, R.color.error_container));
         ivStatusIcon.setColorFilter(ContextCompat.getColor(this, R.color.error));
+    }
+
+    private void scheduleAutoClose() {
+        if (!prefs.getBoolean(SettingsActivity.KEY_AUTO_CLOSE, true)) return;
+        cancelAutoClose(false);
+        autoCloseDeadlineUptime = SystemClock.uptimeMillis() + AUTO_CLOSE_DELAY_MS;
+        autoCloseRunnable = this::closeApp;
+        handler.postDelayed(autoCloseRunnable, AUTO_CLOSE_DELAY_MS);
+        Toast.makeText(this, getString(R.string.auto_close_countdown,
+                (int) (AUTO_CLOSE_DELAY_MS / 1000)), Toast.LENGTH_LONG).show();
+    }
+
+    private void restoreAutoClose(Bundle savedInstanceState) {
+        if (savedInstanceState == null
+                || !prefs.getBoolean(SettingsActivity.KEY_AUTO_CLOSE, true)) return;
+
+        long deadline = savedInstanceState.getLong(STATE_AUTO_CLOSE_DEADLINE, 0);
+        if (deadline <= 0) return;
+
+        showSuccessState();
+        autoCloseDeadlineUptime = deadline;
+        long remaining = deadline - SystemClock.uptimeMillis();
+        if (remaining <= 0) {
+            closeApp();
+            return;
+        }
+
+        autoCloseRunnable = this::closeApp;
+        handler.postDelayed(autoCloseRunnable, remaining);
+        Toast.makeText(this, getString(R.string.auto_close_countdown,
+                (int) Math.ceil(remaining / 1000.0)), Toast.LENGTH_LONG).show();
+    }
+
+    private void cancelAutoClose(boolean notify) {
+        if (autoCloseRunnable != null) {
+            handler.removeCallbacks(autoCloseRunnable);
+        }
+        autoCloseRunnable = null;
+        autoCloseDeadlineUptime = 0;
+        if (notify) {
+            Toast.makeText(this, R.string.auto_close_cancelled, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void closeApp() {
+        autoCloseRunnable = null;
+        autoCloseDeadlineUptime = 0;
+        Log.d(TAG, "Auto-closing app after successful unlock");
+        finishAndRemoveTask();
+        finishAffinity();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (autoCloseRunnable != null) {
+            outState.putLong(STATE_AUTO_CLOSE_DEADLINE, autoCloseDeadlineUptime);
+        }
+    }
+
+    @Override
+    public void onUserInteraction() {
+        super.onUserInteraction();
+        if (autoCloseRunnable != null) {
+            cancelAutoClose(true);
+        }
     }
 
     private void attemptBleUnlock() {
@@ -536,6 +611,14 @@ public class MainActivity extends AppCompatActivity {
                 showSuccessState();
                 btnBleUnlock.setEnabled(true);
                 Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+                scheduleAutoClose();
+            }
+
+            @Override
+            public void onActivationSuccess(String message) {
+                updateStatusDisplay();
+                btnBleUnlock.setEnabled(true);
+                Toast.makeText(MainActivity.this, R.string.activation_success, Toast.LENGTH_SHORT).show();
             }
 
             @Override
@@ -546,6 +629,7 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onExpired() {
+                cancelAutoClose(false);
                 tvStatusTitle.setText(R.string.session_expired);
                 refreshCredentials();
                 btnBleUnlock.setEnabled(true);
@@ -560,7 +644,7 @@ public class MainActivity extends AppCompatActivity {
         if (cache.hasSession()) {
             registerNfcStateReceiver();
             enableNfcReaderModeIfIdle();
-            updateStatusDisplay();
+            if (autoCloseRunnable == null) updateStatusDisplay();
         }
     }
 
@@ -694,6 +778,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void promptReLogin() {
         if (isFinishing() || isDestroyed() || reloginPromptShowing) return;
+        cancelAutoClose(false);
         reloginPromptShowing = true;
         tvStatusTitle.setText(R.string.session_expired_relogin_required);
         tvStatusDetail.setText(R.string.session_expired_relogin_detail);
@@ -771,6 +856,7 @@ public class MainActivity extends AppCompatActivity {
         if (restoreRunnable != null) {
             handler.removeCallbacks(restoreRunnable);
         }
+        cancelAutoClose(false);
         stopBreathingAnimation();
         if (nfcManager != null) nfcManager.onDestroy();
         if (bleManager != null) bleManager.onDestroy();
