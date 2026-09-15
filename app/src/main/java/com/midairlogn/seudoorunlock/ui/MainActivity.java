@@ -4,6 +4,9 @@ import android.Manifest;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
+import android.content.ClipData;
+import android.content.ClipDescription;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.BroadcastReceiver;
 import android.content.Intent;
@@ -17,6 +20,7 @@ import android.nfc.Tag;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.PersistableBundle;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.Log;
@@ -435,19 +439,32 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        String message = getString(R.string.credential_info_content, credentialId, maskCredential(credential));
+        String message = getString(R.string.credential_info_content, credentialId,
+                credential.isEmpty() ? getString(R.string.activation_pending_detail) : credential);
 
         new AlertDialog.Builder(this)
             .setTitle(R.string.credential_info_title)
             .setMessage(message)
             .setPositiveButton(android.R.string.ok, null)
+            .setNeutralButton(R.string.btn_copy, (dialog, which) -> copyCredential(credential))
             .show();
     }
 
-    private String maskCredential(String credential) {
-        if (credential == null || credential.isEmpty()) return getString(R.string.activation_pending_detail);
-        if (credential.length() <= 8) return "********";
-        return credential.substring(0, 4) + "..." + credential.substring(credential.length() - 4);
+    private void copyCredential(String credential) {
+        if (credential == null || credential.isEmpty()) {
+            Toast.makeText(this, R.string.err_credential_unavailable, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        if (cm == null) return;
+        ClipData clip = ClipData.newPlainText("credential", credential);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            PersistableBundle extras = new PersistableBundle();
+            extras.putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true);
+            clip.getDescription().setExtras(extras);
+        }
+        cm.setPrimaryClip(clip);
+        Toast.makeText(this, R.string.copied, Toast.LENGTH_SHORT).show();
     }
 
     private void startBreathingAnimation() {
