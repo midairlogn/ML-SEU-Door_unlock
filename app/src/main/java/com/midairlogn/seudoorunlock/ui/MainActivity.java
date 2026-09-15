@@ -53,7 +53,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String METHOD_NFC = "nfc";
     private static final String METHOD_BLE = "ble";
     private static final long AUTO_CLOSE_DELAY_MS = 3_000;
-    private static final String STATE_AUTO_CLOSE_DEADLINE = "auto_close_deadline";
+    private static final String STATE_AUTO_CLOSE_DEADLINE = "auto_close_deadline_uptime";
 
     private final ActivityResultLauncher<String[]> permissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
@@ -157,7 +157,7 @@ public class MainActivity extends AppCompatActivity {
     private final Handler handler = new Handler(android.os.Looper.getMainLooper());
     private Runnable restoreRunnable;
     private Runnable autoCloseRunnable;
-    private long autoCloseDeadlineElapsed;
+    private long autoCloseDeadlineUptime;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -529,7 +529,7 @@ public class MainActivity extends AppCompatActivity {
     private void scheduleAutoClose() {
         if (!prefs.getBoolean(SettingsActivity.KEY_AUTO_CLOSE, true)) return;
         cancelAutoClose(false);
-        autoCloseDeadlineElapsed = SystemClock.elapsedRealtime() + AUTO_CLOSE_DELAY_MS;
+        autoCloseDeadlineUptime = SystemClock.uptimeMillis() + AUTO_CLOSE_DELAY_MS;
         autoCloseRunnable = this::closeApp;
         handler.postDelayed(autoCloseRunnable, AUTO_CLOSE_DELAY_MS);
         Toast.makeText(this, getString(R.string.auto_close_countdown,
@@ -543,8 +543,9 @@ public class MainActivity extends AppCompatActivity {
         long deadline = savedInstanceState.getLong(STATE_AUTO_CLOSE_DEADLINE, 0);
         if (deadline <= 0) return;
 
-        autoCloseDeadlineElapsed = deadline;
-        long remaining = deadline - SystemClock.elapsedRealtime();
+        showSuccessState();
+        autoCloseDeadlineUptime = deadline;
+        long remaining = deadline - SystemClock.uptimeMillis();
         if (remaining <= 0) {
             closeApp();
             return;
@@ -561,7 +562,7 @@ public class MainActivity extends AppCompatActivity {
             handler.removeCallbacks(autoCloseRunnable);
         }
         autoCloseRunnable = null;
-        autoCloseDeadlineElapsed = 0;
+        autoCloseDeadlineUptime = 0;
         if (notify) {
             Toast.makeText(this, R.string.auto_close_cancelled, Toast.LENGTH_SHORT).show();
         }
@@ -569,7 +570,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void closeApp() {
         autoCloseRunnable = null;
-        autoCloseDeadlineElapsed = 0;
+        autoCloseDeadlineUptime = 0;
         Log.d(TAG, "Auto-closing app after successful unlock");
         finishAndRemoveTask();
         finishAffinity();
@@ -579,7 +580,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         if (autoCloseRunnable != null) {
-            outState.putLong(STATE_AUTO_CLOSE_DEADLINE, autoCloseDeadlineElapsed);
+            outState.putLong(STATE_AUTO_CLOSE_DEADLINE, autoCloseDeadlineUptime);
         }
     }
 
@@ -643,7 +644,7 @@ public class MainActivity extends AppCompatActivity {
         if (cache.hasSession()) {
             registerNfcStateReceiver();
             enableNfcReaderModeIfIdle();
-            updateStatusDisplay();
+            if (autoCloseRunnable == null) updateStatusDisplay();
         }
     }
 
