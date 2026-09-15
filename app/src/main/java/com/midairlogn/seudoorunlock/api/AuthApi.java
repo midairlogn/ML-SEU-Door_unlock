@@ -312,8 +312,13 @@ public class AuthApi {
 
                 String phone = loginResponse.userInfo.phone != null ? loginResponse.userInfo.phone : "";
 
+                // OAuth does not provide a password. Preserve it only when the
+                // OAuth account matches the cached phone number.
+                String cachedPhone = cache.getPhone();
+                String cachedPassword = cache.getPassword();
+                String savedPassword = phone.equals(cachedPhone) ? cachedPassword : "";
                 cache.saveSession(
-                    phone, "",
+                    phone, savedPassword,
                     loginResponse.userInfo.id,
                     loginResponse.userInfo.identityCode,
                     loginResponse.platformToken,

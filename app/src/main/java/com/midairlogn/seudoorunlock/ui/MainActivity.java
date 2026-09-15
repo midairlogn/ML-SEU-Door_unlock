@@ -720,7 +720,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void refreshCredentials() {
-                        getCredentialApi().syncDoorLockInfo(new CredentialApi.SyncCallback() {
+        getCredentialApi().syncDoorLockInfo(new CredentialApi.SyncCallback() {
             @Override
             public void onSuccess(DoorLockInfo info) {
                 runOnUiThread(() -> updateDetailInfo());
@@ -728,7 +728,15 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onError(String message) {
-                Log.w(TAG, "Lightweight refresh failed: " + message + ", trying full re-login");
+                Log.w(TAG, "Credential refresh failed: " + message);
+                if (message == null || !message.contains("api_sign_error")) {
+                    Toast.makeText(MainActivity.this,
+                        message != null ? message : "Credential refresh failed",
+                        Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                Log.w(TAG, "Session secret rejected after retry, trying full re-login");
                 String phone = cache.getPhone();
                 String password = cache.getPassword();
                 if (phone.isEmpty() || password.isEmpty()) {

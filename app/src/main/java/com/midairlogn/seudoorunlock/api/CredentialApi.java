@@ -143,7 +143,13 @@ public class CredentialApi {
                 String normalizedCredential = credential.toUpperCase();
                 if (!normalizedCredential.matches("^[0-9A-F]{64}$")) {
                     Log.d(TAG, "No offline credential returned; caching activation-pending lock");
-                    normalizedCredential = "";
+                    // An incomplete response must not erase a usable credential
+                    // already provisioned for this same physical lock.
+                    if (deviceIdInt == cache.getDeviceId() && cache.hasOfflineCredential()) {
+                        normalizedCredential = cache.getCredentialHex();
+                    } else {
+                        normalizedCredential = "";
+                    }
                 }
 
                 cache.saveDoorLock(deviceIdInt, bleMac, normalizedCredential, credentialId,
