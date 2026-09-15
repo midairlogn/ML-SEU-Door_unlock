@@ -899,6 +899,10 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (activeToast != null) {
+            activeToast.cancel();
+            activeToast = null;
+        }
         super.onDestroy();
         if (restoreRunnable != null) {
             handler.removeCallbacks(restoreRunnable);
