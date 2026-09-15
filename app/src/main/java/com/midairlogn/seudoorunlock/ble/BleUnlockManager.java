@@ -451,8 +451,8 @@ public class BleUnlockManager {
                     lastNotificationData = value != null ? value.clone() : null;
                     waitingForNotification = false;
                     BleUnlockManager.this.notifyAll();
+                    Log.d(TAG, "Notification received, len=" + (value != null ? value.length : 0));
                 }
-                Log.d(TAG, "Notification received, len=" + (lastNotificationData != null ? lastNotificationData.length : 0));
             }
         }
     };
