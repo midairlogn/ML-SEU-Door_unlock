@@ -257,7 +257,14 @@ public class ApiClient {
         JSONObject root = new JSONObject(responseJson);
         if (!isSuccess(root)) {
             String serverMessage = extractServerMessage(root);
-            Log.w(TAG, "Server rejected request: " + root);
+            String code = root.optString("code", root.optString("status", root.optString("errno", "")));
+            String safeMessage = serverMessage == null ? "" : serverMessage
+                .replace('\n', ' ')
+                .replace('\r', ' ');
+            if (safeMessage.length() > 200) {
+                safeMessage = safeMessage.substring(0, 200);
+            }
+            Log.w(TAG, "Server rejected request: code=" + code + " message=" + safeMessage);
             if (serverMessage != null && !serverMessage.isEmpty()) {
                 throw new JSONException(serverMessage);
             }

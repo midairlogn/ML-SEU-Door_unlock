@@ -24,6 +24,7 @@ import okhttp3.HttpUrl;
 public class CredentialApi {
 
     private static final String TAG = "ZL_CredentialApi";
+    private static final Object SESSION_REFRESH_LOCK = new Object();
 
     public interface SyncCallback {
         void onSuccess(DoorLockInfo info);
@@ -70,11 +71,7 @@ public class CredentialApi {
                     .addQueryParameter("user_id", cache.getUserId())
                     .addQueryParameter("identitycode", cache.getIdentityCode());
 
-                String responseJson = api.executeBusinessRequest(urlBuilder, cache.getSessionSecret(),
-                    projectId > 0 ? projectId : ApiClient.PROJECT_ID,
-                    appId > 0 ? appId : ApiClient.APP_ID);
-
-                String dataStr = ApiClient.extractDataField(responseJson);
+                String dataStr = executeBusinessGetData(urlBuilder, projectId, appId);
                 JSONObject detailJson = new JSONObject(dataStr);
                 DoorLockInfo info = DoorLockInfo.fromJson(dataStr);
 
@@ -173,7 +170,8 @@ public class CredentialApi {
         });
     }
 
-    private CredentialRecord fetchStaffCredentialRecord(String serverUrl, int projectId, int appId) {
+    private CredentialRecord fetchStaffCredentialRecord(String serverUrl, int projectId, int appId)
+            throws Exception {
         try {
             HttpUrl credUrl = HttpUrl.parse(serverUrl + "/webapi/v1/staff/credentials");
             if (credUrl == null) return CredentialRecord.EMPTY;
@@ -182,18 +180,16 @@ public class CredentialApi {
                 .addQueryParameter("user_id", cache.getUserId())
                 .addQueryParameter("identitycode", cache.getIdentityCode());
 
-            String credResponse = api.executeBusinessRequest(credBuilder, cache.getSessionSecret(),
-                projectId > 0 ? projectId : ApiClient.PROJECT_ID,
-                appId > 0 ? appId : ApiClient.APP_ID);
-            return parseCredentialRecord(ApiClient.extractDataField(credResponse));
+            return parseCredentialRecord(executeBusinessGetData(credBuilder, projectId, appId));
         } catch (Exception e) {
+            if (isApiSignError(e)) throw e;
             Log.w(TAG, "Failed to fetch staff credentials", e);
             return CredentialRecord.EMPTY;
         }
     }
 
     private CredentialRecord fetchDoorLockCredentialRecord(String serverUrl, String deviceId,
-                                                            int projectId, int appId) {
+                                                            int projectId, int appId) throws Exception {
         try {
             HttpUrl credUrl = HttpUrl.parse(serverUrl + "/webapi/v1/staff/door_lock/credentials");
             if (credUrl == null) return CredentialRecord.EMPTY;
@@ -205,18 +201,16 @@ public class CredentialApi {
                 credBuilder.addQueryParameter("device_id", deviceId);
             }
 
-            String credResponse = api.executeBusinessRequest(credBuilder, cache.getSessionSecret(),
-                projectId > 0 ? projectId : ApiClient.PROJECT_ID,
-                appId > 0 ? appId : ApiClient.APP_ID);
-            return parseCredentialRecord(ApiClient.extractDataField(credResponse));
+            return parseCredentialRecord(executeBusinessGetData(credBuilder, projectId, appId));
         } catch (Exception e) {
+            if (isApiSignError(e)) throw e;
             Log.w(TAG, "Failed to fetch credential from credentials endpoint", e);
             return CredentialRecord.EMPTY;
         }
     }
 
     private CredentialRecord fetchDoorLockListRecord(String serverUrl, String roomId,
-                                                      int projectId, int appId) {
+                                                      int projectId, int appId) throws Exception {
         try {
             HttpUrl lockUrl = HttpUrl.parse(serverUrl + "/webapi/v1/door_lock/list");
             if (lockUrl == null) return CredentialRecord.EMPTY;
@@ -226,11 +220,9 @@ public class CredentialApi {
                 .addQueryParameter("user_id", cache.getUserId())
                 .addQueryParameter("identitycode", cache.getIdentityCode());
 
-            String response = api.executeBusinessRequest(lockBuilder, cache.getSessionSecret(),
-                projectId > 0 ? projectId : ApiClient.PROJECT_ID,
-                appId > 0 ? appId : ApiClient.APP_ID);
-            return parseCredentialRecord(ApiClient.extractDataField(response));
+            return parseCredentialRecord(executeBusinessGetData(lockBuilder, projectId, appId));
         } catch (Exception e) {
+            if (isApiSignError(e)) throw e;
             Log.w(TAG, "Failed to fetch door lock list", e);
             return CredentialRecord.EMPTY;
         }
@@ -255,8 +247,7 @@ public class CredentialApi {
                     appId = resolvedIds[1];
                 }
 
-                String dataStr = fetchCredentialData(serverUrl, projectId, appId, callback);
-                if (dataStr == null) return;
+                String dataStr = fetchCredentialData(serverUrl, projectId, appId);
                 CredentialRecord record = parseCredentialRecord(dataStr);
 
                 String credential = normalizeCredentialHex(record.credential);
@@ -289,40 +280,31 @@ public class CredentialApi {
         });
     }
 
-    /**
-     * Fetches /webapi/v1/staff/door_lock/credentials. The cached session_secret is
-     * invalidated server-side by every new login (including other devices), which the
-     * server reports as api_sign_error; recover by re-login with stored credentials
-     * and retry once. Returns null only after the error callback has been posted.
-     */
-    private String fetchCredentialData(String serverUrl, int projectId, int appId,
-                                       SyncCallback callback) throws Exception {
+    private String fetchCredentialData(String serverUrl, int projectId, int appId) throws Exception {
+        HttpUrl httpUrl = HttpUrl.parse(serverUrl + "/webapi/v1/staff/door_lock/credentials");
+        if (httpUrl == null) throw new IOException("Invalid server URL");
+
+        HttpUrl.Builder urlBuilder = httpUrl.newBuilder()
+            .addQueryParameter("device_id", "" + cache.getDeviceId())
+            .addQueryParameter("user_id", cache.getUserId())
+            .addQueryParameter("identitycode", cache.getIdentityCode());
+        return executeBusinessGetData(urlBuilder, projectId, appId);
+    }
+
+    private String executeBusinessGetData(HttpUrl.Builder baseBuilder, int projectId, int appId)
+            throws Exception {
+        HttpUrl baseUrl = baseBuilder.build();
         for (int attempt = 0; attempt < 2; attempt++) {
-            HttpUrl httpUrl = HttpUrl.parse(serverUrl + "/webapi/v1/staff/door_lock/credentials");
-            if (httpUrl == null) {
-                mainHandler.post(() -> callback.onError("Invalid server URL"));
-                return null;
-            }
-            HttpUrl.Builder urlBuilder = httpUrl.newBuilder()
-                .addQueryParameter("device_id", "" + cache.getDeviceId())
-                .addQueryParameter("user_id", cache.getUserId())
-                .addQueryParameter("identitycode", cache.getIdentityCode());
-
-            String responseJson = api.executeBusinessRequest(urlBuilder, cache.getSessionSecret(),
-                projectId > 0 ? projectId : ApiClient.PROJECT_ID,
-                appId > 0 ? appId : ApiClient.APP_ID);
-
+            String rejectedSecret = cache.getSessionSecret();
             try {
+                String responseJson = api.executeBusinessRequest(baseUrl.newBuilder(), rejectedSecret,
+                    projectId > 0 ? projectId : ApiClient.PROJECT_ID,
+                    appId > 0 ? appId : ApiClient.APP_ID);
                 return ApiClient.extractDataField(responseJson);
             } catch (JSONException e) {
-                String message = e.getMessage();
-                if (attempt > 0 || message == null || !message.contains("api_sign_error")) {
-                    throw e;
-                }
-                Log.w(TAG, "Session secret rejected (api_sign_error), attempting silent re-login");
-                if (!reloginSilently()) {
-                    throw e;
-                }
+                if (attempt > 0 || !isApiSignError(e)) throw e;
+                Log.w(TAG, "Session secret rejected, attempting silent re-login");
+                if (!reloginSilently(rejectedSecret)) throw e;
                 if (cache.getDeviceId() > 0) {
                     int[] resolvedIds = resolveProjectIdsForDevice(cache.getDeviceId(),
                         cache.getProjectId(), cache.getAppId());
@@ -331,24 +313,63 @@ public class CredentialApi {
                 }
             }
         }
-        return null;
+        throw new IllegalStateException("Business request retry exhausted");
     }
 
-    /** Returns true if a silent re-login with the stored phone/password succeeded. */
-    private boolean reloginSilently() {
-        String phone = cache.getPhone();
-        String password = cache.getPassword();
-        if (phone == null || phone.isEmpty() || password == null || password.isEmpty()) {
-            Log.w(TAG, "No stored credentials, cannot re-login silently");
-            return false;
+    private String executeBusinessPostData(HttpUrl.Builder baseBuilder, int projectId, int appId)
+            throws Exception {
+        HttpUrl baseUrl = baseBuilder.build();
+        for (int attempt = 0; attempt < 2; attempt++) {
+            String rejectedSecret = cache.getSessionSecret();
+            try {
+                String responseJson = api.executeBusinessPost(baseUrl.newBuilder(), rejectedSecret,
+                    projectId > 0 ? projectId : ApiClient.PROJECT_ID,
+                    appId > 0 ? appId : ApiClient.APP_ID);
+                return ApiClient.extractDataField(responseJson);
+            } catch (JSONException e) {
+                if (attempt > 0 || !isApiSignError(e)) throw e;
+                Log.w(TAG, "Session secret rejected, attempting silent re-login");
+                if (!reloginSilently(rejectedSecret)) throw e;
+                if (cache.getDeviceId() > 0) {
+                    int[] resolvedIds = resolveProjectIdsForDevice(cache.getDeviceId(),
+                        cache.getProjectId(), cache.getAppId());
+                    projectId = resolvedIds[0];
+                    appId = resolvedIds[1];
+                }
+            }
         }
-        try {
-            authApi.loginSync(phone, password, null);
-            Log.i(TAG, "Silent re-login succeeded, session secret refreshed");
-            return true;
-        } catch (Exception e) {
-            Log.w(TAG, "Silent re-login failed: " + e.getMessage());
-            return false;
+        throw new IllegalStateException("Business request retry exhausted");
+    }
+
+    private boolean isApiSignError(Throwable error) {
+        String message = error.getMessage();
+        return message != null && message.contains("api_sign_error");
+    }
+
+    /** Returns true if a silent re-login succeeded or another thread already refreshed the secret. */
+    private boolean reloginSilently(String rejectedSecret) {
+        synchronized (SESSION_REFRESH_LOCK) {
+            String currentSecret = cache.getSessionSecret();
+            if (rejectedSecret != null && !rejectedSecret.isEmpty()
+                    && currentSecret != null && !currentSecret.isEmpty()
+                    && !rejectedSecret.equals(currentSecret)) {
+                return true;
+            }
+
+            String phone = cache.getPhone();
+            String password = cache.getPassword();
+            if (phone == null || phone.isEmpty() || password == null || password.isEmpty()) {
+                Log.w(TAG, "No stored credentials, cannot re-login silently");
+                return false;
+            }
+            try {
+                authApi.loginSync(phone, password, null);
+                Log.i(TAG, "Silent re-login succeeded, session secret refreshed");
+                return true;
+            } catch (Exception e) {
+                Log.w(TAG, "Silent re-login failed: " + e.getMessage());
+                return false;
+            }
         }
     }
 
@@ -422,10 +443,7 @@ public class CredentialApi {
                     .addQueryParameter("user_id", cache.getUserId())
                     .addQueryParameter("identitycode", cache.getIdentityCode());
 
-                String responseJson = api.executeBusinessPost(urlBuilder, cache.getSessionSecret(),
-                    projectId > 0 ? projectId : ApiClient.PROJECT_ID,
-                    appId > 0 ? appId : ApiClient.APP_ID);
-                String dataStr = ApiClient.extractDataField(responseJson);
+                String dataStr = executeBusinessPostData(urlBuilder, projectId, appId);
 
                 Object data = parseJsonValue(dataStr);
                 String credentialId = extractCredentialId(data);
@@ -445,7 +463,8 @@ public class CredentialApi {
         });
     }
 
-    private String fetchDigitalCredentialId(String serverUrl, int deviceId, int projectId, int appId) {
+    private String fetchDigitalCredentialId(String serverUrl, int deviceId, int projectId, int appId)
+            throws Exception {
         try {
             HttpUrl httpUrl = HttpUrl.parse(serverUrl + "/webapi/v1/staff/door_lock/credentials");
             if (httpUrl == null) return null;
@@ -455,10 +474,7 @@ public class CredentialApi {
                 .addQueryParameter("user_id", cache.getUserId())
                 .addQueryParameter("identitycode", cache.getIdentityCode());
 
-            String responseJson = api.executeBusinessRequest(urlBuilder, cache.getSessionSecret(),
-                projectId > 0 ? projectId : ApiClient.PROJECT_ID,
-                appId > 0 ? appId : ApiClient.APP_ID);
-            String dataStr = ApiClient.extractDataField(responseJson);
+            String dataStr = executeBusinessGetData(urlBuilder, projectId, appId);
             JSONObject data = new JSONObject(dataStr);
 
             JSONArray rows = data.optJSONArray("rows");
@@ -474,6 +490,7 @@ public class CredentialApi {
                 }
             }
         } catch (Exception e) {
+            if (isApiSignError(e)) throw e;
             Log.w(TAG, "fetchDigitalCredentialId error", e);
         }
         return null;
@@ -587,10 +604,7 @@ public class CredentialApi {
             .addQueryParameter("user_id", cache.getUserId())
             .addQueryParameter("identitycode", cache.getIdentityCode());
 
-        String responseJson = api.executeBusinessRequest(urlBuilder, cache.getSessionSecret(),
-            projectId > 0 ? projectId : ApiClient.PROJECT_ID,
-            appId > 0 ? appId : ApiClient.APP_ID);
-        String dataStr = ApiClient.extractDataField(responseJson);
+        String dataStr = executeBusinessGetData(urlBuilder, projectId, appId);
 
         return parseActivationStep(dataStr, credentialId);
     }
@@ -643,10 +657,7 @@ public class CredentialApi {
         urlBuilder.addQueryParameter("user_id", cache.getUserId());
         urlBuilder.addQueryParameter("identitycode", cache.getIdentityCode());
 
-        String responseJson = api.executeBusinessPost(urlBuilder, cache.getSessionSecret(),
-            projectId > 0 ? projectId : ApiClient.PROJECT_ID,
-            appId > 0 ? appId : ApiClient.APP_ID);
-        String dataStr = ApiClient.extractDataField(responseJson);
+        String dataStr = executeBusinessPostData(urlBuilder, projectId, appId);
 
         return parseActivationStep(dataStr, step.credentialId);
     }
