@@ -241,6 +241,7 @@ public class ApiClient {
         JSONObject root = new JSONObject(responseJson);
         if (!isSuccess(root)) {
             String serverMessage = extractServerMessage(root);
+            Log.w(TAG, "Server rejected request: " + root);
             if (serverMessage != null && !serverMessage.isEmpty()) {
                 throw new JSONException(serverMessage);
             }

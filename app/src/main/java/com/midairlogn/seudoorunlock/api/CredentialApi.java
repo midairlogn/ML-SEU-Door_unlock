@@ -246,6 +246,13 @@ public class CredentialApi {
                 int projectId = cache.getProjectId();
                 int appId = cache.getAppId();
 
+                int cachedDeviceId = cache.getDeviceId();
+                if (cachedDeviceId > 0) {
+                    int[] resolvedIds = resolveProjectIdsForDevice(cachedDeviceId, projectId, appId);
+                    projectId = resolvedIds[0];
+                    appId = resolvedIds[1];
+                }
+
                 HttpUrl httpUrl = HttpUrl.parse(serverUrl + "/webapi/v1/staff/door_lock/credentials");
                 if (httpUrl == null) {
                     mainHandler.post(() -> callback.onError("Invalid server URL"));
@@ -283,7 +290,12 @@ public class CredentialApi {
 
             } catch (Exception e) {
                 Log.e(TAG, "Credential sync error", e);
-                mainHandler.post(() -> callback.onError("Error: " + e.getMessage()));
+                String message = e.getMessage();
+                if (message != null && message.contains("api_sign_error")) {
+                    mainHandler.post(() -> callback.onError("Session expired, please sign in again"));
+                } else {
+                    mainHandler.post(() -> callback.onError("Error: " + message));
+                }
             }
         });
     }
