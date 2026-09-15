@@ -61,6 +61,7 @@
     <string name="settings_auto_close">Auto-close after unlock</string>
     <string name="settings_auto_close_summary">Close the app a few seconds after the door is opened. Tap anywhere to cancel.</string>
     <string name="auto_close_countdown">Closing in %d s — tap anywhere to stay open</string>
+    <string name="unlock_success_auto_close">Door opened — closing in %1$d s, tap anywhere to cancel</string>
     <string name="auto_close_cancelled">Auto-close cancelled</string>
 
     <!-- Main Page -->

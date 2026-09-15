@@ -131,12 +131,13 @@ public class MainActivity extends AppCompatActivity {
         public void onSuccess(com.midairlogn.seudoorunlock.model.DoorResponse response) {
             if (response != null) {
                 showSuccessState();
-                Toast.makeText(MainActivity.this, R.string.unlock_success, Toast.LENGTH_SHORT).show();
-                scheduleAutoClose();
+                if (!scheduleAutoClose()) {
+                    showToast(R.string.unlock_success, Toast.LENGTH_SHORT);
+                }
             } else {
                 // Activation completed
                 updateStatusDisplay();
-                Toast.makeText(MainActivity.this, R.string.activation_success, Toast.LENGTH_SHORT).show();
+                showToast(R.string.activation_success, Toast.LENGTH_SHORT);
             }
             setBusy(false);
         }
@@ -159,6 +160,7 @@ public class MainActivity extends AppCompatActivity {
     // Animation
     private AnimatorSet iconAnimator;
     private final Handler handler = new Handler(android.os.Looper.getMainLooper());
+    private Toast activeToast;
     private Runnable restoreRunnable;
     private Runnable autoCloseRunnable;
     private long autoCloseDeadlineUptime;
@@ -435,7 +437,7 @@ public class MainActivity extends AppCompatActivity {
         String credential = cache.getCredentialHex();
 
         if (credential.isEmpty() && credentialId == 0) {
-            Toast.makeText(this, R.string.err_credential_unavailable, Toast.LENGTH_SHORT).show();
+            showToast(R.string.err_credential_unavailable, Toast.LENGTH_SHORT);
             return;
         }
 
@@ -452,7 +454,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void copyCredential(String credential) {
         if (credential == null || credential.isEmpty()) {
-            Toast.makeText(this, R.string.err_credential_unavailable, Toast.LENGTH_SHORT).show();
+            showToast(R.string.err_credential_unavailable, Toast.LENGTH_SHORT);
             return;
         }
         ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
@@ -464,7 +466,7 @@ public class MainActivity extends AppCompatActivity {
             clip.getDescription().setExtras(extras);
         }
         cm.setPrimaryClip(clip);
-        Toast.makeText(this, R.string.copied, Toast.LENGTH_SHORT).show();
+        showToast(R.string.copied, Toast.LENGTH_SHORT);
     }
 
     private void startBreathingAnimation() {
@@ -543,14 +545,15 @@ public class MainActivity extends AppCompatActivity {
         ivStatusIcon.setColorFilter(ContextCompat.getColor(this, R.color.error));
     }
 
-    private void scheduleAutoClose() {
-        if (!prefs.getBoolean(SettingsActivity.KEY_AUTO_CLOSE, true)) return;
+    private boolean scheduleAutoClose() {
+        if (!prefs.getBoolean(SettingsActivity.KEY_AUTO_CLOSE, true)) return false;
         cancelAutoClose(false);
         autoCloseDeadlineUptime = SystemClock.uptimeMillis() + AUTO_CLOSE_DELAY_MS;
         autoCloseRunnable = this::closeApp;
         handler.postDelayed(autoCloseRunnable, AUTO_CLOSE_DELAY_MS);
-        Toast.makeText(this, getString(R.string.auto_close_countdown,
-                (int) (AUTO_CLOSE_DELAY_MS / 1000)), Toast.LENGTH_LONG).show();
+        showToast(R.string.unlock_success_auto_close, Toast.LENGTH_LONG,
+                (int) (AUTO_CLOSE_DELAY_MS / 1000));
+        return true;
     }
 
     private void restoreAutoClose(Bundle savedInstanceState) {
@@ -570,8 +573,8 @@ public class MainActivity extends AppCompatActivity {
 
         autoCloseRunnable = this::closeApp;
         handler.postDelayed(autoCloseRunnable, remaining);
-        Toast.makeText(this, getString(R.string.auto_close_countdown,
-                (int) Math.ceil(remaining / 1000.0)), Toast.LENGTH_LONG).show();
+        showToast(R.string.auto_close_countdown, Toast.LENGTH_LONG,
+                (int) Math.ceil(remaining / 1000.0));
     }
 
     private void cancelAutoClose(boolean notify) {
@@ -581,13 +584,33 @@ public class MainActivity extends AppCompatActivity {
         autoCloseRunnable = null;
         autoCloseDeadlineUptime = 0;
         if (notify) {
-            Toast.makeText(this, R.string.auto_close_cancelled, Toast.LENGTH_SHORT).show();
+            showToast(R.string.auto_close_cancelled, Toast.LENGTH_SHORT);
         }
+    }
+
+    private void showToast(int messageResId, int duration, Object... formatArgs) {
+        if (activeToast != null) {
+            activeToast.cancel();
+        }
+        activeToast = Toast.makeText(this, getString(messageResId, formatArgs), duration);
+        activeToast.show();
+    }
+
+    private void showToast(CharSequence message, int duration) {
+        if (activeToast != null) {
+            activeToast.cancel();
+        }
+        activeToast = Toast.makeText(this, message, duration);
+        activeToast.show();
     }
 
     private void closeApp() {
         autoCloseRunnable = null;
         autoCloseDeadlineUptime = 0;
+        if (activeToast != null) {
+            activeToast.cancel();
+            activeToast = null;
+        }
         Log.d(TAG, "Auto-closing app after successful unlock");
         finishAndRemoveTask();
         finishAffinity();
@@ -611,11 +634,11 @@ public class MainActivity extends AppCompatActivity {
 
     private void attemptBleUnlock() {
         if (!getBleManager().isBleSupported()) {
-            Toast.makeText(this, R.string.ble_not_supported, Toast.LENGTH_SHORT).show();
+            showToast(R.string.ble_not_supported, Toast.LENGTH_SHORT);
             return;
         }
         if (!getBleManager().isBleEnabled()) {
-            Toast.makeText(this, R.string.ble_disabled, Toast.LENGTH_SHORT).show();
+            showToast(R.string.ble_disabled, Toast.LENGTH_SHORT);
             return;
         }
 
@@ -627,15 +650,16 @@ public class MainActivity extends AppCompatActivity {
             public void onSuccess(String message) {
                 showSuccessState();
                 btnBleUnlock.setEnabled(true);
-                Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
-                scheduleAutoClose();
+                if (!scheduleAutoClose()) {
+                    showToast(message, Toast.LENGTH_SHORT);
+                }
             }
 
             @Override
             public void onActivationSuccess(String message) {
                 updateStatusDisplay();
                 btnBleUnlock.setEnabled(true);
-                Toast.makeText(MainActivity.this, R.string.activation_success, Toast.LENGTH_SHORT).show();
+                showToast(R.string.activation_success, Toast.LENGTH_SHORT);
             }
 
             @Override
@@ -747,9 +771,7 @@ public class MainActivity extends AppCompatActivity {
             public void onError(String message) {
                 Log.w(TAG, "Credential refresh failed: " + message);
                 if (message == null || !message.contains("api_sign_error")) {
-                    Toast.makeText(MainActivity.this,
-                        message != null ? message : "Credential refresh failed",
-                        Toast.LENGTH_SHORT).show();
+                    showToast(message != null ? message : "Credential refresh failed", Toast.LENGTH_SHORT);
                     return;
                 }
 

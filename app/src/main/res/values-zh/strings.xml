@@ -61,6 +61,7 @@
     <string name="settings_auto_close">开门成功后自动关闭</string>
     <string name="settings_auto_close_summary">开门成功后数秒自动关闭应用，轻触屏幕可取消。</string>
     <string name="auto_close_countdown">%d 秒后自动关闭，轻触屏幕可取消</string>
+    <string name="unlock_success_auto_close">开门成功，%1$d 秒后自动关闭，轻触屏幕可取消</string>
     <string name="auto_close_cancelled">已取消自动关闭</string>
 
     <!-- 主页面 -->
