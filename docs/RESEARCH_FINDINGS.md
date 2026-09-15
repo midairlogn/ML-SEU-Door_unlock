@@ -303,3 +303,19 @@ if (`XN-1136247` == deviceName) {
    - **Bluetooth BLE** (secondary, optional): Connects to BLE door locks via GATT service `0xFF12` with read/write characteristics `0xFF02`/`0xFF01`. Devices follow the naming pattern `XN-{deviceId}`.
 
 3. The core business logic (API endpoints, unlock protocol, encryption of BLE commands) is **hidden inside the SecShell-encrypted DEX** (`assets/apps/zhuli.zip`) and cannot be fully analyzed through static analysis alone. Dynamic analysis (e.g., Frida runtime hooking) would be needed to extract the actual unlock protocol and API calls.
+
+---
+
+## 6. Cross-Validation & Field Findings
+
+The protocol documented here has been cross-checked against independent working implementations of the same backend. Confirmed facts:
+
+1. **Signing**: identical algorithm — sorted `k=v` pairs (quotes/spaces stripped), `&key=<secret>` appended, uppercase MD5; `pid=21048` / `appid=20104` constants for the Jiulonghu campus deployment.
+2. **Session secret expiry (confirmed)**: the login-issued `session_secret` is invalidated server-side by any newer login. Business requests signed with a stale secret are rejected with `err_msg: "api_sign_error"`. Reference clients treat cached-secret refresh as best-effort and fall back to a **full re-login with stored credentials** on auth failure. This project implements the same recovery (`CredentialApi.reloginSilently` + one retry; `AuthApi.loginSync`).
+3. **Empty params**: reference implementations never send empty parameter values. This project enforces the same invariant (`ApiClient.withoutEmptyParams`) because a param sent as `key=` while absent from the sign source also produces `api_sign_error`.
+4. **Server quirks**: business servers are deployed behind multiple replicas that can respond inconsistently ("同一接口时好时坏"); responses may contain dirty bytes in JSON string values, so lenient parsing/salvage extraction of strongly-formatted fields (64-hex credentials, integer IDs) is recommended.
+
+### 6.1 Debugging notes
+
+- `err_msg` values surface in logcat wrapped as `JSONException` (from `ApiClient.extractDataField`); the full rejection payload is logged under `ZL_ApiClient` (`Server rejected request: {...}`).
+- A BLE notification race previously crashed `handleCharacteristicChanged` (NPE reading `lastNotificationData` after the executor nulled it); the log now reads the local notification buffer inside the synchronized block.

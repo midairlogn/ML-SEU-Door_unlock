@@ -47,75 +47,27 @@ public class AuthApi {
         this.mainHandler = new Handler(Looper.getMainLooper());
     }
 
+    /** Thrown by loginSync when the server demands a captcha instead of logging in. */
+    public static class CaptchaRequiredException extends Exception {
+        public CaptchaRequiredException() { super("Captcha required"); }
+    }
+
+    /** Wraps non-network login failures so the async wrapper reports them verbatim. */
+    private static class LoginFailureException extends RuntimeException {
+        LoginFailureException(String message) { super(message); }
+    }
+
     public void login(String phone, String pwd, String captcha, AuthCallback callback) {
         executor.execute(() -> {
             try {
-                HttpUrl httpUrl = HttpUrl.parse(api.getAuthBaseUrl() + "/webapi/users/login");
-                if (httpUrl == null) {
-                    mainHandler.post(() -> callback.onError("Invalid Auth URL"));
-                    return;
-                }
-                HttpUrl.Builder urlBuilder = httpUrl.newBuilder()
-                    .addQueryParameter("phone", phone)
-                    .addQueryParameter("pwd", pwd);
-
-                if (captcha != null && !captcha.isEmpty()) {
-                    urlBuilder.addQueryParameter("code", captcha);
-                }
-
-                String responseJson = api.executeAuthRequest(urlBuilder);
-                Log.d(TAG, "Login response length: " + responseJson.length());
-
-                if (ApiClient.isCaptchaRequired(responseJson)) {
-                    Log.d(TAG, "Captcha required");
-                    mainHandler.post(callback::onCaptchaRequired);
-                    return;
-                }
-
-                String dataStr;
-                try {
-                    dataStr = ApiClient.extractDataField(responseJson);
-                } catch (Exception e) {
-                    Log.e(TAG, "Failed to extract data field from response", e);
-                    mainHandler.post(() -> callback.onError("Server response error: " + e.getMessage()));
-                    return;
-                }
-
-                LoginResponse loginResponse;
-                try {
-                    loginResponse = LoginResponse.fromJson(dataStr);
-                } catch (Exception e) {
-                    Log.e(TAG, "Failed to parse login response from data", e);
-                    mainHandler.post(() -> callback.onError("Failed to parse server response: " + e.getMessage()));
-                    return;
-                }
-
-                if (loginResponse.userInfo == null || loginResponse.userInfo.id.isEmpty()) {
-                    Log.e(TAG, "Login response missing user info");
-                    mainHandler.post(() -> callback.onError("Server did not return user info"));
-                    return;
-                }
-
-                if (loginResponse.serverInfo == null || loginResponse.serverInfo.serverAddr.isEmpty()) {
-                    Log.e(TAG, "Login response missing server info");
-                    mainHandler.post(() -> callback.onError("Server did not return server info"));
-                    return;
-                }
-
-                cache.saveSession(
-                    phone, pwd,
-                    loginResponse.userInfo.id,
-                    loginResponse.userInfo.identityCode,
-                    loginResponse.platformToken,
-                    loginResponse.serverInfo.sessionSecret,
-                    loginResponse.serverInfo.serverAddr,
-                    loginResponse.serverInfo.projectId,
-                    loginResponse.serverInfo.appId
-                );
-
+                LoginResponse loginResponse = loginSync(phone, pwd, captcha);
                 Log.d(TAG, "Session saved, navigating to main");
                 mainHandler.post(() -> callback.onSuccess(loginResponse));
-
+            } catch (CaptchaRequiredException e) {
+                Log.d(TAG, "Captcha required");
+                mainHandler.post(callback::onCaptchaRequired);
+            } catch (LoginFailureException e) {
+                mainHandler.post(() -> callback.onError(e.getMessage()));
             } catch (IOException e) {
                 Log.e(TAG, "Login network error", e);
                 mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
@@ -124,6 +76,70 @@ public class AuthApi {
                 mainHandler.post(() -> callback.onError("Error: " + e.getMessage()));
             }
         });
+    }
+
+    /**
+     * Runs a full login on the calling thread and persists the fresh session
+     * (including the rotated session_secret). Used for silent session recovery
+     * when the cached secret is rejected with api_sign_error.
+     */
+    public LoginResponse loginSync(String phone, String pwd, String captcha) throws Exception {
+        HttpUrl httpUrl = HttpUrl.parse(api.getAuthBaseUrl() + "/webapi/users/login");
+        if (httpUrl == null) {
+            throw new LoginFailureException("Invalid Auth URL");
+        }
+        HttpUrl.Builder urlBuilder = httpUrl.newBuilder()
+            .addQueryParameter("phone", phone)
+            .addQueryParameter("pwd", pwd);
+
+        if (captcha != null && !captcha.isEmpty()) {
+            urlBuilder.addQueryParameter("code", captcha);
+        }
+
+        String responseJson = api.executeAuthRequest(urlBuilder);
+        Log.d(TAG, "Login response length: " + responseJson.length());
+
+        if (ApiClient.isCaptchaRequired(responseJson)) {
+            throw new CaptchaRequiredException();
+        }
+
+        String dataStr;
+        try {
+            dataStr = ApiClient.extractDataField(responseJson);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to extract data field from response", e);
+            throw new LoginFailureException("Server response error: " + e.getMessage());
+        }
+
+        LoginResponse loginResponse;
+        try {
+            loginResponse = LoginResponse.fromJson(dataStr);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to parse login response from data", e);
+            throw new LoginFailureException("Failed to parse server response: " + e.getMessage());
+        }
+
+        if (loginResponse.userInfo == null || loginResponse.userInfo.id.isEmpty()) {
+            Log.e(TAG, "Login response missing user info");
+            throw new LoginFailureException("Server did not return user info");
+        }
+
+        if (loginResponse.serverInfo == null || loginResponse.serverInfo.serverAddr.isEmpty()) {
+            Log.e(TAG, "Login response missing server info");
+            throw new LoginFailureException("Server did not return server info");
+        }
+
+        cache.saveSession(
+            phone, pwd,
+            loginResponse.userInfo.id,
+            loginResponse.userInfo.identityCode,
+            loginResponse.platformToken,
+            loginResponse.serverInfo.sessionSecret,
+            loginResponse.serverInfo.serverAddr,
+            loginResponse.serverInfo.projectId,
+            loginResponse.serverInfo.appId
+        );
+        return loginResponse;
     }
 
     public void login(String phone, String pwd, AuthCallback callback) {

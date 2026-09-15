@@ -16,6 +16,7 @@
 8. [JavaScript Bridge API (`zl.*`)](#8-javascript-bridge-api-zl)
 9. [NFC Tag Format & Android Intent Handling](#9-nfc-tag-format--android-intent-handling)
 10. [Security Observations](#10-security-observations)
+11. [Session Secret Lifecycle & `api_sign_error` Recovery](#11-session-secret-lifecycle--api_sign_error-recovery)
 
 ---
 
@@ -33,7 +34,7 @@
 | Architecture | Hybrid WebView + DSBridge native bridge |
 | Native Bridge | DSBridge (`dsbridge@3.1.3`) exposing `zl.*` namespace |
 
-> **Note**: The APK is protected by SecShell packer. All business logic is encrypted in `assets/apps/zhuli.zip` and decrypted at runtime by `libSecShell.so`. The findings below combine static analysis of resources/manifest/JS bridge with protocol documentation from the SEU-Door re-implementation.
+> **Note**: The APK is protected by SecShell packer. All business logic is encrypted in `assets/apps/zhuli.zip` and decrypted at runtime by `libSecShell.so`. The findings below combine static analysis of resources/manifest/JS bridge with protocol documentation from independent re-implementations of the same system.
 
 ---
 
@@ -85,7 +86,7 @@ Auth-server requests are signed without `pid`/`appid`. Dynamic project metadata 
   "platform_token": "platform_token",
   "server_info": {
     "server_addr": "https://zhuli104.whxinna.com",
-    "session_secret": "business API signing key (changes each login)",
+    "session_secret": "business API signing key (rotates on every login; older secrets are invalidated server-side — see §11)",
     "appsecret": "app secret",
     "server_appid": 21048,
     "server_id": 20104,
@@ -327,7 +328,7 @@ GET {server_addr}/webapi/v1/student/accommodation/details
 
 ### 4.2 Credential Lookup Fallbacks
 
-If `accommodation/details` does not return a usable `device_id` and 64-char `credential`, follow the same lookup order as the SEU-Door reference implementation.
+If `accommodation/details` does not return a usable `device_id` and 64-char `credential`, follow the same lookup order as the reference implementations.
 
 #### Staff Credentials
 
@@ -371,6 +372,8 @@ GET {server_addr}/webapi/v1/staff/door_lock/credentials
 | `identitycode` | `identity_code` |
 
 If `device_id` is still unknown, the endpoint may be called without `device_id` to list this user's assigned door-lock credential rows.
+
+**Post-unlock re-sync**: after a BLE credential refresh (0x76/0x77), the app re-calls this endpoint in the background to keep the server-side chain key in sync with the lock. This call is the first one to fail when the cached `session_secret` has been invalidated (see §11).
 
 ### 4.3 NFC/BLE Digital Credential Activation
 
@@ -918,7 +921,7 @@ From `nfc_tech_filter.xml`:
 
 ### 9.4 NFC Wake-up (App Not in Foreground)
 
-The original NFC tag embeds an **AAR** (Android Application Record) for `com.whxinna.userplatform`. The SEU-Door re-implementation sets its `applicationId` to `com.whxinna.userplatform` so the AAR routes directly to it. When the app is not running, Android launches it and delivers the NFC tag intent to `MainActivity`.
+The original NFC tag embeds an **AAR** (Android Application Record) for `com.whxinna.userplatform`. This re-implementation sets its `applicationId` to `com.whxinna.userplatform` so the AAR routes directly to it. When the app is not running, Android launches it and delivers the NFC tag intent to `MainActivity`.
 
 ---
 
@@ -929,8 +932,26 @@ The original NFC tag embeds an **AAR** (Android Application Record) for `com.whx
 3. **Auth signing key hardcoded**: `6d5dbb85b949447a95ff8fda9a9b759b` — shared across all clients
 4. **NFC credentials are static**: Don't roll, only expire server-side; any eavesdropper on NFC traffic can replay
 5. **BLE credentials roll but via insecure channel**: The 0x76/0x77 refresh happens over BLE without additional encryption beyond RC4(device-derived key)
-6. **Local storage**: Original app uses custom encryption (`R9Tdbuh5KCXNa09fL4hGaVY5wh6WRMSW` key, `ETD#` prefix); SEU-Door uses Android Keystore + AES-GCM
+6. **Local storage**: Original app uses custom encryption (`R9Tdbuh5KCXNa09fL4hGaVY5wh6WRMSW` key, `ETD#` prefix); this re-implementation uses Android Keystore + AES-GCM
 7. **SecShell packer**: Hides business logic but doesn't protect against runtime analysis (Frida/Xposed)
+
+---
+
+## 11. Session Secret Lifecycle & `api_sign_error` Recovery
+
+The `session_secret` from the login response is the business-API signing key, but it is **short-lived from the server's perspective**:
+
+- Every new login (this app, the original 住理生活 app, or any other device) rotates it.
+- Older secrets are **invalidated server-side**; business requests signed with a stale secret fail with `err_msg: "api_sign_error"` (wrapped as a `JSONException` by `ApiClient.extractDataField`).
+- Because the failure is server-side state, it can appear mid-session — typically on the first business call after the app process has been alive for a while (e.g. the post-unlock re-sync of §4.2), even though the same secret worked minutes earlier.
+
+**Recovery (implemented in `CredentialApi`)**:
+
+1. On `api_sign_error`, silently re-login with the stored phone/password (`AuthApi.loginSync`) to obtain a fresh `session_secret`.
+2. Re-resolve `pid`/`appid` for the device and retry the request **once**.
+3. If the silent re-login is not possible (OAuth-only session, captcha required, network failure), surface "Session expired, please sign in again".
+
+This mirrors the behavior of independent reference clients: cached-secret refresh is best-effort, and auth failures fall back to the full login flow.
 
 ---
 
@@ -960,9 +981,11 @@ sign = MD5(
 ```
 
 Where:
-- `sessionSecret` is obtained from the login response (`server_info.session_secret`)
+- `sessionSecret` is obtained from the login response (`server_info.session_secret`) — and expires server-side on any newer login (see §11)
 - Nonce length: 32 characters
 - `pid` and `appid` are obtained from the login response (`server_info.project_id` / `server_info.app_id`), falling back to `server_info.server_appid` / `server_info.server_id`
+
+**Empty-parameter rule**: parameters whose value is empty must be omitted from the request entirely (never sent as `key=`). The client enforces "signed set == sent set" (`ApiClient.withoutEmptyParams`): a param present-but-empty in the URL while absent from the sign source makes the server compute a different signature and reject with `api_sign_error`.
 
 ### Example
 

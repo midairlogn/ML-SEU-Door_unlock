@@ -37,12 +37,14 @@ public class CredentialApi {
 
     private final ApiClient api;
     private final CredentialCache cache;
+    private final AuthApi authApi;
     private final ExecutorService executor;
     private final Handler mainHandler;
 
     public CredentialApi(CredentialCache cache) {
         this.api = ApiClient.getInstance();
         this.cache = cache;
+        this.authApi = new AuthApi(cache);
         this.executor = AppExecutors.getInstance();
         this.mainHandler = new Handler(Looper.getMainLooper());
     }
@@ -253,21 +255,8 @@ public class CredentialApi {
                     appId = resolvedIds[1];
                 }
 
-                HttpUrl httpUrl = HttpUrl.parse(serverUrl + "/webapi/v1/staff/door_lock/credentials");
-                if (httpUrl == null) {
-                    mainHandler.post(() -> callback.onError("Invalid server URL"));
-                    return;
-                }
-                HttpUrl.Builder urlBuilder = httpUrl.newBuilder()
-                    .addQueryParameter("device_id", "" + cache.getDeviceId())
-                    .addQueryParameter("user_id", cache.getUserId())
-                    .addQueryParameter("identitycode", cache.getIdentityCode());
-
-                String responseJson = api.executeBusinessRequest(urlBuilder, cache.getSessionSecret(),
-                    projectId > 0 ? projectId : ApiClient.PROJECT_ID,
-                    appId > 0 ? appId : ApiClient.APP_ID);
-
-                String dataStr = ApiClient.extractDataField(responseJson);
+                String dataStr = fetchCredentialData(serverUrl, projectId, appId, callback);
+                if (dataStr == null) return;
                 CredentialRecord record = parseCredentialRecord(dataStr);
 
                 String credential = normalizeCredentialHex(record.credential);
@@ -298,6 +287,69 @@ public class CredentialApi {
                 }
             }
         });
+    }
+
+    /**
+     * Fetches /webapi/v1/staff/door_lock/credentials. The cached session_secret is
+     * invalidated server-side by every new login (including other devices), which the
+     * server reports as api_sign_error; recover by re-login with stored credentials
+     * and retry once. Returns null only after the error callback has been posted.
+     */
+    private String fetchCredentialData(String serverUrl, int projectId, int appId,
+                                       SyncCallback callback) throws Exception {
+        for (int attempt = 0; attempt < 2; attempt++) {
+            HttpUrl httpUrl = HttpUrl.parse(serverUrl + "/webapi/v1/staff/door_lock/credentials");
+            if (httpUrl == null) {
+                mainHandler.post(() -> callback.onError("Invalid server URL"));
+                return null;
+            }
+            HttpUrl.Builder urlBuilder = httpUrl.newBuilder()
+                .addQueryParameter("device_id", "" + cache.getDeviceId())
+                .addQueryParameter("user_id", cache.getUserId())
+                .addQueryParameter("identitycode", cache.getIdentityCode());
+
+            String responseJson = api.executeBusinessRequest(urlBuilder, cache.getSessionSecret(),
+                projectId > 0 ? projectId : ApiClient.PROJECT_ID,
+                appId > 0 ? appId : ApiClient.APP_ID);
+
+            try {
+                return ApiClient.extractDataField(responseJson);
+            } catch (JSONException e) {
+                String message = e.getMessage();
+                if (attempt > 0 || message == null || !message.contains("api_sign_error")) {
+                    throw e;
+                }
+                Log.w(TAG, "Session secret rejected (api_sign_error), attempting silent re-login");
+                if (!reloginSilently()) {
+                    throw e;
+                }
+                if (cache.getDeviceId() > 0) {
+                    int[] resolvedIds = resolveProjectIdsForDevice(cache.getDeviceId(),
+                        cache.getProjectId(), cache.getAppId());
+                    projectId = resolvedIds[0];
+                    appId = resolvedIds[1];
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Returns true if a silent re-login with the stored phone/password succeeded. */
+    private boolean reloginSilently() {
+        String phone = cache.getPhone();
+        String password = cache.getPassword();
+        if (phone == null || phone.isEmpty() || password == null || password.isEmpty()) {
+            Log.w(TAG, "No stored credentials, cannot re-login silently");
+            return false;
+        }
+        try {
+            authApi.loginSync(phone, password, null);
+            Log.i(TAG, "Silent re-login succeeded, session secret refreshed");
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "Silent re-login failed: " + e.getMessage());
+            return false;
+        }
     }
 
     public void refreshIfNeeded(SyncCallback callback) {

@@ -28,7 +28,7 @@ Single-module Gradle project. All source under `app/src/main/java/com/midairlogn
 | `crypto/` | `CRC8.java`, `RC4.java`, `KeyDerivation.java` | Shared NFC/BLE crypto primitives |
 | `nfc/` | `NfcCommandBuilder.java`, `NfcUnlockManager.java` | 40-byte NFC frame + reader mode transceive + activation |
 | `ble/` | `BleCommandBuilder.java`, `BleUnlockManager.java` | 20-byte BLE frame + GATT connect flow + activation |
-| `api/` | `AuthApi.java`, `CredentialApi.java`, `ApiClient.java` | Login, captcha, door lock sync, activation, request signing |
+| `api/` | `AuthApi.java`, `CredentialApi.java`, `ApiClient.java` | Login (async + `loginSync` for silent re-login), captcha, door lock sync, activation, request signing |
 | `alipay/` | `AlipayAuth.java` | Alipay AIDL payment authentication |
 | `storage/` | `SecurePrefs.java`, `CredentialCache.java` | Android Keystore + AES-GCM encrypted prefs |
 | `ui/` | `LoginActivity.java`, `MainActivity.java`, `CaptchaDialogFragment.java` | Phone+password login, main unlock screen |
@@ -53,6 +53,8 @@ Single-module Gradle project. All source under `app/src/main/java/com/midairlogn
 5. **Project ID and App ID are dynamic** — obtained from login response (`server_info.project_id` / `server_info.app_id`). Defaults: `21048` / `20104`.
 6. **Business request nonce is 32 characters** (same as auth). Both use `generateNonce(32)`.
 7. **Digital credential activation** — when `credentialHex` is blank but `deviceId` > 0, the app must run the NFC/BLE activation handshake (`command/create` → transceive → `command/parse` loop) before unlocking.
+8. **Cached `session_secret` expires server-side** — any newer login (this app or another device) invalidates it; business requests then fail with `api_sign_error`. Recovery: silent re-login with stored phone/password (`AuthApi.loginSync`) and retry once (see `docs/PROTOCOL_REFERENCE.md` §11).
+9. **Signed set must equal sent set** — never send a query/form param with an empty value; empty params are stripped before signing (`ApiClient.withoutEmptyParams`). A param present-but-empty in the request while absent from the sign source breaks the signature.
 
 ## Security Notes
 

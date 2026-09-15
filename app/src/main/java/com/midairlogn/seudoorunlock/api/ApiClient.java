@@ -128,6 +128,19 @@ public class ApiClient {
         return sb.toString();
     }
 
+    /** Drops empty query params so the signed set always equals the sent set. */
+    private static HttpUrl.Builder withoutEmptyParams(HttpUrl.Builder builder) {
+        HttpUrl url = builder.build();
+        HttpUrl.Builder cleaned = url.newBuilder();
+        for (String name : url.queryParameterNames()) {
+            String value = url.queryParameter(name);
+            if (value == null || value.isEmpty()) {
+                cleaned.removeAllQueryParameters(name);
+            }
+        }
+        return cleaned;
+    }
+
     public String executeAuthRequest(HttpUrl.Builder urlBuilder) throws IOException {
         return executeAuthRequest(urlBuilder, false);
     }
@@ -141,10 +154,11 @@ public class ApiClient {
         long ts = getTimestamp();
         urlBuilder.addQueryParameter("timestamp", "" + ts);
         urlBuilder.addQueryParameter("noncestr", nonce);
-        urlBuilder.addQueryParameter("sign", signParams(urlBuilder));
+        HttpUrl.Builder signedBuilder = withoutEmptyParams(urlBuilder);
+        signedBuilder.addQueryParameter("sign", signParams(signedBuilder));
 
         Request request = new Request.Builder()
-            .url(urlBuilder.build())
+            .url(signedBuilder.build())
             .get()
             .build();
         return executeRequest(request);
@@ -164,10 +178,11 @@ public class ApiClient {
         long ts = getTimestamp();
         urlBuilder.addQueryParameter("timestamp", "" + ts);
         urlBuilder.addQueryParameter("noncestr", nonce);
-        urlBuilder.addQueryParameter("sign", signParams(urlBuilder, sessionSecret));
+        HttpUrl.Builder signedBuilder = withoutEmptyParams(urlBuilder);
+        signedBuilder.addQueryParameter("sign", signParams(signedBuilder, sessionSecret));
 
         Request request = new Request.Builder()
-            .url(urlBuilder.build())
+            .url(signedBuilder.build())
             .get()
             .build();
         return executeRequest(request);
@@ -181,8 +196,9 @@ public class ApiClient {
         FormBody.Builder formBuilder = new FormBody.Builder();
         for (String name : url.queryParameterNames()) {
             List<String> values = url.queryParameterValues(name);
-            if (!values.isEmpty()) {
-                formBuilder.add(name, values.get(values.size() - 1));
+            String value = values.isEmpty() ? null : values.get(values.size() - 1);
+            if (value != null && !value.isEmpty()) {
+                formBuilder.add(name, value);
             }
         }
         formBuilder.add("pid", "" + projectId);
