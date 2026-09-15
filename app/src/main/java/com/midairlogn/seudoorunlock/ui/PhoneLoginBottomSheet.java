@@ -70,7 +70,7 @@ public class PhoneLoginBottomSheet extends BottomSheetDialogFragment {
         migrateRememberedCredentials(rememberPrefs, securePrefs);
 
         // Load remembered credentials
-        boolean remember = rememberPrefs.getBoolean(KEY_REMEMBER, false);
+        boolean remember = rememberPrefs.getBoolean(KEY_REMEMBER, true);
         cbRemember.setChecked(remember);
         if (remember) {
             String phone = securePrefs.getString(KEY_PHONE, "");
