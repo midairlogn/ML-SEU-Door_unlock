@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tablet (smallest width >= 600dp): roomier spacing, capped columns -->
+
+    <!-- Main screen -->
+    <dimen name="status_icon_size">140dp</dimen>
+    <dimen name="status_icon_glyph">56dp</dimen>
+    <dimen name="status_icon_margin_top">32dp</dimen>
+    <dimen name="status_title_margin_top">28dp</dimen>
+    <dimen name="status_detail_min_height">120dp</dimen>
+    <dimen name="element_spacing">24dp</dimen>
+    <dimen name="button_spacing">24dp</dimen>
+    <dimen name="main_button_height">60dp</dimen>
+    <dimen name="main_card_max_width">520dp</dimen>
+    <dimen name="main_controls_max_width">520dp</dimen>
+    <dimen name="main_scroll_padding_h">32dp</dimen>
+    <dimen name="main_scroll_padding_v">24dp</dimen>
+    <dimen name="card_padding">32dp</dimen>
+
+    <!-- Login screen -->
+    <dimen name="login_logo_size">96dp</dimen>
+    <dimen name="login_logo_margin_top">24dp</dimen>
+    <dimen name="login_title_margin_top">20dp</dimen>
+    <dimen name="login_section_gap">48dp</dimen>
+    <dimen name="login_button_height">60dp</dimen>
+    <dimen name="login_column_max_width">440dp</dimen>
+
+    <!-- Settings / sheets / dialogs -->
+    <dimen name="settings_max_width">600dp</dimen>
+    <dimen name="sheet_max_width">560dp</dimen>
+    <dimen name="dialog_max_width">480dp</dimen>
+</resources>

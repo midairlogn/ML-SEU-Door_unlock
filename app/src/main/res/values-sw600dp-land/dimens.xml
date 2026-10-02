@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tablet landscape: wider two-column layouts -->
+
+    <!-- Main screen -->
+    <dimen name="status_icon_size">112dp</dimen>
+    <dimen name="status_icon_glyph">44dp</dimen>
+    <dimen name="status_icon_margin_top">0dp</dimen>
+    <dimen name="status_title_margin_top">16dp</dimen>
+    <dimen name="status_detail_min_height">88dp</dimen>
+    <dimen name="element_spacing">16dp</dimen>
+    <dimen name="button_spacing">16dp</dimen>
+    <dimen name="main_button_height">56dp</dimen>
+    <dimen name="main_card_max_width">840dp</dimen>
+    <dimen name="main_controls_max_width">840dp</dimen>
+    <dimen name="main_scroll_padding_h">24dp</dimen>
+    <dimen name="main_scroll_padding_v">16dp</dimen>
+    <dimen name="card_padding">24dp</dimen>
+
+    <!-- Login screen -->
+    <dimen name="login_logo_size">88dp</dimen>
+    <dimen name="login_logo_margin_top">0dp</dimen>
+    <dimen name="login_title_margin_top">16dp</dimen>
+    <dimen name="login_section_gap">32dp</dimen>
+    <dimen name="login_button_height">56dp</dimen>
+    <dimen name="login_column_max_width">720dp</dimen>
+
+    <!-- Settings / sheets / dialogs -->
+    <dimen name="settings_max_width">720dp</dimen>
+    <dimen name="sheet_max_width">640dp</dimen>
+    <dimen name="dialog_max_width">480dp</dimen>
+</resources>

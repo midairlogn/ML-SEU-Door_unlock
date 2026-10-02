@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Default: phone portrait -->
+
+    <!-- Main screen -->
+    <dimen name="status_icon_size">120dp</dimen>
+    <dimen name="status_icon_glyph">48dp</dimen>
+    <dimen name="status_icon_margin_top">24dp</dimen>
+    <dimen name="status_title_margin_top">24dp</dimen>
+    <dimen name="status_detail_min_height">100dp</dimen>
+    <dimen name="element_spacing">20dp</dimen>
+    <dimen name="button_spacing">20dp</dimen>
+    <dimen name="main_button_height">56dp</dimen>
+    <dimen name="main_card_max_width">480dp</dimen>
+    <dimen name="main_controls_max_width">480dp</dimen>
+    <dimen name="main_scroll_padding_h">20dp</dimen>
+    <dimen name="main_scroll_padding_v">16dp</dimen>
+    <dimen name="card_padding">24dp</dimen>
+
+    <!-- Login screen -->
+    <dimen name="login_logo_size">80dp</dimen>
+    <dimen name="login_logo_margin_top">8dp</dimen>
+    <dimen name="login_title_margin_top">16dp</dimen>
+    <dimen name="login_section_gap">40dp</dimen>
+    <dimen name="login_button_height">56dp</dimen>
+    <dimen name="login_column_max_width">400dp</dimen>
+
+    <!-- Settings / sheets / dialogs -->
+    <dimen name="settings_max_width">560dp</dimen>
+    <dimen name="sheet_max_width">480dp</dimen>
+    <dimen name="dialog_max_width">440dp</dimen>
+</resources>

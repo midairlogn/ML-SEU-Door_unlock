@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Landscape: two-column status card + compact inline bottom controls -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -53,7 +54,7 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- Main Content: card centered vertically, width capped for larger screens -->
+    <!-- Main Content -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -89,125 +90,138 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center_horizontal"
-                    android:orientation="vertical"
+                    android:orientation="horizontal"
                     android:padding="@dimen/card_padding"
                     android:clipChildren="false"
                     android:clipToPadding="false">
 
-                    <!-- Status Icon -->
-                    <FrameLayout
-                        android:id="@+id/statusIconContainer"
-                        android:layout_width="@dimen/status_icon_size"
-                        android:layout_height="@dimen/status_icon_size"
-                        android:layout_marginTop="@dimen/status_icon_margin_top"
-                        android:background="@drawable/bg_status_icon">
-
-                        <ImageView
-                            android:id="@+id/ivStatusIcon"
-                            android:layout_width="@dimen/status_icon_glyph"
-                            android:layout_height="@dimen/status_icon_glyph"
-                            android:layout_gravity="center"
-                            android:contentDescription="@null"
-                            android:src="@drawable/ic_lock_outline"
-                            app:tint="@color/primary"/>
-                    </FrameLayout>
-
-                    <!-- Status Title -->
-                    <TextView
-                        android:id="@+id/tvStatusTitle"
-                        android:layout_width="match_parent"
+                    <!-- Left column: status icon + title -->
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="@dimen/status_title_margin_top"
-                        android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall"
-                        android:gravity="center"
-                        android:textColor="@color/on_surface"
-                        tools:text="Hold near the door lock"/>
+                        android:layout_weight="1"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical">
 
-                    <!-- Status Detail -->
-                    <FrameLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="@dimen/element_spacing">
+                        <FrameLayout
+                            android:id="@+id/statusIconContainer"
+                            android:layout_width="@dimen/status_icon_size"
+                            android:layout_height="@dimen/status_icon_size"
+                            android:layout_marginTop="@dimen/status_icon_margin_top"
+                            android:background="@drawable/bg_status_icon">
+
+                            <ImageView
+                                android:id="@+id/ivStatusIcon"
+                                android:layout_width="@dimen/status_icon_glyph"
+                                android:layout_height="@dimen/status_icon_glyph"
+                                android:layout_gravity="center"
+                                android:contentDescription="@null"
+                                android:src="@drawable/ic_lock_outline"
+                                app:tint="@color/primary"/>
+                        </FrameLayout>
 
                         <TextView
-                            android:id="@+id/tvStatusDetail"
+                            android:id="@+id/tvStatusTitle"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:background="@drawable/bg_status_detail"
-                            android:fontFamily="monospace"
-                            android:gravity="center_vertical"
-                            android:minHeight="@dimen/status_detail_min_height"
-                            android:padding="16dp"
-                            android:textColor="@color/on_surface_variant"
-                            android:textSize="14sp"
-                            tools:text="Phone: 138****1234\nLock: Building A\nBattery: 85%"/>
+                            android:layout_marginTop="@dimen/status_title_margin_top"
+                            android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall"
+                            android:gravity="center"
+                            android:textColor="@color/on_surface"
+                            tools:text="Hold near the door lock"/>
+                    </LinearLayout>
 
-                        <ImageButton
-                            android:id="@+id/btnInfo"
-                            android:layout_width="36dp"
-                            android:layout_height="36dp"
-                            android:layout_gravity="top|end"
-                            android:layout_marginTop="4dp"
-                            android:layout_marginEnd="4dp"
-                            android:background="?attr/selectableItemBackgroundBorderless"
-                            android:contentDescription="@string/info_button"
-                            android:padding="6dp"
-                            android:src="@drawable/ic_info"
-                            app:tint="@color/on_surface_variant"/>
-                    </FrameLayout>
+                    <!-- Right column: detail + contextual actions -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1.2"
+                        android:layout_marginStart="@dimen/element_spacing"
+                        android:layout_gravity="center_vertical"
+                        android:orientation="vertical">
 
-                    <!-- Enable NFC Button -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnEnableNfc"
-                        style="@style/Widget.Material3.Button.TonalButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="@dimen/main_button_height"
-                        android:layout_marginTop="@dimen/button_spacing"
-                        android:text="@string/enable_nfc_button"
-                        app:cornerRadius="28dp"
-                        app:icon="@drawable/ic_nfc"
-                        android:visibility="gone"/>
+                        <FrameLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content">
 
-                    <!-- Grant Permissions Button -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnGrantPermissions"
-                        style="@style/Widget.Material3.Button.TonalButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="@dimen/main_button_height"
-                        android:layout_marginTop="@dimen/button_spacing"
-                        android:text="@string/grant_permissions"
-                        app:cornerRadius="28dp"
-                        android:visibility="gone"/>
+                            <TextView
+                                android:id="@+id/tvStatusDetail"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:background="@drawable/bg_status_detail"
+                                android:fontFamily="monospace"
+                                android:gravity="center_vertical"
+                                android:minHeight="@dimen/status_detail_min_height"
+                                android:padding="16dp"
+                                android:textColor="@color/on_surface_variant"
+                                android:textSize="14sp"
+                                tools:text="Phone: 138****1234\nLock: Building A\nBattery: 85%"/>
 
-                    <!-- BLE Unlock Button -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnBleUnlock"
-                        style="@style/Widget.Material3.Button.TonalButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="@dimen/main_button_height"
-                        android:layout_marginTop="@dimen/button_spacing"
-                        android:text="@string/main_ble_hint"
-                        app:cornerRadius="28dp"
-                        app:icon="@drawable/ic_bluetooth"
-                        android:visibility="gone"/>
+                            <ImageButton
+                                android:id="@+id/btnInfo"
+                                android:layout_width="36dp"
+                                android:layout_height="36dp"
+                                android:layout_gravity="top|end"
+                                android:layout_marginTop="4dp"
+                                android:layout_marginEnd="4dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="@string/info_button"
+                                android:padding="6dp"
+                                android:src="@drawable/ic_info"
+                                app:tint="@color/on_surface_variant"/>
+                        </FrameLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnEnableNfc"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/main_button_height"
+                            android:layout_marginTop="@dimen/button_spacing"
+                            android:text="@string/enable_nfc_button"
+                            app:cornerRadius="28dp"
+                            app:icon="@drawable/ic_nfc"
+                            android:visibility="gone"/>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnGrantPermissions"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/main_button_height"
+                            android:layout_marginTop="@dimen/button_spacing"
+                            android:text="@string/grant_permissions"
+                            app:cornerRadius="28dp"
+                            android:visibility="gone"/>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnBleUnlock"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/main_button_height"
+                            android:layout_marginTop="@dimen/button_spacing"
+                            android:text="@string/main_ble_hint"
+                            app:cornerRadius="28dp"
+                            app:icon="@drawable/ic_bluetooth"
+                            android:visibility="gone"/>
+                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </androidx.constraintlayout.widget.ConstraintLayout>
     </ScrollView>
 
-    <!-- Bottom Controls: width capped and centered on larger screens -->
+    <!-- Bottom Controls: toggle + logout on one row, width capped on larger screens -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="24dp"
-        android:layout_marginEnd="24dp"
-        android:layout_marginBottom="12dp">
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="10dp">
 
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintWidth_max="@dimen/main_controls_max_width"
@@ -216,9 +230,9 @@
             <!-- Segmented Toggle Group -->
             <com.google.android.material.button.MaterialButtonToggleGroup
                 android:id="@+id/toggleGroup"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
+                android:layout_weight="1"
                 app:singleSelection="true"
                 app:selectionRequired="true"
                 app:checkedButton="@+id/btnTabNfc">
@@ -247,8 +261,10 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnLogout"
                 style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:minHeight="@dimen/main_button_height"
                 android:text="@string/main_logout"
                 android:textColor="@color/error"
                 app:icon="@drawable/ic_logout"

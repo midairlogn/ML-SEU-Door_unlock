@@ -1,71 +1,86 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Scrollable so it stays usable with the keyboard open; caps width on tablets -->
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="24dp">
+    android:scrollbars="none">
 
-    <TextView
-        android:id="@+id/tvCaptchaLabel"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/captcha_verify"
-        android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
-        android:textColor="@color/on_surface"
-        android:layout_marginBottom="16dp"/>
-
-    <com.google.android.material.card.MaterialCardView
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="80dp"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="0dp"
-        app:strokeWidth="1dp"
-        app:strokeColor="@color/outline_variant"
-        app:cardBackgroundColor="@android:color/white">
+        android:layout_height="wrap_content">
 
-        <ImageView
-            android:id="@+id/ivCaptcha"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:padding="8dp"
-            android:scaleType="fitCenter"
-            android:layerType="software"/>
-
-    </com.google.android.material.card.MaterialCardView>
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnRefreshCaptcha"
-        style="@style/Widget.Material3.Button.TextButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/captcha_refresh"
-        android:layout_gravity="end"
-        android:layout_marginTop="4dp"
-        app:icon="@drawable/ic_refresh"/>
-
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/tilCaptcha"
-        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="@string/hint_captcha"
-        android:layout_marginTop="8dp"
-        app:counterEnabled="true"
-        app:counterMaxLength="4"
-        app:startIconDrawable="@drawable/ic_check_circle">
-
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etCaptcha"
-            android:layout_width="match_parent"
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:inputType="textCapCharacters|textVisiblePassword"
-            android:maxLength="4"
-            android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
-            android:gravity="center"
-            android:letterSpacing="0.2"/>
+            android:orientation="vertical"
+            android:padding="24dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintWidth_max="@dimen/dialog_max_width"
+            app:layout_constraintHorizontal_bias="0.5">
 
-    </com.google.android.material.textfield.TextInputLayout>
+            <TextView
+                android:id="@+id/tvCaptchaLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/captcha_verify"
+                android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+                android:textColor="@color/on_surface"
+                android:layout_marginBottom="16dp"/>
 
-</LinearLayout>
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="80dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/outline_variant"
+                app:cardBackgroundColor="@android:color/white">
+
+                <ImageView
+                    android:id="@+id/ivCaptcha"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:padding="8dp"
+                    android:scaleType="fitCenter"
+                    android:layerType="software"/>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnRefreshCaptcha"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/captcha_refresh"
+                android:layout_gravity="end"
+                android:layout_marginTop="4dp"
+                app:icon="@drawable/ic_refresh"/>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilCaptcha"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/hint_captcha"
+                android:layout_marginTop="8dp"
+                app:counterEnabled="true"
+                app:counterMaxLength="4"
+                app:startIconDrawable="@drawable/ic_check_circle">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etCaptcha"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textCapCharacters|textVisiblePassword"
+                    android:maxLength="4"
+                    android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
+                    android:gravity="center"
+                    android:letterSpacing="0.2"/>
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+        </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.core.widget.NestedScrollView>
