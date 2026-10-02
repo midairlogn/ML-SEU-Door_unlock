@@ -16,6 +16,7 @@
             android:orientation="vertical"
             android:padding="24dp"
             android:paddingBottom="32dp"
+            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintWidth_max="@dimen/sheet_max_width"
