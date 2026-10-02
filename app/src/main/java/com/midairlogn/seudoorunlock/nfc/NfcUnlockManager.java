@@ -1,6 +1,7 @@
 package com.midairlogn.seudoorunlock.nfc;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.nfc.NdefMessage;
@@ -55,12 +56,20 @@ public class NfcUnlockManager {
     private boolean readerModeEnabled = false;
     private final AtomicBoolean isProcessing = new AtomicBoolean(false);
 
-    public NfcUnlockManager(Activity activity, CredentialCache cache) {
+    public NfcUnlockManager(Context context, CredentialCache cache) {
         this.cache = cache;
         this.credentialApi = new CredentialApi(cache);
         this.executor = AppExecutors.getInstance();
         this.mainHandler = new Handler(Looper.getMainLooper());
-        this.nfcAdapter = NfcAdapter.getDefaultAdapter(activity);
+        this.nfcAdapter = NfcAdapter.getDefaultAdapter(context);
+    }
+
+    public void setCallback(NfcCallback callback) {
+        this.pendingCallback = callback;
+    }
+
+    public boolean isProcessing() {
+        return isProcessing.get();
     }
 
     public boolean isNfcSupported() {

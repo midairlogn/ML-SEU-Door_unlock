@@ -43,6 +43,7 @@ import androidx.core.content.ContextCompat;
 
 import com.midairlogn.seudoorunlock.R;
 import com.midairlogn.seudoorunlock.SettingsActivity;
+import com.midairlogn.seudoorunlock.UnlockManagerHolder;
 import com.midairlogn.seudoorunlock.api.AuthApi;
 import com.midairlogn.seudoorunlock.api.CredentialApi;
 import com.midairlogn.seudoorunlock.ble.BleUnlockManager;
@@ -58,6 +59,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String METHOD_BLE = "ble";
     private static final long AUTO_CLOSE_DELAY_MS = 3_000;
     private static final String STATE_AUTO_CLOSE_DEADLINE = "auto_close_deadline_uptime";
+    private static final String STATE_IS_BUSY = "is_busy";
 
     private final ActivityResultLauncher<String[]> permissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
@@ -92,14 +94,14 @@ public class MainActivity extends AppCompatActivity {
 
     private NfcUnlockManager getNfcManager() {
         if (nfcManager == null) {
-            nfcManager = new NfcUnlockManager(this, cache);
+            nfcManager = UnlockManagerHolder.getInstance(this).nfcManager();
         }
         return nfcManager;
     }
 
     private BleUnlockManager getBleManager() {
         if (bleManager == null) {
-            bleManager = new BleUnlockManager(this, cache);
+            bleManager = UnlockManagerHolder.getInstance(this).bleManager();
         }
         return bleManager;
     }
@@ -129,6 +131,7 @@ public class MainActivity extends AppCompatActivity {
     private final NfcUnlockManager.NfcCallback nfcCallback = new NfcUnlockManager.NfcCallback() {
         @Override
         public void onSuccess(com.midairlogn.seudoorunlock.model.DoorResponse response) {
+            if (isDestroyed() || isFinishing()) return;
             if (response != null) {
                 showSuccessState();
                 if (!scheduleAutoClose()) {
@@ -144,16 +147,54 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onError(String message) {
+            if (isDestroyed() || isFinishing()) return;
             showErrorState(message);
             setBusy(false);
         }
 
         @Override
         public void onExpired() {
+            if (isDestroyed() || isFinishing()) return;
             cancelAutoClose(false);
             tvStatusTitle.setText(R.string.session_expired);
             refreshCredentials();
             setBusy(false);
+        }
+    };
+
+    private final BleUnlockManager.BleCallback bleCallback = new BleUnlockManager.BleCallback() {
+        @Override
+        public void onSuccess(String message) {
+            if (isDestroyed() || isFinishing()) return;
+            showSuccessState();
+            btnBleUnlock.setEnabled(true);
+            if (!scheduleAutoClose()) {
+                showToast(message, Toast.LENGTH_SHORT);
+            }
+        }
+
+        @Override
+        public void onActivationSuccess(String message) {
+            if (isDestroyed() || isFinishing()) return;
+            updateStatusDisplay();
+            btnBleUnlock.setEnabled(true);
+            showToast(R.string.activation_success, Toast.LENGTH_SHORT);
+        }
+
+        @Override
+        public void onError(String message) {
+            if (isDestroyed() || isFinishing()) return;
+            showErrorState(message);
+            btnBleUnlock.setEnabled(true);
+        }
+
+        @Override
+        public void onExpired() {
+            if (isDestroyed() || isFinishing()) return;
+            cancelAutoClose(false);
+            tvStatusTitle.setText(R.string.session_expired);
+            refreshCredentials();
+            btnBleUnlock.setEnabled(true);
         }
     };
 
@@ -182,8 +223,11 @@ public class MainActivity extends AppCompatActivity {
         setupListeners();
         requestPermissions();
         refreshCredentials();
-        handleNfcIntent(getIntent());
+        if (savedInstanceState == null) {
+            handleNfcIntent(getIntent());
+        }
         restoreAutoClose(savedInstanceState);
+        restoreBusyState(savedInstanceState);
     }
 
     @Override
@@ -577,6 +621,14 @@ public class MainActivity extends AppCompatActivity {
                 (int) Math.ceil(remaining / 1000.0));
     }
 
+    private void restoreBusyState(Bundle savedInstanceState) {
+        if (savedInstanceState == null || !savedInstanceState.getBoolean(STATE_IS_BUSY)) return;
+        if (!getNfcManager().isProcessing()) return;
+        isBusy = true;
+        tvStatusTitle.setText(R.string.unlocking);
+        tvStatusDetail.setText("");
+    }
+
     private void cancelAutoClose(boolean notify) {
         if (autoCloseRunnable != null) {
             handler.removeCallbacks(autoCloseRunnable);
@@ -622,6 +674,7 @@ public class MainActivity extends AppCompatActivity {
         if (autoCloseRunnable != null) {
             outState.putLong(STATE_AUTO_CLOSE_DEADLINE, autoCloseDeadlineUptime);
         }
+        outState.putBoolean(STATE_IS_BUSY, isBusy);
     }
 
     @Override
@@ -645,37 +698,7 @@ public class MainActivity extends AppCompatActivity {
         tvStatusTitle.setText(R.string.ble_connecting);
         btnBleUnlock.setEnabled(false);
 
-        getBleManager().unlock(new BleUnlockManager.BleCallback() {
-            @Override
-            public void onSuccess(String message) {
-                showSuccessState();
-                btnBleUnlock.setEnabled(true);
-                if (!scheduleAutoClose()) {
-                    showToast(message, Toast.LENGTH_SHORT);
-                }
-            }
-
-            @Override
-            public void onActivationSuccess(String message) {
-                updateStatusDisplay();
-                btnBleUnlock.setEnabled(true);
-                showToast(R.string.activation_success, Toast.LENGTH_SHORT);
-            }
-
-            @Override
-            public void onError(String message) {
-                showErrorState(message);
-                btnBleUnlock.setEnabled(true);
-            }
-
-            @Override
-            public void onExpired() {
-                cancelAutoClose(false);
-                tvStatusTitle.setText(R.string.session_expired);
-                refreshCredentials();
-                btnBleUnlock.setEnabled(true);
-            }
-        });
+        getBleManager().unlock(bleCallback);
     }
 
     @Override
@@ -683,9 +706,11 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         isResumed = true;
         if (cache.hasSession()) {
+            getNfcManager().setCallback(nfcCallback);
+            getBleManager().setCallback(bleCallback);
             registerNfcStateReceiver();
             enableNfcReaderModeIfIdle();
-            if (autoCloseRunnable == null) updateStatusDisplay();
+            if (autoCloseRunnable == null && !isBusy) updateStatusDisplay();
         }
     }
 
@@ -713,7 +738,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void handleNfcIntent(Intent intent) {
-        if (intent == null || isBusy) return;
+        if (intent == null || isBusy || getNfcManager().isProcessing()) return;
         String action = intent.getAction();
         if (NfcAdapter.ACTION_TAG_DISCOVERED.equals(action)
             || NfcAdapter.ACTION_TECH_DISCOVERED.equals(action)
@@ -747,7 +772,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void enableNfcReaderModeIfIdle() {
-        if (!isResumed || isBusy) return;
+        if (!isResumed || isBusy || getNfcManager().isProcessing()) return;
         if (METHOD_NFC.equals(selectedMethod) && hasAllPermissions()) {
             enableNfcReaderMode();
         }
@@ -909,7 +934,12 @@ public class MainActivity extends AppCompatActivity {
         }
         cancelAutoClose(false);
         stopBreathingAnimation();
-        if (nfcManager != null) nfcManager.onDestroy();
-        if (bleManager != null) bleManager.onDestroy();
+        // Managers are app-scoped; only release them when the activity is
+        // really finishing (logout/auto-close/back), not on config changes,
+        // so in-flight unlocks survive rotation.
+        if (isFinishing()) {
+            if (nfcManager != null) nfcManager.onDestroy();
+            if (bleManager != null) bleManager.onDestroy();
+        }
     }
 }

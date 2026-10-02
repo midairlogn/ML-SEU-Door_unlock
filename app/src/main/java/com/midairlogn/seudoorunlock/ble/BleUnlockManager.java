@@ -89,7 +89,7 @@ public class BleUnlockManager {
     private boolean waitingForDescriptor = false;
 
     public BleUnlockManager(Context context, CredentialCache cache) {
-        this.context = context;
+        this.context = context.getApplicationContext();
         this.cache = cache;
         this.credentialApi = new CredentialApi(cache);
         this.executor = AppExecutors.getInstance();
@@ -108,6 +108,10 @@ public class BleUnlockManager {
 
     public boolean isBleEnabled() {
         return bluetoothAdapter != null && bluetoothAdapter.isEnabled();
+    }
+
+    public void setCallback(BleCallback callback) {
+        this.pendingCallback = callback;
     }
 
     @SuppressLint("MissingPermission")
