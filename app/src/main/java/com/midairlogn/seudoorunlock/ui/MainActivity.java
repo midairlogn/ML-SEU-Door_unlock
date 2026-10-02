@@ -48,6 +48,7 @@ import com.midairlogn.seudoorunlock.api.AuthApi;
 import com.midairlogn.seudoorunlock.api.CredentialApi;
 import com.midairlogn.seudoorunlock.ble.BleUnlockManager;
 import com.midairlogn.seudoorunlock.model.DoorLockInfo;
+import com.midairlogn.seudoorunlock.model.DoorResponse;
 import com.midairlogn.seudoorunlock.nfc.NfcUnlockManager;
 import com.midairlogn.seudoorunlock.storage.CredentialCache;
 
@@ -59,7 +60,28 @@ public class MainActivity extends AppCompatActivity {
     private static final String METHOD_BLE = "ble";
     private static final long AUTO_CLOSE_DELAY_MS = 3_000;
     private static final String STATE_AUTO_CLOSE_DEADLINE = "auto_close_deadline_uptime";
-    private static final String STATE_IS_BUSY = "is_busy";
+
+    private static final int RESULT_NFC_SUCCESS = 1;
+    private static final int RESULT_NFC_ERROR = 2;
+    private static final int RESULT_NFC_EXPIRED = 3;
+    private static final int RESULT_BLE_SUCCESS = 4;
+    private static final int RESULT_BLE_ACTIVATED = 5;
+    private static final int RESULT_BLE_ERROR = 6;
+    private static final int RESULT_BLE_EXPIRED = 7;
+
+    private static final class PendingUnlockResult {
+        final int type;
+        final DoorResponse response;
+        final String message;
+
+        PendingUnlockResult(int type, DoorResponse response, String message) {
+            this.type = type;
+            this.response = response;
+            this.message = message;
+        }
+    }
+
+    private static volatile PendingUnlockResult pendingUnlockResult;
 
     private final ActivityResultLauncher<String[]> permissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
@@ -130,73 +152,142 @@ public class MainActivity extends AppCompatActivity {
 
     private final NfcUnlockManager.NfcCallback nfcCallback = new NfcUnlockManager.NfcCallback() {
         @Override
-        public void onSuccess(com.midairlogn.seudoorunlock.model.DoorResponse response) {
-            if (isDestroyed() || isFinishing()) return;
-            if (response != null) {
-                showSuccessState();
-                if (!scheduleAutoClose()) {
-                    showToast(R.string.unlock_success, Toast.LENGTH_SHORT);
-                }
-            } else {
-                // Activation completed
-                updateStatusDisplay();
-                showToast(R.string.activation_success, Toast.LENGTH_SHORT);
+        public void onSuccess(DoorResponse response) {
+            if (deferUnlockResult()) {
+                pendingUnlockResult = new PendingUnlockResult(RESULT_NFC_SUCCESS, response, null);
+                return;
             }
-            setBusy(false);
+            handleNfcSuccess(response);
         }
 
         @Override
         public void onError(String message) {
-            if (isDestroyed() || isFinishing()) return;
-            showErrorState(message);
-            setBusy(false);
+            if (deferUnlockResult()) {
+                pendingUnlockResult = new PendingUnlockResult(RESULT_NFC_ERROR, null, message);
+                return;
+            }
+            handleNfcError(message);
         }
 
         @Override
         public void onExpired() {
-            if (isDestroyed() || isFinishing()) return;
-            cancelAutoClose(false);
-            tvStatusTitle.setText(R.string.session_expired);
-            refreshCredentials();
-            setBusy(false);
+            if (deferUnlockResult()) {
+                pendingUnlockResult = new PendingUnlockResult(RESULT_NFC_EXPIRED, null, null);
+                return;
+            }
+            handleNfcExpired();
         }
     };
 
     private final BleUnlockManager.BleCallback bleCallback = new BleUnlockManager.BleCallback() {
         @Override
         public void onSuccess(String message) {
-            if (isDestroyed() || isFinishing()) return;
-            showSuccessState();
-            btnBleUnlock.setEnabled(true);
-            if (!scheduleAutoClose()) {
-                showToast(message, Toast.LENGTH_SHORT);
+            if (deferUnlockResult()) {
+                pendingUnlockResult = new PendingUnlockResult(RESULT_BLE_SUCCESS, null, message);
+                return;
             }
+            handleBleSuccess(message);
         }
 
         @Override
         public void onActivationSuccess(String message) {
-            if (isDestroyed() || isFinishing()) return;
-            updateStatusDisplay();
-            btnBleUnlock.setEnabled(true);
-            showToast(R.string.activation_success, Toast.LENGTH_SHORT);
+            if (deferUnlockResult()) {
+                pendingUnlockResult = new PendingUnlockResult(RESULT_BLE_ACTIVATED, null, message);
+                return;
+            }
+            handleBleActivation(message);
         }
 
         @Override
         public void onError(String message) {
-            if (isDestroyed() || isFinishing()) return;
-            showErrorState(message);
-            btnBleUnlock.setEnabled(true);
+            if (deferUnlockResult()) {
+                pendingUnlockResult = new PendingUnlockResult(RESULT_BLE_ERROR, null, message);
+                return;
+            }
+            handleBleError(message);
         }
 
         @Override
         public void onExpired() {
-            if (isDestroyed() || isFinishing()) return;
-            cancelAutoClose(false);
-            tvStatusTitle.setText(R.string.session_expired);
-            refreshCredentials();
-            btnBleUnlock.setEnabled(true);
+            if (deferUnlockResult()) {
+                pendingUnlockResult = new PendingUnlockResult(RESULT_BLE_EXPIRED, null, null);
+                return;
+            }
+            handleBleExpired();
         }
     };
+
+    private boolean deferUnlockResult() {
+        return !isFinishing() && !isResumed;
+    }
+
+    private void handleNfcSuccess(DoorResponse response) {
+        if (response != null) {
+            showSuccessState();
+            if (!scheduleAutoClose()) {
+                showToast(R.string.unlock_success, Toast.LENGTH_SHORT);
+            }
+        } else {
+            // Activation completed
+            updateStatusDisplay();
+            showToast(R.string.activation_success, Toast.LENGTH_SHORT);
+        }
+        setBusy(false);
+    }
+
+    private void handleNfcError(String message) {
+        showErrorState(message);
+        setBusy(false);
+    }
+
+    private void handleNfcExpired() {
+        cancelAutoClose(false);
+        tvStatusTitle.setText(R.string.session_expired);
+        refreshCredentials();
+        setBusy(false);
+    }
+
+    private void handleBleSuccess(String message) {
+        showSuccessState();
+        btnBleUnlock.setEnabled(true);
+        if (!scheduleAutoClose()) {
+            showToast(message, Toast.LENGTH_SHORT);
+        }
+    }
+
+    private void handleBleActivation(String message) {
+        updateStatusDisplay();
+        btnBleUnlock.setEnabled(true);
+        showToast(R.string.activation_success, Toast.LENGTH_SHORT);
+    }
+
+    private void handleBleError(String message) {
+        showErrorState(message);
+        btnBleUnlock.setEnabled(true);
+    }
+
+    private void handleBleExpired() {
+        cancelAutoClose(false);
+        tvStatusTitle.setText(R.string.session_expired);
+        refreshCredentials();
+        btnBleUnlock.setEnabled(true);
+    }
+
+    private void consumePendingUnlockResult() {
+        PendingUnlockResult result = pendingUnlockResult;
+        pendingUnlockResult = null;
+        if (result == null) return;
+        switch (result.type) {
+            case RESULT_NFC_SUCCESS: handleNfcSuccess(result.response); break;
+            case RESULT_NFC_ERROR: handleNfcError(result.message); break;
+            case RESULT_NFC_EXPIRED: handleNfcExpired(); break;
+            case RESULT_BLE_SUCCESS: handleBleSuccess(result.message); break;
+            case RESULT_BLE_ACTIVATED: handleBleActivation(result.message); break;
+            case RESULT_BLE_ERROR: handleBleError(result.message); break;
+            case RESULT_BLE_EXPIRED: handleBleExpired(); break;
+            default: break;
+        }
+    }
 
     // Animation
     private AnimatorSet iconAnimator;
@@ -622,11 +713,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void restoreBusyState(Bundle savedInstanceState) {
-        if (savedInstanceState == null || !savedInstanceState.getBoolean(STATE_IS_BUSY)) return;
-        if (!getNfcManager().isProcessing()) return;
-        isBusy = true;
-        tvStatusTitle.setText(R.string.unlocking);
-        tvStatusDetail.setText("");
+        if (savedInstanceState == null) return;
+        if (getNfcManager().isProcessing()) {
+            isBusy = true;
+            tvStatusTitle.setText(R.string.unlocking);
+            tvStatusDetail.setText("");
+        } else if (getBleManager().isProcessing()) {
+            tvStatusTitle.setText(R.string.ble_connecting);
+            tvStatusDetail.setText("");
+            btnBleUnlock.setEnabled(false);
+        }
     }
 
     private void cancelAutoClose(boolean notify) {
@@ -674,7 +770,6 @@ public class MainActivity extends AppCompatActivity {
         if (autoCloseRunnable != null) {
             outState.putLong(STATE_AUTO_CLOSE_DEADLINE, autoCloseDeadlineUptime);
         }
-        outState.putBoolean(STATE_IS_BUSY, isBusy);
     }
 
     @Override
@@ -698,6 +793,8 @@ public class MainActivity extends AppCompatActivity {
         tvStatusTitle.setText(R.string.ble_connecting);
         btnBleUnlock.setEnabled(false);
 
+        if (getBleManager().isProcessing()) return;
+
         getBleManager().unlock(bleCallback);
     }
 
@@ -708,9 +805,13 @@ public class MainActivity extends AppCompatActivity {
         if (cache.hasSession()) {
             getNfcManager().setCallback(nfcCallback);
             getBleManager().setCallback(bleCallback);
+            consumePendingUnlockResult();
             registerNfcStateReceiver();
             enableNfcReaderModeIfIdle();
-            if (autoCloseRunnable == null && !isBusy) updateStatusDisplay();
+            if (autoCloseRunnable == null && !isBusy
+                    && !getNfcManager().isProcessing() && !getBleManager().isProcessing()) {
+                updateStatusDisplay();
+            }
         }
     }
 
@@ -940,6 +1041,9 @@ public class MainActivity extends AppCompatActivity {
         if (isFinishing()) {
             if (nfcManager != null) nfcManager.onDestroy();
             if (bleManager != null) bleManager.onDestroy();
+        } else {
+            if (nfcManager != null && !nfcManager.isProcessing()) nfcManager.setCallback(null);
+            if (bleManager != null && !bleManager.isProcessing()) bleManager.setCallback(null);
         }
     }
 }

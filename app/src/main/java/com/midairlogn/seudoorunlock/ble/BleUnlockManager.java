@@ -87,6 +87,7 @@ public class BleUnlockManager {
     private boolean waitingForWrite = false;
     private int lastWriteStatus = BluetoothGatt.GATT_FAILURE;
     private boolean waitingForDescriptor = false;
+    private final AtomicBoolean isProcessing = new AtomicBoolean(false);
 
     public BleUnlockManager(Context context, CredentialCache cache) {
         this.context = context.getApplicationContext();
@@ -114,9 +115,18 @@ public class BleUnlockManager {
         this.pendingCallback = callback;
     }
 
+    public boolean isProcessing() {
+        return isProcessing.get();
+    }
+
     @SuppressLint("MissingPermission")
     public void unlock(BleCallback callback) {
+        if (!isProcessing.compareAndSet(false, true)) {
+            Log.w(TAG, "BLE unlock already in progress, ignoring re-entrant call");
+            return;
+        }
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
+            isProcessing.set(false);
             callback.onError("Bluetooth not available or not enabled");
             return;
         }
@@ -130,6 +140,7 @@ public class BleUnlockManager {
 
         int deviceId = cache.getDeviceId();
         if (deviceId == 0) {
+            isProcessing.set(false);
             callback.onError("No door lock credentials cached");
             return;
         }
@@ -141,6 +152,7 @@ public class BleUnlockManager {
 
         String credentialHex = cache.getCredentialHex();
         if (credentialHex.isEmpty()) {
+            isProcessing.set(false);
             callback.onError("No door lock credentials cached");
             return;
         }
@@ -763,6 +775,7 @@ public class BleUnlockManager {
     private void complete(String message, boolean activation) {
         if (operationFinished) return;
         operationFinished = true;
+        isProcessing.set(false);
         clearActivationState();
         cleanupGatt();
         mainHandler.post(() -> {
@@ -778,6 +791,7 @@ public class BleUnlockManager {
     private void fail(String message) {
         if (operationFinished) return;
         operationFinished = true;
+        isProcessing.set(false);
         clearActivationState();
         cleanupGatt();
         mainHandler.post(() -> {
@@ -1057,6 +1071,7 @@ public class BleUnlockManager {
 
     public void onDestroy() {
         cleanupGatt();
+        isProcessing.set(false);
         pendingCallback = null;
     }
 }
