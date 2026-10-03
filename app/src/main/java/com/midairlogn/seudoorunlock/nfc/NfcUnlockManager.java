@@ -71,9 +71,13 @@ public class NfcUnlockManager {
     /**
      * One-shot delivery: consume the callback so the app-scoped manager never
      * retains an activity-backed callback (and through it a destroyed
-     * Activity) after a result has been delivered.
+     * Activity) after a result has been delivered. isProcessing is cleared
+     * BEFORE posting: the UI callback re-enables reader mode on delivery, and
+     * that re-enable is skipped while isProcessing is still true, which would
+     * leave every subsequent tap delivering to a consumed (null) callback.
      */
     private void deliverSuccess(DoorResponse response) {
+        isProcessing.set(false);
         NfcCallback callback = pendingCallback;
         pendingCallback = null;
         if (callback != null) {
@@ -82,6 +86,7 @@ public class NfcUnlockManager {
     }
 
     private void deliverError(String message) {
+        isProcessing.set(false);
         NfcCallback callback = pendingCallback;
         pendingCallback = null;
         if (callback != null) {
@@ -90,6 +95,7 @@ public class NfcUnlockManager {
     }
 
     private void deliverExpired() {
+        isProcessing.set(false);
         NfcCallback callback = pendingCallback;
         pendingCallback = null;
         if (callback != null) {

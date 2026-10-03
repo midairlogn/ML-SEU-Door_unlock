@@ -76,8 +76,8 @@ public class BleUnlockManager {
     private BluetoothGattCharacteristic readCharacteristic;
     private BleCallback pendingCallback;
     private BluetoothDevice targetDevice;
-    private BluetoothLeScanner activeScanner;
-    private ScanCallback activeScanCallback;
+    private volatile BluetoothLeScanner activeScanner;
+    private volatile ScanCallback activeScanCallback;
     private int connectAttempt;
     private int activeDeviceId;
     private boolean unlockFlowStarted;
@@ -281,15 +281,20 @@ public class BleUnlockManager {
             }
         };
 
+        // Register the scan before starting it: onScanResult arrives on a
+        // binder thread and a matched result calls stopActiveScan(), which
+        // must see the fields already assigned.
+        activeScanner = scanner;
+        activeScanCallback = scanCallback;
+
         try {
             scanner.startScan(scanCallback);
         } catch (RuntimeException e) {
+            activeScanner = null;
+            activeScanCallback = null;
             fail("Failed to start BLE scan: " + safeMessage(e));
             return;
         }
-
-        activeScanner = scanner;
-        activeScanCallback = scanCallback;
 
         timeoutHandler.postDelayed(() -> {
             stopActiveScan();
