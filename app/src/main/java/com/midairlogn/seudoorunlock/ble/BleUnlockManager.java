@@ -790,11 +790,17 @@ public class BleUnlockManager {
         cleanupGatt();
         // Consume the callback on the main thread at delivery time: keeps
         // one-shot semantics without losing results to a callback re-armed
-        // mid-flight by a relaunching activity.
+        // mid-flight by a relaunching activity. The slot is only consumed
+        // when idle — a successor operation re-arms it for its own delivery.
         mainHandler.post(() -> {
             BleCallback callback = pendingCallback;
-            pendingCallback = null;
-            if (callback == null) return;
+            if (callback == null) {
+                Log.d(TAG, "Dropping BLE result: no callback registered");
+                return;
+            }
+            if (!isProcessing.get()) {
+                pendingCallback = null;
+            }
             if (activation) {
                 callback.onActivationSuccess(message);
             } else {
@@ -811,10 +817,14 @@ public class BleUnlockManager {
         cleanupGatt();
         mainHandler.post(() -> {
             BleCallback callback = pendingCallback;
-            pendingCallback = null;
-            if (callback != null) {
-                callback.onError(message);
+            if (callback == null) {
+                Log.d(TAG, "Dropping BLE result: no callback registered");
+                return;
             }
+            if (!isProcessing.get()) {
+                pendingCallback = null;
+            }
+            callback.onError(message);
         });
     }
 

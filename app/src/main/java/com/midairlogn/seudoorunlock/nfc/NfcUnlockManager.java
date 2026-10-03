@@ -81,10 +81,17 @@ public class NfcUnlockManager {
         isProcessing.set(false);
         mainHandler.post(() -> {
             NfcCallback callback = pendingCallback;
-            pendingCallback = null;
-            if (callback != null) {
-                callback.onSuccess(response);
+            if (callback == null) {
+                Log.d(TAG, "Dropping NFC result: no callback registered");
+                return;
             }
+            // A successor operation may have re-armed the slot after this
+            // delivery was posted; leave it armed for that operation's own
+            // delivery, otherwise consume it (one-shot).
+            if (!isProcessing.get()) {
+                pendingCallback = null;
+            }
+            callback.onSuccess(response);
         });
     }
 
@@ -92,10 +99,14 @@ public class NfcUnlockManager {
         isProcessing.set(false);
         mainHandler.post(() -> {
             NfcCallback callback = pendingCallback;
-            pendingCallback = null;
-            if (callback != null) {
-                callback.onError(message);
+            if (callback == null) {
+                Log.d(TAG, "Dropping NFC result: no callback registered");
+                return;
             }
+            if (!isProcessing.get()) {
+                pendingCallback = null;
+            }
+            callback.onError(message);
         });
     }
 
@@ -103,10 +114,14 @@ public class NfcUnlockManager {
         isProcessing.set(false);
         mainHandler.post(() -> {
             NfcCallback callback = pendingCallback;
-            pendingCallback = null;
-            if (callback != null) {
-                callback.onExpired();
+            if (callback == null) {
+                Log.d(TAG, "Dropping NFC result: no callback registered");
+                return;
             }
+            if (!isProcessing.get()) {
+                pendingCallback = null;
+            }
+            callback.onExpired();
         });
     }
 
