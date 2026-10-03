@@ -119,6 +119,7 @@ public class CaptchaDialogFragment extends DialogFragment {
         authApi.getLoginCaptcha(phone, new AuthApi.SimpleCallback() {
             @Override
             public void onSuccess(String svgData) {
+                if (!isAdded()) return;
                 if (ivCaptcha != null && svgData != null) {
                     try {
                         SVG svg = SVG.getFromString(svgData);
@@ -136,6 +137,7 @@ public class CaptchaDialogFragment extends DialogFragment {
 
             @Override
             public void onError(String message) {
+                if (!isAdded()) return;
                 if (getContext() != null) {
                     Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
                 }

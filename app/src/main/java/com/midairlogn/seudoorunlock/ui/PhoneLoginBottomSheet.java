@@ -39,16 +39,6 @@ public class PhoneLoginBottomSheet extends BottomSheetDialogFragment {
     private static final String KEY_PHONE = "saved_phone";
     private static final String KEY_PASSWORD = "saved_password";
 
-    public interface LoginSuccessListener {
-        void onLoginSuccess();
-    }
-
-    private LoginSuccessListener listener;
-
-    public void setLoginSuccessListener(LoginSuccessListener listener) {
-        this.listener = listener;
-    }
-
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -131,7 +121,7 @@ public class PhoneLoginBottomSheet extends BottomSheetDialogFragment {
                     setLoading(false, btnLogin, progressBar, etPhone, etPassword);
                     saveRemembered(rememberPrefs, securePrefs, cbRemember.isChecked(), phone, password);
                     Toast.makeText(requireContext(), "Login successful", Toast.LENGTH_SHORT).show();
-                    if (listener != null) listener.onLoginSuccess();
+                    notifyLoginSuccess();
                     dismiss();
                 }
 
@@ -153,6 +143,17 @@ public class PhoneLoginBottomSheet extends BottomSheetDialogFragment {
         });
     }
 
+    /**
+     * Resolve the host lazily so navigation survives configuration changes:
+     * a programmatically-set listener would be lost when the framework
+     * recreates this fragment on rotation.
+     */
+    private void notifyLoginSuccess() {
+        if (getActivity() instanceof LoginActivity) {
+            ((LoginActivity) getActivity()).syncDoorLockAndNavigate();
+        }
+    }
+
     private void showCaptchaDialog(AuthApi authApi, String phone, String password,
                                      MaterialButton btnLogin, ProgressBar progressBar,
                                      TextInputEditText etPhone, TextInputEditText etPassword,
@@ -168,7 +169,7 @@ public class PhoneLoginBottomSheet extends BottomSheetDialogFragment {
                     setLoading(false, btnLogin, progressBar, etPhone, etPassword);
                     saveRemembered(rememberPrefs, securePrefs, cbRemember.isChecked(), phone, password);
                     Toast.makeText(requireContext(), "Login successful", Toast.LENGTH_SHORT).show();
-                    if (listener != null) listener.onLoginSuccess();
+                    notifyLoginSuccess();
                     dialog.dismissAllowingStateLoss();
                     dismiss();
                 }

@@ -72,31 +72,42 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void startAlipayLogin() {
+        // Capture only app-scoped objects: the executor lambda blocks on a
+        // binder call to the Alipay app for as long as the user takes to
+        // complete authorization. Holding the Activity here would leak the
+        // whole activity (and its view tree) across rotation until Alipay
+        // returns, and shutdownNow() cannot interrupt binder calls.
+        final android.content.Context appContext = getApplicationContext();
+        final AuthApi api = getAuthApi();
+
         Toast.makeText(this, R.string.alipay_loading, Toast.LENGTH_SHORT).show();
         setLoading(true);
 
         oauthExecutor.execute(() -> {
             try {
-                String authInfo = getAuthApi().fetchAlipayAuthInfo();
+                String authInfo = api.fetchAlipayAuthInfo();
                 Log.d(TAG, "Got auth_info, launching Alipay...");
 
-                String authCode = AlipayAuth.authorize(LoginActivity.this, authInfo);
+                String authCode = AlipayAuth.authorize(appContext, authInfo);
                 Log.d(TAG, "Got auth_code from Alipay");
 
-                runOnUiThread(() -> Toast.makeText(LoginActivity.this, "Completing login...", Toast.LENGTH_SHORT).show());
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    Toast.makeText(appContext, "Completing login...", Toast.LENGTH_SHORT).show();
+                });
 
-                getAuthApi().oauthLogin(authCode, new AuthApi.AlipayCallback() {
+                api.oauthLogin(authCode, new AuthApi.AlipayCallback() {
                     @Override
                     public void onSuccess(LoginResponse response) {
                         setLoading(false);
-                        Toast.makeText(LoginActivity.this, "Login successful", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(appContext, "Login successful", Toast.LENGTH_SHORT).show();
                         syncDoorLockAndNavigate();
                     }
 
                     @Override
                     public void onError(String message) {
                         setLoading(false);
-                        Toast.makeText(LoginActivity.this, message, Toast.LENGTH_LONG).show();
+                        Toast.makeText(appContext, message, Toast.LENGTH_LONG).show();
                     }
                 });
 
@@ -104,13 +115,15 @@ public class LoginActivity extends AppCompatActivity {
                 Log.e(TAG, "Alipay auth failed", e);
                 runOnUiThread(() -> {
                     setLoading(false);
-                    Toast.makeText(LoginActivity.this, e.getMessage(), Toast.LENGTH_LONG).show();
+                    if (isFinishing() || isDestroyed()) return;
+                    Toast.makeText(appContext, e.getMessage(), Toast.LENGTH_LONG).show();
                 });
             } catch (Exception e) {
                 Log.e(TAG, "Alipay login failed", e);
                 runOnUiThread(() -> {
                     setLoading(false);
-                    Toast.makeText(LoginActivity.this, "Alipay login error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    if (isFinishing() || isDestroyed()) return;
+                    Toast.makeText(appContext, "Alipay login error: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
             }
         });
@@ -118,11 +131,10 @@ public class LoginActivity extends AppCompatActivity {
 
     private void showPhoneLoginSheet() {
         PhoneLoginBottomSheet sheet = new PhoneLoginBottomSheet();
-        sheet.setLoginSuccessListener(this::syncDoorLockAndNavigate);
         sheet.show(getSupportFragmentManager(), "phone_login");
     }
 
-    private void syncDoorLockAndNavigate() {
+    void syncDoorLockAndNavigate() {
         CredentialApi credentialApi = new CredentialApi(cache);
         credentialApi.syncDoorLockInfo(new CredentialApi.SyncCallback() {
             @Override
@@ -163,6 +175,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private void setLoading(boolean loading) {
         runOnUiThread(() -> {
+            if (isFinishing() || isDestroyed()) return;
             progressBar.setVisibility(loading ? View.VISIBLE : View.GONE);
             btnAlipay.setEnabled(!loading);
             btnPhoneLogin.setEnabled(!loading);

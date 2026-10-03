@@ -890,14 +890,20 @@ public class MainActivity extends AppCompatActivity {
         getCredentialApi().syncDoorLockInfo(new CredentialApi.SyncCallback() {
             @Override
             public void onSuccess(DoorLockInfo info) {
-                runOnUiThread(() -> updateDetailInfo());
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    updateDetailInfo();
+                });
             }
 
             @Override
             public void onError(String message) {
                 Log.w(TAG, "Credential refresh failed: " + message);
                 if (message == null || !message.contains("api_sign_error")) {
-                    showToast(message != null ? message : "Credential refresh failed", Toast.LENGTH_SHORT);
+                    runOnUiThread(() -> {
+                        if (isFinishing() || isDestroyed()) return;
+                        showToast(message != null ? message : "Credential refresh failed", Toast.LENGTH_SHORT);
+                    });
                     return;
                 }
 
@@ -916,7 +922,10 @@ public class MainActivity extends AppCompatActivity {
         getCredentialApi().syncDoorLockInfo(new CredentialApi.SyncCallback() {
                             @Override
                             public void onSuccess(DoorLockInfo info) {
-                                runOnUiThread(() -> updateDetailInfo());
+                                runOnUiThread(() -> {
+                                    if (isFinishing() || isDestroyed()) return;
+                                    updateDetailInfo();
+                                });
                             }
                             @Override
                             public void onError(String msg) {

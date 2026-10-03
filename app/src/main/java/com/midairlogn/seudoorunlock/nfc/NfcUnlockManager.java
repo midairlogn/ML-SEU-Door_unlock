@@ -68,6 +68,35 @@ public class NfcUnlockManager {
         this.pendingCallback = callback;
     }
 
+    /**
+     * One-shot delivery: consume the callback so the app-scoped manager never
+     * retains an activity-backed callback (and through it a destroyed
+     * Activity) after a result has been delivered.
+     */
+    private void deliverSuccess(DoorResponse response) {
+        NfcCallback callback = pendingCallback;
+        pendingCallback = null;
+        if (callback != null) {
+            mainHandler.post(() -> callback.onSuccess(response));
+        }
+    }
+
+    private void deliverError(String message) {
+        NfcCallback callback = pendingCallback;
+        pendingCallback = null;
+        if (callback != null) {
+            mainHandler.post(() -> callback.onError(message));
+        }
+    }
+
+    private void deliverExpired() {
+        NfcCallback callback = pendingCallback;
+        pendingCallback = null;
+        if (callback != null) {
+            mainHandler.post(callback::onExpired);
+        }
+    }
+
     public boolean isProcessing() {
         return isProcessing.get();
     }
@@ -138,11 +167,7 @@ public class NfcUnlockManager {
         NfcA nfcA = NfcA.get(tag);
         if (nfcA == null) {
             isProcessing.set(false);
-            mainHandler.post(() -> {
-                if (pendingCallback != null) {
-                    pendingCallback.onError("Not an NFC-A tag");
-                }
-            });
+            deliverError("Not an NFC-A tag");
             return true;
         }
 
@@ -158,11 +183,7 @@ public class NfcUnlockManager {
                 int projectId = getEffectiveProjectId();
 
                 if (deviceId == 0) {
-                    mainHandler.post(() -> {
-                        if (pendingCallback != null) {
-                            pendingCallback.onError("NFC tag missing device_id");
-                        }
-                    });
+                    deliverError("NFC tag missing device_id");
                     return;
                 }
 
@@ -170,11 +191,7 @@ public class NfcUnlockManager {
                     Log.w(TAG, "NFC tag device_id differs from cache: tag=" + deviceId
                         + " cache=" + cachedDeviceId);
                     if (cache.requiresDigitalCredentialActivation()) {
-                        mainHandler.post(() -> {
-                            if (pendingCallback != null) {
-                                pendingCallback.onError("NFC tag device_id does not match cached door lock");
-                            }
-                        });
+                        deliverError("NFC tag device_id does not match cached door lock");
                         return;
                     }
                 }
@@ -187,21 +204,13 @@ public class NfcUnlockManager {
                 }
 
                 if (credentialHex.isEmpty()) {
-                    mainHandler.post(() -> {
-                        if (pendingCallback != null) {
-                            pendingCallback.onError("No credentials cached");
-                        }
-                    });
+                    deliverError("No credentials cached");
                     return;
                 }
 
                 byte[] command = NfcCommandBuilder.buildCommand(deviceId, credentialHex, projectId);
                 if (command == null) {
-                    mainHandler.post(() -> {
-                        if (pendingCallback != null) {
-                            pendingCallback.onError("Failed to build NFC command");
-                        }
-                    });
+                    deliverError("Failed to build NFC command");
                     return;
                 }
 
@@ -221,21 +230,13 @@ public class NfcUnlockManager {
                                         lastResponse.updatedCredentialHex, cache.getCredentialId());
                                 }
                                 final DoorResponse resp = lastResponse;
-                                mainHandler.post(() -> {
-                                    if (pendingCallback != null) {
-                                        pendingCallback.onSuccess(resp);
-                                    }
-                                });
+                                deliverSuccess(resp);
                                 return;
                             }
 
                             if (lastResponse.isExpired()) {
                                 reSyncWithServer();
-                                mainHandler.post(() -> {
-                                    if (pendingCallback != null) {
-                                        pendingCallback.onExpired();
-                                    }
-                                });
+                                deliverExpired();
                                 return;
                             }
                         }
@@ -251,23 +252,11 @@ public class NfcUnlockManager {
                 }
 
                 final DoorResponse resp = lastResponse;
-                mainHandler.post(() -> {
-                    if (pendingCallback != null) {
-                        if (resp != null) {
-                            pendingCallback.onError(resp.getErrorMessage());
-                        } else {
-                            pendingCallback.onError("NFC communication failed");
-                        }
-                    }
-                });
+                deliverError(resp != null ? resp.getErrorMessage() : "NFC communication failed");
 
             } catch (Exception e) {
                 Log.e(TAG, "NFC error", e);
-                mainHandler.post(() -> {
-                    if (pendingCallback != null) {
-                        pendingCallback.onError("NFC error: " + e.getMessage());
-                    }
-                });
+                deliverError("NFC error: " + e.getMessage());
             } finally {
                 try {
                     nfcA.close();
@@ -457,11 +446,7 @@ public class NfcUnlockManager {
                     String credentialId = step.credentialId;
                     if (credentialId == null || credentialId.isEmpty()) {
                         isProcessing.set(false);
-                        mainHandler.post(() -> {
-                            if (pendingCallback != null) {
-                                pendingCallback.onError("Server did not return credential ID");
-                            }
-                        });
+                        deliverError("Server did not return credential ID");
                         return;
                     }
                     proceedWithNfcActivation(tag, deviceId, credentialId, projectId, appId, activationApi);
@@ -469,11 +454,7 @@ public class NfcUnlockManager {
                 @Override
                 public void onError(String message) {
                     isProcessing.set(false);
-                    mainHandler.post(() -> {
-                        if (pendingCallback != null) {
-                            pendingCallback.onError("Credential lookup failed: " + message);
-                        }
-                    });
+                    deliverError("Credential lookup failed: " + message);
                 }
             });
     }
@@ -489,11 +470,7 @@ public class NfcUnlockManager {
 
                 nfcA = NfcA.get(tag);
                 if (nfcA == null) {
-                    mainHandler.post(() -> {
-                        if (pendingCallback != null) {
-                            pendingCallback.onError("Not an NFC-A tag");
-                        }
-                    });
+                    deliverError("Not an NFC-A tag");
                     return;
                 }
                 nfcA.connect();
@@ -516,11 +493,7 @@ public class NfcUnlockManager {
                             credentialHex, parseCredentialId(currentStep.credentialId, cache.getCredentialId()),
                             projectId, appId);
                         nfcA.close();
-                        mainHandler.post(() -> {
-                            if (pendingCallback != null) {
-                                pendingCallback.onSuccess(null);
-                            }
-                        });
+                        deliverSuccess(null);
                         return;
                     }
 
@@ -541,11 +514,7 @@ public class NfcUnlockManager {
                 throw new Exception("NFC activation round limit exceeded");
             } catch (Exception e) {
                 Log.e(TAG, "NFC activation error", e);
-                mainHandler.post(() -> {
-                    if (pendingCallback != null) {
-                        pendingCallback.onError("NFC activation error: " + e.getMessage());
-                    }
-                });
+                deliverError("NFC activation error: " + e.getMessage());
             } finally {
                 if (nfcA != null) {
                     try { nfcA.close(); } catch (Exception ignored) {}

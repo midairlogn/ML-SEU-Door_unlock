@@ -76,6 +76,8 @@ public class BleUnlockManager {
     private BluetoothGattCharacteristic readCharacteristic;
     private BleCallback pendingCallback;
     private BluetoothDevice targetDevice;
+    private BluetoothLeScanner activeScanner;
+    private ScanCallback activeScanCallback;
     private int connectAttempt;
     private int activeDeviceId;
     private boolean unlockFlowStarted;
@@ -270,7 +272,7 @@ public class BleUnlockManager {
                 }
 
                 if ((nameMatch || addrMatch || deviceIdMatch) && matched.compareAndSet(false, true)) {
-                    stopScanQuietly(scanner, this);
+                    stopActiveScan();
                     Log.d(TAG, "Found device: " + (deviceName != null ? deviceName : deviceAddress)
                         + " match=" + (nameMatch ? "name" : addrMatch ? "address" : "deviceId"));
                     int resolvedDeviceId = advertisedDeviceId != 0 ? advertisedDeviceId : cachedDeviceId;
@@ -286,8 +288,11 @@ public class BleUnlockManager {
             return;
         }
 
+        activeScanner = scanner;
+        activeScanCallback = scanCallback;
+
         timeoutHandler.postDelayed(() -> {
-            stopScanQuietly(scanner, scanCallback);
+            stopActiveScan();
             if (bluetoothGatt == null && pendingCallback != null && matched.compareAndSet(false, true)) {
                 if (fallbackDevice[0] != null) {
                     Log.d(TAG, "Using BLE service UUID fallback: " + safeDeviceAddress(fallbackDevice[0]));
@@ -778,12 +783,14 @@ public class BleUnlockManager {
         isProcessing.set(false);
         clearActivationState();
         cleanupGatt();
+        BleCallback callback = pendingCallback;
+        pendingCallback = null;
+        if (callback == null) return;
         mainHandler.post(() -> {
-            if (pendingCallback == null) return;
             if (activation) {
-                pendingCallback.onActivationSuccess(message);
+                callback.onActivationSuccess(message);
             } else {
-                pendingCallback.onSuccess(message);
+                callback.onSuccess(message);
             }
         });
     }
@@ -794,15 +801,28 @@ public class BleUnlockManager {
         isProcessing.set(false);
         clearActivationState();
         cleanupGatt();
-        mainHandler.post(() -> {
-            if (pendingCallback != null) pendingCallback.onError(message);
-        });
+        BleCallback callback = pendingCallback;
+        pendingCallback = null;
+        if (callback == null) return;
+        mainHandler.post(() -> callback.onError(message));
     }
 
     @SuppressLint("MissingPermission")
     private void cleanupGatt() {
         timeoutHandler.removeCallbacksAndMessages(null);
+        stopActiveScan();
         cleanupGattOnly();
+    }
+
+    @SuppressLint("MissingPermission")
+    private void stopActiveScan() {
+        BluetoothLeScanner scanner = activeScanner;
+        ScanCallback callback = activeScanCallback;
+        activeScanner = null;
+        activeScanCallback = null;
+        if (scanner != null && callback != null) {
+            stopScanQuietly(scanner, callback);
+        }
     }
 
     @SuppressLint("MissingPermission")
