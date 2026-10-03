@@ -13,6 +13,7 @@
     <string name="btn_cancel">Cancel</string>
     <string name="main_nfc_hint">Tap phone on NFC tag to open</string>
     <string name="main_ble_hint">Press button to connect via Bluetooth</string>
+    <string name="ble_connect_button">Connect via Bluetooth</string>
     <string name="main_logout">Logout</string>
     <string name="main_status_title">Door Status</string>
     <string name="door_opened">Door Opened</string>

@@ -15,10 +15,10 @@
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
+            android:layout_height="@dimen/toolbar_height"
             app:title="@string/settings_title"
             app:navigationIcon="?attr/homeAsUpIndicator"
-            app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge"/>
+            app:titleTextAppearance="@style/TextAppearance.SEUDoorLock.ToolbarTitle"/>
 
     </com.google.android.material.appbar.AppBarLayout>
 

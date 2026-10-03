@@ -3,6 +3,8 @@
     <!-- Tablet (smallest width >= 600dp): roomier spacing, capped columns -->
 
     <!-- Main screen -->
+    <dimen name="toolbar_height">52dp</dimen>
+    <dimen name="toolbar_title_size">22sp</dimen>
     <dimen name="status_icon_size">140dp</dimen>
     <dimen name="status_icon_glyph">56dp</dimen>
     <dimen name="status_icon_margin_top">32dp</dimen>

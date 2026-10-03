@@ -3,6 +3,8 @@
     <!-- Tablet landscape: wider two-column layouts -->
 
     <!-- Main screen -->
+    <dimen name="toolbar_height">48dp</dimen>
+    <dimen name="toolbar_title_size">18sp</dimen>
     <dimen name="status_icon_size">112dp</dimen>
     <dimen name="status_icon_glyph">44dp</dimen>
     <dimen name="status_icon_margin_top">0dp</dimen>

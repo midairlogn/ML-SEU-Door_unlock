@@ -17,21 +17,22 @@
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
+            android:layout_height="@dimen/toolbar_height"
             app:title="@string/app_name"
-            app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge">
+            app:titleTextAppearance="@style/TextAppearance.SEUDoorLock.ToolbarTitle">
 
             <LinearLayout
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_gravity="end"
+                android:gravity="center_vertical"
                 android:paddingEnd="12dp"
                 android:orientation="horizontal">
 
                 <ImageButton
                     android:id="@+id/btnRefresh"
                     android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_height="match_parent"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/refresh"
                     android:padding="12dp"
@@ -41,7 +42,7 @@
                 <ImageButton
                     android:id="@+id/btnSettings"
                     android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_height="match_parent"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/settings_title"
                     android:padding="12dp"
@@ -187,7 +188,9 @@
                         android:layout_width="match_parent"
                         android:layout_height="@dimen/main_button_height"
                         android:layout_marginTop="@dimen/button_spacing"
-                        android:text="@string/main_ble_hint"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        android:text="@string/ble_connect_button"
                         app:cornerRadius="28dp"
                         app:icon="@drawable/ic_bluetooth"
                         android:visibility="gone"/>

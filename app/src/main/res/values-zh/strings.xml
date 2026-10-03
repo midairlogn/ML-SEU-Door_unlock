@@ -13,6 +13,7 @@
     <string name="btn_cancel">取消</string>
     <string name="main_nfc_hint">请将手机靠近NFC标签开门</string>
     <string name="main_ble_hint">点击按钮通过蓝牙连接</string>
+    <string name="ble_connect_button">蓝牙连接开门</string>
     <string name="main_logout">退出登录</string>
     <string name="main_status_title">门锁状态</string>
     <string name="door_opened">门已打开</string>

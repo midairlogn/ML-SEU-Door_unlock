@@ -3,6 +3,8 @@
     <!-- Phone landscape: compact vertical rhythm -->
 
     <!-- Main screen -->
+    <dimen name="toolbar_height">44dp</dimen>
+    <dimen name="toolbar_title_size">18sp</dimen>
     <dimen name="status_icon_size">88dp</dimen>
     <dimen name="status_icon_glyph">36dp</dimen>
     <dimen name="status_icon_margin_top">0dp</dimen>

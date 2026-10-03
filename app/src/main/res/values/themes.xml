@@ -22,6 +22,10 @@
         <item name="android:windowBackground">@color/surface</item>
     </style>
 
+    <style name="TextAppearance.SEUDoorLock.ToolbarTitle" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:textSize">@dimen/toolbar_title_size</item>
+    </style>
+
     <style name="Theme.SEUDoorLock.Transparent">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
