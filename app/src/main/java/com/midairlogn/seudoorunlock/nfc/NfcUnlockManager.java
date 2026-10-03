@@ -165,6 +165,14 @@ public class NfcUnlockManager {
     }
 
     private boolean handleTagDiscovered(Tag tag) {
+        // One-shot delivery consumes the callback after a result; between
+        // consumption and the UI-side re-arm a tap would unlock the door
+        // with no listener to show the outcome. Ignore those taps instead.
+        if (pendingCallback == null) {
+            Log.d(TAG, "No callback registered, ignoring tag discovery");
+            return false;
+        }
+
         if (!isProcessing.compareAndSet(false, true)) {
             Log.d(TAG, "Already processing a tag, skipping");
             return false;
@@ -172,7 +180,6 @@ public class NfcUnlockManager {
 
         NfcA nfcA = NfcA.get(tag);
         if (nfcA == null) {
-            isProcessing.set(false);
             deliverError("Not an NFC-A tag");
             return true;
         }
@@ -451,7 +458,6 @@ public class NfcUnlockManager {
                 public void onSuccess(NfcActivationStep step) {
                     String credentialId = step.credentialId;
                     if (credentialId == null || credentialId.isEmpty()) {
-                        isProcessing.set(false);
                         deliverError("Server did not return credential ID");
                         return;
                     }
@@ -459,7 +465,6 @@ public class NfcUnlockManager {
                 }
                 @Override
                 public void onError(String message) {
-                    isProcessing.set(false);
                     deliverError("Credential lookup failed: " + message);
                 }
             });
