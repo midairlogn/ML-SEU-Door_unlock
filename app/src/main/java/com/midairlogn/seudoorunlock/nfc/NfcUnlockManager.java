@@ -53,7 +53,11 @@ public class NfcUnlockManager {
     private final ExecutorService executor;
     private final Handler mainHandler;
     private volatile NfcCallback pendingCallback;
-    /** Monotonic operation id, incremented when an operation starts. */
+    /**
+     * Monotonic operation id. Incremented only on the main thread (single
+     * writer, in handleTagDiscovered after a successful isProcessing CAS);
+     * volatile for reads in delivery lambdas.
+     */
     private volatile int lastOpId;
     private boolean readerModeEnabled = false;
     private final AtomicBoolean isProcessing = new AtomicBoolean(false);

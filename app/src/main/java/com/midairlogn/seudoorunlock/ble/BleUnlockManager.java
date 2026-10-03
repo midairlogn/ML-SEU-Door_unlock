@@ -75,7 +75,11 @@ public class BleUnlockManager {
     private BluetoothGattCharacteristic writeCharacteristic;
     private BluetoothGattCharacteristic readCharacteristic;
     private volatile BleCallback pendingCallback;
-    /** Monotonic operation id, incremented when an operation starts. */
+    /**
+     * Monotonic operation id. Incremented only on the main thread (single
+     * writer, inside unlock() after a successful isProcessing CAS); volatile
+     * for cross-thread reads in complete()/fail() and delivery lambdas.
+     */
     private volatile int currentOpId;
     private BluetoothDevice targetDevice;
     private volatile BluetoothLeScanner activeScanner;
@@ -786,12 +790,16 @@ public class BleUnlockManager {
     }
 
     private void complete(String message, boolean activation) {
+        // Capture before releasing isProcessing: increments only happen after
+        // a successful isProcessing CAS, so the id cannot change while the
+        // flag is still true — the capture then can never pick up a
+        // successor's id during the cleanupGatt binder calls below.
+        final int opId = currentOpId;
         if (operationFinished) return;
         operationFinished = true;
         isProcessing.set(false);
         clearActivationState();
         cleanupGatt();
-        final int opId = currentOpId;
         // Deliver keyed to the operation generation: the callback is consumed
         // on the main thread at delivery time (one-shot, no activity
         // retained), a callback re-armed mid-flight by a relaunching activity
@@ -817,12 +825,12 @@ public class BleUnlockManager {
     }
 
     private void fail(String message) {
+        final int opId = currentOpId;
         if (operationFinished) return;
         operationFinished = true;
         isProcessing.set(false);
         clearActivationState();
         cleanupGatt();
-        final int opId = currentOpId;
         mainHandler.post(() -> {
             BleCallback callback = pendingCallback;
             if (callback == null) {
