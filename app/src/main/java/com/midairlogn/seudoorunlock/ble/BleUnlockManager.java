@@ -74,7 +74,7 @@ public class BleUnlockManager {
     private volatile BluetoothGatt bluetoothGatt;
     private BluetoothGattCharacteristic writeCharacteristic;
     private BluetoothGattCharacteristic readCharacteristic;
-    private BleCallback pendingCallback;
+    private volatile BleCallback pendingCallback;
     private BluetoothDevice targetDevice;
     private volatile BluetoothLeScanner activeScanner;
     private volatile ScanCallback activeScanCallback;
@@ -788,10 +788,13 @@ public class BleUnlockManager {
         isProcessing.set(false);
         clearActivationState();
         cleanupGatt();
-        BleCallback callback = pendingCallback;
-        pendingCallback = null;
-        if (callback == null) return;
+        // Consume the callback on the main thread at delivery time: keeps
+        // one-shot semantics without losing results to a callback re-armed
+        // mid-flight by a relaunching activity.
         mainHandler.post(() -> {
+            BleCallback callback = pendingCallback;
+            pendingCallback = null;
+            if (callback == null) return;
             if (activation) {
                 callback.onActivationSuccess(message);
             } else {
@@ -806,10 +809,13 @@ public class BleUnlockManager {
         isProcessing.set(false);
         clearActivationState();
         cleanupGatt();
-        BleCallback callback = pendingCallback;
-        pendingCallback = null;
-        if (callback == null) return;
-        mainHandler.post(() -> callback.onError(message));
+        mainHandler.post(() -> {
+            BleCallback callback = pendingCallback;
+            pendingCallback = null;
+            if (callback != null) {
+                callback.onError(message);
+            }
+        });
     }
 
     @SuppressLint("MissingPermission")

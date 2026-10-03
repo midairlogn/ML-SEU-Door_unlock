@@ -1,7 +1,10 @@
 package com.midairlogn.seudoorunlock.ui;
 
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.Html;
 import android.text.method.LinkMovementMethod;
 import android.util.Log;
@@ -72,13 +75,15 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void startAlipayLogin() {
-        // Capture only app-scoped objects: the executor lambda blocks on a
-        // binder call to the Alipay app for as long as the user takes to
-        // complete authorization. Holding the Activity here would leak the
-        // whole activity (and its view tree) across rotation until Alipay
-        // returns, and shutdownNow() cannot interrupt binder calls.
-        final android.content.Context appContext = getApplicationContext();
+        // The executor task blocks on a binder call to the Alipay app for as
+        // long as the user takes to complete authorization, and shutdownNow()
+        // cannot interrupt it. Capture only app-scoped objects here so the
+        // parked task never pins a (possibly rotated-away) Activity; all
+        // activity work is dispatched to the main thread only after the
+        // call returns.
+        final Context appContext = getApplicationContext();
         final AuthApi api = getAuthApi();
+        final Handler mainHandler = new Handler(Looper.getMainLooper());
 
         Toast.makeText(this, R.string.alipay_loading, Toast.LENGTH_SHORT).show();
         setLoading(true);
@@ -91,42 +96,39 @@ public class LoginActivity extends AppCompatActivity {
                 String authCode = AlipayAuth.authorize(appContext, authInfo);
                 Log.d(TAG, "Got auth_code from Alipay");
 
-                runOnUiThread(() -> {
-                    if (isFinishing() || isDestroyed()) return;
-                    Toast.makeText(appContext, "Completing login...", Toast.LENGTH_SHORT).show();
-                });
-
-                api.oauthLogin(authCode, new AuthApi.AlipayCallback() {
-                    @Override
-                    public void onSuccess(LoginResponse response) {
-                        setLoading(false);
-                        Toast.makeText(appContext, "Login successful", Toast.LENGTH_SHORT).show();
-                        syncDoorLockAndNavigate();
-                    }
-
-                    @Override
-                    public void onError(String message) {
-                        setLoading(false);
-                        Toast.makeText(appContext, message, Toast.LENGTH_LONG).show();
-                    }
-                });
-
+                mainHandler.post(() -> onAlipayAuthCode(api, appContext, authCode));
             } catch (AlipayAuth.AlipayAuthException e) {
                 Log.e(TAG, "Alipay auth failed", e);
-                runOnUiThread(() -> {
-                    setLoading(false);
-                    if (isFinishing() || isDestroyed()) return;
-                    Toast.makeText(appContext, e.getMessage(), Toast.LENGTH_LONG).show();
-                });
+                mainHandler.post(() -> onAlipayFailed(appContext, e.getMessage()));
             } catch (Exception e) {
                 Log.e(TAG, "Alipay login failed", e);
-                runOnUiThread(() -> {
-                    setLoading(false);
-                    if (isFinishing() || isDestroyed()) return;
-                    Toast.makeText(appContext, "Alipay login error: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                });
+                mainHandler.post(() -> onAlipayFailed(appContext, "Alipay login error: " + e.getMessage()));
             }
         });
+    }
+
+    private void onAlipayAuthCode(AuthApi api, Context appContext, String authCode) {
+        Toast.makeText(appContext, "Completing login...", Toast.LENGTH_SHORT).show();
+
+        api.oauthLogin(authCode, new AuthApi.AlipayCallback() {
+            @Override
+            public void onSuccess(LoginResponse response) {
+                setLoading(false);
+                Toast.makeText(appContext, "Login successful", Toast.LENGTH_SHORT).show();
+                syncDoorLockAndNavigate();
+            }
+
+            @Override
+            public void onError(String message) {
+                setLoading(false);
+                Toast.makeText(appContext, message, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void onAlipayFailed(Context appContext, String message) {
+        setLoading(false);
+        Toast.makeText(appContext, message, Toast.LENGTH_LONG).show();
     }
 
     private void showPhoneLoginSheet() {

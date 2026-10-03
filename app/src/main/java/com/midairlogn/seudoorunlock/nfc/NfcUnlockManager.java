@@ -52,7 +52,7 @@ public class NfcUnlockManager {
     private final CredentialApi credentialApi;
     private final ExecutorService executor;
     private final Handler mainHandler;
-    private NfcCallback pendingCallback;
+    private volatile NfcCallback pendingCallback;
     private boolean readerModeEnabled = false;
     private final AtomicBoolean isProcessing = new AtomicBoolean(false);
 
@@ -69,38 +69,45 @@ public class NfcUnlockManager {
     }
 
     /**
-     * One-shot delivery: consume the callback so the app-scoped manager never
-     * retains an activity-backed callback (and through it a destroyed
-     * Activity) after a result has been delivered. isProcessing is cleared
+     * One-shot delivery: the callback is consumed on the main thread at
+     * delivery time, so the app-scoped manager never retains an
+     * activity-backed callback (and through it a destroyed Activity) after a
+     * result has been delivered — yet a callback re-armed by a relaunching
+     * activity mid-flight still receives the result. isProcessing is cleared
      * BEFORE posting: the UI callback re-enables reader mode on delivery, and
-     * that re-enable is skipped while isProcessing is still true, which would
-     * leave every subsequent tap delivering to a consumed (null) callback.
+     * that re-enable is skipped while isProcessing is still true.
      */
     private void deliverSuccess(DoorResponse response) {
         isProcessing.set(false);
-        NfcCallback callback = pendingCallback;
-        pendingCallback = null;
-        if (callback != null) {
-            mainHandler.post(() -> callback.onSuccess(response));
-        }
+        mainHandler.post(() -> {
+            NfcCallback callback = pendingCallback;
+            pendingCallback = null;
+            if (callback != null) {
+                callback.onSuccess(response);
+            }
+        });
     }
 
     private void deliverError(String message) {
         isProcessing.set(false);
-        NfcCallback callback = pendingCallback;
-        pendingCallback = null;
-        if (callback != null) {
-            mainHandler.post(() -> callback.onError(message));
-        }
+        mainHandler.post(() -> {
+            NfcCallback callback = pendingCallback;
+            pendingCallback = null;
+            if (callback != null) {
+                callback.onError(message);
+            }
+        });
     }
 
     private void deliverExpired() {
         isProcessing.set(false);
-        NfcCallback callback = pendingCallback;
-        pendingCallback = null;
-        if (callback != null) {
-            mainHandler.post(callback::onExpired);
-        }
+        mainHandler.post(() -> {
+            NfcCallback callback = pendingCallback;
+            pendingCallback = null;
+            if (callback != null) {
+                callback.onExpired();
+            }
+        });
     }
 
     public boolean isProcessing() {
