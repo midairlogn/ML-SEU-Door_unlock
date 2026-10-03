@@ -75,6 +75,8 @@ public class BleUnlockManager {
     private BluetoothGattCharacteristic writeCharacteristic;
     private BluetoothGattCharacteristic readCharacteristic;
     private volatile BleCallback pendingCallback;
+    /** Monotonic operation id, incremented when an operation starts. */
+    private volatile int currentOpId;
     private BluetoothDevice targetDevice;
     private volatile BluetoothLeScanner activeScanner;
     private volatile ScanCallback activeScanCallback;
@@ -127,6 +129,7 @@ public class BleUnlockManager {
             Log.w(TAG, "BLE unlock already in progress, ignoring re-entrant call");
             return;
         }
+        final int opId = ++currentOpId;
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
             isProcessing.set(false);
             callback.onError("Bluetooth not available or not enabled");
@@ -788,19 +791,23 @@ public class BleUnlockManager {
         isProcessing.set(false);
         clearActivationState();
         cleanupGatt();
-        // Consume the callback on the main thread at delivery time: keeps
-        // one-shot semantics without losing results to a callback re-armed
-        // mid-flight by a relaunching activity. The slot is only consumed
-        // when idle — a successor operation re-arms it for its own delivery.
+        final int opId = currentOpId;
+        // Deliver keyed to the operation generation: the callback is consumed
+        // on the main thread at delivery time (one-shot, no activity
+        // retained), a callback re-armed mid-flight by a relaunching activity
+        // still receives the result, and a result superseded by a newer
+        // operation is dropped so it cannot steal the successor's callback.
         mainHandler.post(() -> {
             BleCallback callback = pendingCallback;
             if (callback == null) {
                 Log.d(TAG, "Dropping BLE result: no callback registered");
                 return;
             }
-            if (!isProcessing.get()) {
-                pendingCallback = null;
+            if (opId != currentOpId) {
+                Log.d(TAG, "Dropping stale BLE result: superseded by a newer operation");
+                return;
             }
+            pendingCallback = null;
             if (activation) {
                 callback.onActivationSuccess(message);
             } else {
@@ -815,15 +822,18 @@ public class BleUnlockManager {
         isProcessing.set(false);
         clearActivationState();
         cleanupGatt();
+        final int opId = currentOpId;
         mainHandler.post(() -> {
             BleCallback callback = pendingCallback;
             if (callback == null) {
                 Log.d(TAG, "Dropping BLE result: no callback registered");
                 return;
             }
-            if (!isProcessing.get()) {
-                pendingCallback = null;
+            if (opId != currentOpId) {
+                Log.d(TAG, "Dropping stale BLE result: superseded by a newer operation");
+                return;
             }
+            pendingCallback = null;
             callback.onError(message);
         });
     }
