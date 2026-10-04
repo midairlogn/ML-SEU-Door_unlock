@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace 'com.midairlogn.seudoorunlock'
+    namespace = 'com.midairlogn.seudoorunlock'
     compileSdk 36
 
     defaultConfig {
@@ -29,8 +29,8 @@ android {
     }
 
     buildFeatures {
-        aidl true
-        buildConfig true
+        aidl = true
+        buildConfig = true
     }
 
     packaging {
