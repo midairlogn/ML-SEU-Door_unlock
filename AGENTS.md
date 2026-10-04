@@ -6,8 +6,8 @@ Android app (Java + XML) for SEU door lock control. Replaces the original 住理
 
 - **applicationId**: `com.whxinna.userplatform` (MUST match original for NFC AAR routing from screen-off)
 - **Java package**: `com.midairlogn.seodorunlock` (source lives here; applicationId differs for NFC AAR compatibility)
-- **Min SDK**: 24 (Android 7.0) / **Target SDK**: 34
-- **Build**: Gradle, AndroidX, Java 11+, AGP 9.2.1
+- **Min SDK**: 24 (Android 7.0) / **Target SDK**: 36 (edge-to-edge enforced; activity roots use `android:fitsSystemWindows="true"`)
+- **Build**: Gradle, AndroidX, Java 11+, AGP 9.4.1
 
 ## Build & Run
 

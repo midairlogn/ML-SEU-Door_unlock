@@ -6,6 +6,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 
+import androidx.core.view.WindowCompat;
+
 import com.midairlogn.seudoorunlock.storage.CredentialCache;
 
 public class SplashActivity extends Activity {
@@ -13,7 +15,7 @@ public class SplashActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         CredentialCache cache = CredentialCache.getInstance(this);
         boolean loggedIn = cache.hasSession();
 

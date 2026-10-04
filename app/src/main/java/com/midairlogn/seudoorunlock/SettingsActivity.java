@@ -12,6 +12,7 @@ import com.google.android.material.materialswitch.MaterialSwitch;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.os.LocaleListCompat;
+import androidx.core.view.WindowCompat;
 
 import com.google.android.material.appbar.MaterialToolbar;
 
@@ -39,6 +40,7 @@ public class SettingsActivity extends AppCompatActivity {
         applyTheme();
         applyLanguage();
         super.onCreate(savedInstanceState);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         setContentView(R.layout.activity_settings);
 
         MaterialToolbar toolbar = findViewById(R.id.toolbar);

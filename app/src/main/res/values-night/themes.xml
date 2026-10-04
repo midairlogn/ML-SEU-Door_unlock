@@ -12,10 +12,13 @@
         <item name="colorSurfaceVariant">@color/surface_container</item>
         <item name="colorOutline">@color/outline</item>
         <item name="colorOutlineVariant">@color/outline_variant</item>
+        <item name="android:windowBackground">@color/surface</item>
         <item name="android:statusBarColor">@color/surface</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:navigationBarColor">@color/surface</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">false</item>
+        <item name="android:enforceNavigationBarContrast" tools:targetApi="q">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="p">shortEdges</item>
     </style>
 
     <style name="Theme.SEUDoorLock.Splash" parent="Theme.SEUDoorLock">
