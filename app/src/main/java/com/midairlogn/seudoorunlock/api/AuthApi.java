@@ -19,6 +19,13 @@ public class AuthApi {
 
     private static final String TAG = "ZL_AuthApi";
 
+    /**
+     * Official 住理生活 client version reported to the auth server in the OAuth login flow
+     * (base64_systemInfo.appVersion / app_version query param). Verified against official
+     * app v3.12.11 (versionCode 664) — update when the server enforces a newer minimum.
+     */
+    private static final String OFFICIAL_APP_VERSION = "3.12.11";
+
     public interface AuthCallback {
         void onSuccess(LoginResponse response);
         void onCaptchaRequired();
@@ -254,7 +261,7 @@ public class AuthApi {
         executor.execute(() -> {
             try {
                 String systemInfoJson = new org.json.JSONObject()
-                    .put("appVersion", "3.11.51")
+                    .put("appVersion", OFFICIAL_APP_VERSION)
                     .put("systemType", "Android")
                     .put("deviceToken", "")
                     .toString();
@@ -272,7 +279,7 @@ public class AuthApi {
                     .newBuilder()
                     .addQueryParameter("base64_systemInfo", b64Sys)
                     .addQueryParameter("base64_authInfo", b64Auth)
-                    .addQueryParameter("app_version", "3.11.51");
+                    .addQueryParameter("app_version", OFFICIAL_APP_VERSION);
 
                 String responseJson = api.executeAuthRequest(urlBuilder);
                 Log.d(TAG, "OAuth login response length: " + responseJson.length());

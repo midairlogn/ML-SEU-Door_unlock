@@ -1,6 +1,8 @@
 # 住理生活 (Zhuli Life) — Door Lock System Full Protocol Reference
 
 > Comprehensive reverse-engineering findings combining static analysis of the original APK (`zhuli.apk` v3.11.5, package `com.whxinna.userplatform`) .
+>
+> **Re-verified against v3.12.11 (versionCode 664, 2026-10)**: all protocol layers are unchanged — crypto primitives (§5), NFC frame (§6), BLE frame/UUIDs/flow (§7), all door-lock API endpoints (§4), signing logic (Appendix A), and the NFC manifest config (§9). v3.12.11 only adds an IM/customer-service module (`zl.im` bridge, `/webapi/v2/user/im`), attendance/family-management endpoints, ad-SDK churn, and bumps the reported client version to `3.12.11`/664. The auth-server signing key remains `6d5dbb85…` by default (now runtime-overridable via a test-env `envConfig` injected by the native shell; production defaults are identical).
 
 ---
 
