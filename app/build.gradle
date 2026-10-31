@@ -12,7 +12,10 @@ android {
         targetSdk 36
         versionCode 1
         versionName '1.7.9'
-        resConfigs "en", "zh"
+    }
+
+    androidResources {
+        localeFilters += ["en", "zh"]
     }
 
     buildTypes {
