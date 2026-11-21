@@ -629,7 +629,7 @@ public class MainActivity extends AppCompatActivity {
         boolean isInitial = currentIconResId == 0;
         currentIconResId = resId;
         ivStatusIcon.animate().cancel();
-        if (isInitial || !ValueAnimator.areAnimatorsEnabled()) {
+        if (isInitial || !isAnimatorsEnabled()) {
             ivStatusIcon.setImageResource(resId);
             ivStatusIcon.setColorFilter(tintColor);
             ivStatusIcon.setAlpha(1.0f);
@@ -666,7 +666,7 @@ public class MainActivity extends AppCompatActivity {
                 (android.graphics.drawable.LayerDrawable) statusIconContainer.getBackground().mutate();
         GradientDrawable bg = (GradientDrawable) layerBg.getDrawable(0);
 
-        if (currentOrbColor == targetColor || !ValueAnimator.areAnimatorsEnabled()) {
+        if (currentOrbColor == targetColor || !isAnimatorsEnabled()) {
             currentOrbColor = targetColor;
             bg.setColor(targetColor);
             return;
@@ -692,7 +692,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void startBreathingAnimation() {
         stopBreathingAnimation();
-        if (!ValueAnimator.areAnimatorsEnabled()) {
+        if (!isAnimatorsEnabled()) {
             return;
         }
         ObjectAnimator scaleX = ObjectAnimator.ofFloat(statusIconContainer, "scaleX", 1.0f, 1.035f);
@@ -707,6 +707,10 @@ public class MainActivity extends AppCompatActivity {
         iconAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
         iconAnimator.playTogether(scaleX, scaleY);
         iconAnimator.start();
+    }
+
+    private boolean isAnimatorsEnabled() {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled();
     }
 
     private void stopBreathingAnimation() {

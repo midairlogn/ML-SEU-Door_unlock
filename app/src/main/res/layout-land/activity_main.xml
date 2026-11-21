@@ -7,6 +7,7 @@
     android:layout_height="match_parent"
     android:background="@color/surface"
     android:fitsSystemWindows="true"
+    tools:ignore="Overdraw"
     android:orientation="vertical">
 
     <!-- Top App Bar -->
@@ -28,6 +29,7 @@
                 android:layout_height="match_parent"
                 android:layout_gravity="end"
                 android:gravity="center_vertical"
+                android:paddingStart="12dp"
                 android:paddingEnd="12dp"
                 android:orientation="horizontal">
 
@@ -93,6 +95,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
+                    android:baselineAligned="false"
                     android:padding="@dimen/card_padding"
                     android:clipChildren="false"
                     android:clipToPadding="false">

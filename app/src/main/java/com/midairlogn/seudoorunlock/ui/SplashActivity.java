@@ -1,5 +1,6 @@
 package com.midairlogn.seudoorunlock.ui;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
@@ -10,6 +11,7 @@ import androidx.core.view.WindowCompat;
 
 import com.midairlogn.seudoorunlock.storage.CredentialCache;
 
+@SuppressLint("CustomSplashScreen")
 public class SplashActivity extends Activity {
 
     @Override

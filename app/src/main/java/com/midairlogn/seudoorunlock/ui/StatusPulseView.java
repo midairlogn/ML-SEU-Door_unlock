@@ -7,6 +7,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.os.Build;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
@@ -109,11 +110,15 @@ public class StatusPulseView extends View {
         }
     }
 
+    private boolean isAnimatorsEnabled() {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled();
+    }
+
     private void restartAnimator() {
         cancelAnimator();
         progress = 0f;
 
-        if (mode == Mode.IDLE || !ValueAnimator.areAnimatorsEnabled() || !isAttachedToWindow()) {
+        if (mode == Mode.IDLE || !isAnimatorsEnabled() || !isAttachedToWindow()) {
             invalidate();
             return;
         }

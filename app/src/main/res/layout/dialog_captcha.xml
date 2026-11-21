@@ -45,7 +45,8 @@
                     android:layout_height="match_parent"
                     android:padding="8dp"
                     android:scaleType="fitCenter"
-                    android:layerType="software"/>
+                    android:layerType="software"
+                    android:contentDescription="@string/captcha_title"/>
 
             </com.google.android.material.card.MaterialCardView>
 

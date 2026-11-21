@@ -7,7 +7,7 @@
         <package android:name="com.eg.android.AlipayGphone" />
     </queries>
 
-    <uses-feature android:name="android.hardware.nfc" android:required="true"/>
+    <uses-feature android:name="android.hardware.nfc" android:required="false"/>
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false"/>
 
     <uses-permission android:name="android.permission.NFC"/>

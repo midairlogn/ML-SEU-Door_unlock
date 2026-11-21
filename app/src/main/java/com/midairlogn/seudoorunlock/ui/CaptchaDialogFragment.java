@@ -5,7 +5,6 @@ import android.graphics.Picture;
 import android.graphics.drawable.PictureDrawable;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.Toast;
@@ -54,7 +53,7 @@ public class CaptchaDialogFragment extends DialogFragment {
     @NonNull
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-        View view = LayoutInflater.from(getContext()).inflate(R.layout.dialog_captcha, null);
+        View view = getLayoutInflater().inflate(R.layout.dialog_captcha, null);
 
         ivCaptcha = view.findViewById(R.id.ivCaptcha);
         etCaptcha = view.findViewById(R.id.etCaptcha);

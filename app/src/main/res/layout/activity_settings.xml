@@ -6,6 +6,7 @@
     android:layout_height="match_parent"
     android:background="@color/surface"
     android:fitsSystemWindows="true"
+    tools:ignore="Overdraw"
     android:orientation="vertical">
 
     <com.google.android.material.appbar.AppBarLayout

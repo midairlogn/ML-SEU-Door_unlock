@@ -7,6 +7,7 @@
     android:layout_height="match_parent"
     android:background="@color/surface"
     android:fitsSystemWindows="true"
+    tools:ignore="Overdraw"
     android:orientation="vertical">
 
     <!-- Top settings row -->
@@ -46,6 +47,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
+                android:baselineAligned="false"
                 android:gravity="center_vertical"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"

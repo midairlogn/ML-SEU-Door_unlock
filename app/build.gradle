@@ -18,6 +18,10 @@ android {
         localeFilters += ["en", "zh"]
     }
 
+    lint {
+        lintConfig = file("lint.xml")
+    }
+
     buildTypes {
         release {
             minifyEnabled true

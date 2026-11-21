@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <issue id="UnusedResources" severity="ignore" />
+    <issue id="GradleDependency" severity="informational" />
+    <issue id="NewerVersionAvailable" severity="informational" />
+    <issue id="OldTargetApi" severity="informational" />
+    <issue id="AndroidGradlePluginVersion" severity="informational" />
+</lint>
