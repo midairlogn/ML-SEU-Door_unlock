@@ -25,18 +25,15 @@ import com.midairlogn.seudoorunlock.storage.CredentialCache;
 
 public class CaptchaDialogFragment extends DialogFragment {
 
+    public static final String REQUEST_KEY = "captcha_submit";
+    public static final String RESULT_CAPTCHA = "captcha";
     private static final String ARG_PHONE = "phone";
 
     private String phone;
-    private OnCaptchaSubmitListener listener;
     private ImageView ivCaptcha;
     private TextInputEditText etCaptcha;
     private MaterialButton btnRefresh;
     private boolean submitting;
-
-    public interface OnCaptchaSubmitListener {
-        void onSubmit(String captcha);
-    }
 
     public static CaptchaDialogFragment newInstance(String phone) {
         CaptchaDialogFragment fragment = new CaptchaDialogFragment();
@@ -44,10 +41,6 @@ public class CaptchaDialogFragment extends DialogFragment {
         args.putString(ARG_PHONE, phone);
         fragment.setArguments(args);
         return fragment;
-    }
-
-    public void setOnCaptchaSubmitListener(OnCaptchaSubmitListener listener) {
-        this.listener = listener;
     }
 
     @Override
@@ -84,10 +77,10 @@ public class CaptchaDialogFragment extends DialogFragment {
                     Toast.makeText(getContext(), R.string.error_captcha, Toast.LENGTH_SHORT).show();
                     return;
                 }
-                if (listener != null) {
-                    setSubmitting(true);
-                    listener.onSubmit(captcha);
-                }
+                setSubmitting(true);
+                Bundle result = new Bundle();
+                result.putString(RESULT_CAPTCHA, captcha);
+                getParentFragmentManager().setFragmentResult(REQUEST_KEY, result);
             }));
 
         return dialog;

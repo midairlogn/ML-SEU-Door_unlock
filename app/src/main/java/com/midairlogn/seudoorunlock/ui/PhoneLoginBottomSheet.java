@@ -87,6 +87,21 @@ public class PhoneLoginBottomSheet extends BottomSheetDialogFragment {
             if (!password.isEmpty()) etPassword.setText(password);
         }
 
+        getParentFragmentManager().setFragmentResultListener(
+            CaptchaDialogFragment.REQUEST_KEY,
+            getViewLifecycleOwner(),
+            (requestKey, result) -> {
+                String captcha = result.getString(CaptchaDialogFragment.RESULT_CAPTCHA, "");
+                String phone = etPhone.getText() != null ? etPhone.getText().toString().trim() : "";
+                String password = etPassword.getText() != null ? etPassword.getText().toString().trim() : "";
+                if (captcha.length() == 4 && !phone.isEmpty() && !password.isEmpty()) {
+                    submitLoginWithCaptcha(authApi, phone, password, captcha,
+                        btnLogin, progressBar, etPhone, etPassword,
+                        rememberPrefs, securePrefs, cbRemember);
+                }
+            }
+        );
+
         // Clear errors on text change
         etPhone.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -129,8 +144,7 @@ public class PhoneLoginBottomSheet extends BottomSheetDialogFragment {
                 public void onCaptchaRequired() {
                     if (!isAdded()) return;
                     setLoading(false, btnLogin, progressBar, etPhone, etPassword);
-                    showCaptchaDialog(authApi, phone, password, btnLogin, progressBar, etPhone, etPassword,
-                        rememberPrefs, securePrefs, cbRemember);
+                    showCaptchaDialog(phone);
                 }
 
                 @Override
@@ -154,44 +168,54 @@ public class PhoneLoginBottomSheet extends BottomSheetDialogFragment {
         }
     }
 
-    private void showCaptchaDialog(AuthApi authApi, String phone, String password,
-                                     MaterialButton btnLogin, ProgressBar progressBar,
-                                     TextInputEditText etPhone, TextInputEditText etPassword,
-                                     SharedPreferences rememberPrefs, SecurePrefs securePrefs,
-                                     MaterialCheckBox cbRemember) {
+    private void showCaptchaDialog(String phone) {
         CaptchaDialogFragment dialog = CaptchaDialogFragment.newInstance(phone);
-        dialog.setOnCaptchaSubmitListener(captcha -> {
-            setLoading(true, btnLogin, progressBar, etPhone, etPassword);
-            authApi.login(phone, password, captcha, new AuthApi.AuthCallback() {
-                @Override
-                public void onSuccess(LoginResponse response) {
-                    if (!isAdded()) return;
-                    setLoading(false, btnLogin, progressBar, etPhone, etPassword);
-                    saveRemembered(rememberPrefs, securePrefs, cbRemember.isChecked(), phone, password);
-                    Toast.makeText(requireContext(), "Login successful", Toast.LENGTH_SHORT).show();
-                    notifyLoginSuccess();
-                    dialog.dismissAllowingStateLoss();
-                    dismiss();
-                }
-
-                @Override
-                public void onCaptchaRequired() {
-                    if (!isAdded()) return;
-                    setLoading(false, btnLogin, progressBar, etPhone, etPassword);
-                    dialog.resetForRetry();
-                    Toast.makeText(requireContext(), "Captcha required again", Toast.LENGTH_SHORT).show();
-                }
-
-                @Override
-                public void onError(String message) {
-                    if (!isAdded()) return;
-                    setLoading(false, btnLogin, progressBar, etPhone, etPassword);
-                    dialog.setSubmitting(false);
-                    Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
-                }
-            });
-        });
         dialog.show(getParentFragmentManager(), "captcha");
+    }
+
+    private void submitLoginWithCaptcha(AuthApi authApi, String phone, String password, String captcha,
+                                        MaterialButton btnLogin, ProgressBar progressBar,
+                                        TextInputEditText etPhone, TextInputEditText etPassword,
+                                        SharedPreferences rememberPrefs, SecurePrefs securePrefs,
+                                        MaterialCheckBox cbRemember) {
+        setLoading(true, btnLogin, progressBar, etPhone, etPassword);
+        authApi.login(phone, password, captcha, new AuthApi.AuthCallback() {
+            @Override
+            public void onSuccess(LoginResponse response) {
+                if (!isAdded()) return;
+                setLoading(false, btnLogin, progressBar, etPhone, etPassword);
+                saveRemembered(rememberPrefs, securePrefs, cbRemember.isChecked(), phone, password);
+                Toast.makeText(requireContext(), "Login successful", Toast.LENGTH_SHORT).show();
+                notifyLoginSuccess();
+                androidx.fragment.app.Fragment f = getParentFragmentManager().findFragmentByTag("captcha");
+                if (f instanceof CaptchaDialogFragment) {
+                    ((CaptchaDialogFragment) f).dismissAllowingStateLoss();
+                }
+                dismiss();
+            }
+
+            @Override
+            public void onCaptchaRequired() {
+                if (!isAdded()) return;
+                setLoading(false, btnLogin, progressBar, etPhone, etPassword);
+                androidx.fragment.app.Fragment f = getParentFragmentManager().findFragmentByTag("captcha");
+                if (f instanceof CaptchaDialogFragment) {
+                    ((CaptchaDialogFragment) f).resetForRetry();
+                }
+                Toast.makeText(requireContext(), "Captcha required again", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onError(String message) {
+                if (!isAdded()) return;
+                setLoading(false, btnLogin, progressBar, etPhone, etPassword);
+                androidx.fragment.app.Fragment f = getParentFragmentManager().findFragmentByTag("captcha");
+                if (f instanceof CaptchaDialogFragment) {
+                    ((CaptchaDialogFragment) f).setSubmitting(false);
+                }
+                Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     private void setLoading(boolean loading, MaterialButton btnLogin, ProgressBar progressBar,
