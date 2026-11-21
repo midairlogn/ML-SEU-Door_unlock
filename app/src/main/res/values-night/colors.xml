@@ -24,4 +24,13 @@
     <!-- Outline -->
     <color name="outline">#91909A</color>
     <color name="outline_variant">#46464F</color>
+
+    <!-- Semantic -->
+    <color name="success">#81C784</color>
+    <color name="success_container">#1B4D20</color>
+    <color name="error">#FFB4AB</color>
+    <color name="error_container">#690005</color>
+
+    <!-- Button -->
+    <color name="button_disabled_bg">#2E2E38</color>
 </resources>

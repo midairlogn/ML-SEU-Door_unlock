@@ -27,6 +27,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.OvershootInterpolator;
 import android.widget.ImageButton;
@@ -96,6 +97,7 @@ public class MainActivity extends AppCompatActivity {
     private ImageButton btnRefresh;
     private ImageButton btnSettings;
     private ImageButton btnInfo;
+    private StatusPulseView statusPulseView;
     private View statusIconContainer;
     private ImageView ivStatusIcon;
     private TextView tvStatusTitle;
@@ -292,6 +294,9 @@ public class MainActivity extends AppCompatActivity {
 
     // Animation
     private AnimatorSet iconAnimator;
+    private ValueAnimator orbColorAnimator;
+    private int currentOrbColor;
+    private int currentIconResId;
     private final Handler handler = new Handler(android.os.Looper.getMainLooper());
     private Toast activeToast;
     private Runnable restoreRunnable;
@@ -342,8 +347,12 @@ public class MainActivity extends AppCompatActivity {
         btnRefresh = findViewById(R.id.btnRefresh);
         btnSettings = findViewById(R.id.btnSettings);
         btnInfo = findViewById(R.id.btnInfo);
+        statusPulseView = findViewById(R.id.statusPulseView);
         statusIconContainer = findViewById(R.id.statusIconContainer);
         ivStatusIcon = findViewById(R.id.ivStatusIcon);
+        currentOrbColor = ContextCompat.getColor(this, R.color.primary_container);
+        statusPulseView.setInnerRadiusPx(
+                getResources().getDimensionPixelSize(R.dimen.status_icon_size) * 0.5f);
         tvStatusTitle = findViewById(R.id.tvStatusTitle);
         tvStatusDetail = findViewById(R.id.tvStatusDetail);
         btnEnableNfc = findViewById(R.id.btnEnableNfc);
@@ -453,13 +462,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateStatusDisplay() {
-        // Reset background tint from success/error states
-        android.graphics.drawable.LayerDrawable layerBg = (android.graphics.drawable.LayerDrawable) statusIconContainer.getBackground().mutate();
-        ((GradientDrawable) layerBg.getDrawable(0)).setColor(ContextCompat.getColor(this, R.color.primary_container));
+        int primaryColor = ContextCompat.getColor(this, R.color.primary);
+        animateOrbColor(ContextCompat.getColor(this, R.color.primary_container));
 
         boolean isNfc = METHOD_NFC.equals(selectedMethod);
         if (!isNfc && !hasAllPermissions()) {
-            ivStatusIcon.setImageResource(R.drawable.ic_warning);
+            setStatusIcon(R.drawable.ic_warning, primaryColor);
             tvStatusTitle.setText(R.string.permission_required);
             tvStatusDetail.setText(R.string.permission_denied_detail);
             btnEnableNfc.setVisibility(View.GONE);
@@ -467,7 +475,7 @@ public class MainActivity extends AppCompatActivity {
             btnGrantPermissions.setVisibility(View.VISIBLE);
             statusIconContainer.setAlpha(0.7f);
             stopBreathingAnimation();
-            ivStatusIcon.setColorFilter(ContextCompat.getColor(this, R.color.primary));
+            statusPulseView.setMode(StatusPulseView.Mode.IDLE);
             return;
         }
 
@@ -476,7 +484,7 @@ public class MainActivity extends AppCompatActivity {
         boolean isReady = false;
 
         if (isNfc) {
-            ivStatusIcon.setImageResource(R.drawable.ic_nfc);
+            setStatusIcon(R.drawable.ic_nfc, primaryColor);
             btnBleUnlock.setVisibility(View.GONE);
 
             if (!getNfcManager().isNfcSupported()) {
@@ -499,7 +507,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         } else {
-            ivStatusIcon.setImageResource(R.drawable.ic_bluetooth);
+            setStatusIcon(R.drawable.ic_bluetooth, primaryColor);
             btnBleUnlock.setVisibility(View.VISIBLE);
             btnEnableNfc.setVisibility(View.GONE);
 
@@ -525,6 +533,7 @@ public class MainActivity extends AppCompatActivity {
             boolean activationPending = cache.requiresDigitalCredentialActivation();
             if (activationPending) {
                 stopBreathingAnimation();
+                statusPulseView.setMode(StatusPulseView.Mode.IDLE);
                 if (isNfc) {
                     tvStatusTitle.setText(R.string.activation_pending);
                     tvStatusDetail.setText(R.string.activation_pending_nfc_hint);
@@ -534,13 +543,17 @@ public class MainActivity extends AppCompatActivity {
                     btnBleUnlock.setEnabled(true);
                 }
             } else {
+                statusPulseView.setAccentColor(primaryColor);
+                statusPulseView.setMode(isNfc
+                        ? StatusPulseView.Mode.NFC_READY
+                        : StatusPulseView.Mode.BLE_READY);
                 startBreathingAnimation();
             }
         } else {
             stopBreathingAnimation();
+            statusPulseView.setMode(StatusPulseView.Mode.IDLE);
         }
 
-        ivStatusIcon.setColorFilter(ContextCompat.getColor(this, R.color.primary));
         updateDetailInfo();
     }
 
@@ -608,17 +621,90 @@ public class MainActivity extends AppCompatActivity {
         showToast(R.string.copied, Toast.LENGTH_SHORT);
     }
 
+    private void setStatusIcon(int resId, int tintColor) {
+        if (currentIconResId == resId) {
+            ivStatusIcon.setColorFilter(tintColor);
+            return;
+        }
+        boolean isInitial = currentIconResId == 0;
+        currentIconResId = resId;
+        ivStatusIcon.animate().cancel();
+        if (isInitial || !ValueAnimator.areAnimatorsEnabled()) {
+            ivStatusIcon.setImageResource(resId);
+            ivStatusIcon.setColorFilter(tintColor);
+            ivStatusIcon.setAlpha(1.0f);
+            ivStatusIcon.setScaleX(1.0f);
+            ivStatusIcon.setScaleY(1.0f);
+            return;
+        }
+        ivStatusIcon.animate()
+                .alpha(0f)
+                .scaleX(0.78f)
+                .scaleY(0.78f)
+                .setDuration(110)
+                .withEndAction(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    ivStatusIcon.setImageResource(resId);
+                    ivStatusIcon.setColorFilter(tintColor);
+                    ivStatusIcon.animate()
+                            .alpha(1f)
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .setDuration(170)
+                            .setInterpolator(new OvershootInterpolator(1.2f))
+                            .start();
+                })
+                .start();
+    }
+
+    private void animateOrbColor(int targetColor) {
+        if (orbColorAnimator != null) {
+            orbColorAnimator.cancel();
+            orbColorAnimator = null;
+        }
+        android.graphics.drawable.LayerDrawable layerBg =
+                (android.graphics.drawable.LayerDrawable) statusIconContainer.getBackground().mutate();
+        GradientDrawable bg = (GradientDrawable) layerBg.getDrawable(0);
+
+        if (currentOrbColor == targetColor || !ValueAnimator.areAnimatorsEnabled()) {
+            currentOrbColor = targetColor;
+            bg.setColor(targetColor);
+            return;
+        }
+
+        orbColorAnimator = ValueAnimator.ofArgb(currentOrbColor, targetColor);
+        orbColorAnimator.setDuration(240);
+        orbColorAnimator.setInterpolator(new DecelerateInterpolator());
+        orbColorAnimator.addUpdateListener(anim -> {
+            currentOrbColor = (int) anim.getAnimatedValue();
+            bg.setColor(currentOrbColor);
+        });
+        orbColorAnimator.start();
+    }
+
+    private void startConnectingAnimation() {
+        stopBreathingAnimation();
+        if (statusPulseView != null) {
+            statusPulseView.setAccentColor(ContextCompat.getColor(this, R.color.primary));
+            statusPulseView.setMode(StatusPulseView.Mode.CONNECTING);
+        }
+    }
+
     private void startBreathingAnimation() {
         stopBreathingAnimation();
-        ObjectAnimator scaleX = ObjectAnimator.ofFloat(statusIconContainer, "scaleX", 1.0f, 1.06f);
-        ObjectAnimator scaleY = ObjectAnimator.ofFloat(statusIconContainer, "scaleY", 1.0f, 1.06f);
+        if (!ValueAnimator.areAnimatorsEnabled()) {
+            return;
+        }
+        ObjectAnimator scaleX = ObjectAnimator.ofFloat(statusIconContainer, "scaleX", 1.0f, 1.035f);
+        ObjectAnimator scaleY = ObjectAnimator.ofFloat(statusIconContainer, "scaleY", 1.0f, 1.035f);
         scaleX.setRepeatCount(ValueAnimator.INFINITE);
         scaleX.setRepeatMode(ValueAnimator.REVERSE);
         scaleY.setRepeatCount(ValueAnimator.INFINITE);
         scaleY.setRepeatMode(ValueAnimator.REVERSE);
-        scaleX.setDuration(1500);
-        scaleY.setDuration(1500);
+        scaleX.setDuration(1800);
+        scaleY.setDuration(1800);
         iconAnimator = new AnimatorSet();
+        iconAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
         iconAnimator.playTogether(scaleX, scaleY);
         iconAnimator.start();
     }
@@ -626,9 +712,9 @@ public class MainActivity extends AppCompatActivity {
     private void stopBreathingAnimation() {
         if (iconAnimator != null && iconAnimator.isRunning()) {
             iconAnimator.cancel();
-            statusIconContainer.setScaleX(1.0f);
-            statusIconContainer.setScaleY(1.0f);
         }
+        statusIconContainer.setScaleX(1.0f);
+        statusIconContainer.setScaleY(1.0f);
     }
 
     private void startRefreshAnimation() {
@@ -639,24 +725,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showSuccessState() {
-        ivStatusIcon.setImageResource(R.drawable.ic_check_circle);
+        int successColor = ContextCompat.getColor(this, R.color.success);
+        setStatusIcon(R.drawable.ic_check_circle, successColor);
         tvStatusTitle.setText(R.string.door_opened);
         statusIconContainer.setAlpha(1.0f);
         stopBreathingAnimation();
 
-        statusIconContainer.setScaleX(0.8f);
-        statusIconContainer.setScaleY(0.8f);
+        animateOrbColor(ContextCompat.getColor(this, R.color.success_container));
+        statusPulseView.setAccentColor(successColor);
+        statusPulseView.setMode(StatusPulseView.Mode.SUCCESS);
+
+        statusIconContainer.setScaleX(0.84f);
+        statusIconContainer.setScaleY(0.84f);
         statusIconContainer.animate()
             .scaleX(1.0f)
             .scaleY(1.0f)
-            .setDuration(400)
-            .setInterpolator(new OvershootInterpolator())
+            .setDuration(420)
+            .setInterpolator(new OvershootInterpolator(1.6f))
             .start();
-
-        android.graphics.drawable.LayerDrawable layerBg = (android.graphics.drawable.LayerDrawable) statusIconContainer.getBackground().mutate();
-        GradientDrawable bg = (GradientDrawable) layerBg.getDrawable(0);
-        bg.setColor(ContextCompat.getColor(this, R.color.success_container));
-        ivStatusIcon.setColorFilter(ContextCompat.getColor(this, R.color.success));
 
         // Restore to original state after 10 seconds (door auto-locks)
         if (restoreRunnable != null) {
@@ -668,20 +754,21 @@ public class MainActivity extends AppCompatActivity {
 
     private void showErrorState(String message) {
         cancelAutoClose(false);
-        ivStatusIcon.setImageResource(R.drawable.ic_warning);
+        int errorColor = ContextCompat.getColor(this, R.color.error);
+        setStatusIcon(R.drawable.ic_warning, errorColor);
         tvStatusTitle.setText(R.string.unlock_failed);
         tvStatusDetail.setText(message);
         statusIconContainer.setAlpha(1.0f);
         stopBreathingAnimation();
 
-        ObjectAnimator shake = ObjectAnimator.ofFloat(statusIconContainer, "translationX", 0, 15, -15, 10, -10, 5, -5, 0);
-        shake.setDuration(500);
-        shake.start();
+        animateOrbColor(ContextCompat.getColor(this, R.color.error_container));
+        statusPulseView.setAccentColor(errorColor);
+        statusPulseView.setMode(StatusPulseView.Mode.ERROR);
 
-        android.graphics.drawable.LayerDrawable layerBg = (android.graphics.drawable.LayerDrawable) statusIconContainer.getBackground().mutate();
-        GradientDrawable bg = (GradientDrawable) layerBg.getDrawable(0);
-        bg.setColor(ContextCompat.getColor(this, R.color.error_container));
-        ivStatusIcon.setColorFilter(ContextCompat.getColor(this, R.color.error));
+        ObjectAnimator shake = ObjectAnimator.ofFloat(statusIconContainer, "translationX", 0, 14, -14, 9, -9, 4, -4, 0);
+        shake.setDuration(480);
+        shake.setInterpolator(new DecelerateInterpolator());
+        shake.start();
     }
 
     private boolean scheduleAutoClose() {
@@ -722,10 +809,12 @@ public class MainActivity extends AppCompatActivity {
             isBusy = true;
             tvStatusTitle.setText(R.string.unlocking);
             tvStatusDetail.setText("");
+            startConnectingAnimation();
         } else if (getBleManager().isProcessing()) {
             tvStatusTitle.setText(R.string.ble_connecting);
             tvStatusDetail.setText("");
             btnBleUnlock.setEnabled(false);
+            startConnectingAnimation();
         }
     }
 
@@ -800,6 +889,7 @@ public class MainActivity extends AppCompatActivity {
 
         tvStatusTitle.setText(R.string.ble_connecting);
         btnBleUnlock.setEnabled(false);
+        startConnectingAnimation();
 
         if (getBleManager().isProcessing()) return;
 
@@ -864,6 +954,7 @@ public class MainActivity extends AppCompatActivity {
 
             tvStatusTitle.setText(R.string.unlocking);
             tvStatusDetail.setText("");
+            startConnectingAnimation();
 
             // Don't enable reader mode here; it resets the NFC controller and
             // interrupts the NfcA session from the intent tag. Reader mode will
@@ -1052,6 +1143,13 @@ public class MainActivity extends AppCompatActivity {
         }
         cancelAutoClose(false);
         stopBreathingAnimation();
+        if (orbColorAnimator != null) {
+            orbColorAnimator.cancel();
+            orbColorAnimator = null;
+        }
+        if (ivStatusIcon != null) {
+            ivStatusIcon.animate().cancel();
+        }
         // Managers are app-scoped; only release them when the activity is
         // really finishing (logout/auto-close/back), not on config changes,
         // so in-flight unlocks survive rotation.

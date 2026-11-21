@@ -5,9 +5,10 @@
     <!-- Main screen -->
     <dimen name="toolbar_height">52dp</dimen>
     <dimen name="toolbar_title_size">22sp</dimen>
+    <dimen name="status_hero_size">204dp</dimen>
     <dimen name="status_icon_size">140dp</dimen>
     <dimen name="status_icon_glyph">56dp</dimen>
-    <dimen name="status_icon_margin_top">32dp</dimen>
+    <dimen name="status_icon_margin_top">12dp</dimen>
     <dimen name="status_title_margin_top">28dp</dimen>
     <dimen name="status_detail_min_height">120dp</dimen>
     <dimen name="element_spacing">24dp</dimen>

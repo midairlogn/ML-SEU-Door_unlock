@@ -97,22 +97,35 @@
                     android:clipChildren="false"
                     android:clipToPadding="false">
 
-                    <!-- Status Icon -->
+                    <!-- Status Hero (Pulse Waves + Orb) -->
                     <FrameLayout
-                        android:id="@+id/statusIconContainer"
-                        android:layout_width="@dimen/status_icon_size"
-                        android:layout_height="@dimen/status_icon_size"
+                        android:layout_width="@dimen/status_hero_size"
+                        android:layout_height="@dimen/status_hero_size"
                         android:layout_marginTop="@dimen/status_icon_margin_top"
-                        android:background="@drawable/bg_status_icon">
+                        android:clipChildren="false"
+                        android:clipToPadding="false">
 
-                        <ImageView
-                            android:id="@+id/ivStatusIcon"
-                            android:layout_width="@dimen/status_icon_glyph"
-                            android:layout_height="@dimen/status_icon_glyph"
+                        <com.midairlogn.seudoorunlock.ui.StatusPulseView
+                            android:id="@+id/statusPulseView"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"/>
+
+                        <FrameLayout
+                            android:id="@+id/statusIconContainer"
+                            android:layout_width="@dimen/status_icon_size"
+                            android:layout_height="@dimen/status_icon_size"
                             android:layout_gravity="center"
-                            android:contentDescription="@null"
-                            android:src="@drawable/ic_lock_outline"
-                            app:tint="@color/primary"/>
+                            android:background="@drawable/bg_status_icon">
+
+                            <ImageView
+                                android:id="@+id/ivStatusIcon"
+                                android:layout_width="@dimen/status_icon_glyph"
+                                android:layout_height="@dimen/status_icon_glyph"
+                                android:layout_gravity="center"
+                                android:contentDescription="@null"
+                                android:src="@drawable/ic_lock_outline"
+                                app:tint="@color/primary"/>
+                        </FrameLayout>
                     </FrameLayout>
 
                     <!-- Status Title -->
@@ -120,7 +133,7 @@
                         android:id="@+id/tvStatusTitle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="@dimen/status_title_margin_top"
+                        android:layout_marginTop="4dp"
                         android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall"
                         android:gravity="center"
                         android:textColor="@color/on_surface"
@@ -137,10 +150,14 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:background="@drawable/bg_status_detail"
-                            android:fontFamily="monospace"
+                            android:fontFamily="sans-serif"
+                            android:lineSpacingExtra="4dp"
                             android:gravity="center_vertical"
                             android:minHeight="@dimen/status_detail_min_height"
-                            android:padding="16dp"
+                            android:paddingStart="16dp"
+                            android:paddingTop="14dp"
+                            android:paddingEnd="44dp"
+                            android:paddingBottom="14dp"
                             android:textColor="@color/on_surface_variant"
                             android:textSize="14sp"
                             tools:text="Phone: 138****1234\nLock: Building A\nBattery: 85%"/>
@@ -185,7 +202,7 @@
                     <!-- BLE Unlock Button -->
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnBleUnlock"
-                        style="@style/Widget.Material3.Button.TonalButton"
+                        style="@style/Widget.Material3.Button"
                         android:layout_width="match_parent"
                         android:layout_height="@dimen/main_button_height"
                         android:layout_marginTop="@dimen/button_spacing"
@@ -194,6 +211,8 @@
                         android:text="@string/ble_connect_button"
                         app:cornerRadius="28dp"
                         app:icon="@drawable/ic_bluetooth"
+                        app:iconGravity="textStart"
+                        app:iconPadding="10dp"
                         android:visibility="gone"/>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -235,7 +254,9 @@
                     android:layout_height="@dimen/main_button_height"
                     android:layout_weight="1"
                     android:text="@string/settings_method_nfc"
-                    app:icon="@drawable/ic_nfc" />
+                    app:icon="@drawable/ic_nfc"
+                    app:iconGravity="textStart"
+                    app:iconPadding="8dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnTabBle"
@@ -244,7 +265,9 @@
                     android:layout_height="@dimen/main_button_height"
                     android:layout_weight="1"
                     android:text="@string/settings_method_ble"
-                    app:icon="@drawable/ic_bluetooth" />
+                    app:icon="@drawable/ic_bluetooth"
+                    app:iconGravity="textStart"
+                    app:iconPadding="8dp" />
 
             </com.google.android.material.button.MaterialButtonToggleGroup>
 
