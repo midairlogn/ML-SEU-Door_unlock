@@ -27,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class NfcUnlockManager {
 
@@ -54,11 +55,11 @@ public class NfcUnlockManager {
     private final Handler mainHandler;
     private volatile NfcCallback pendingCallback;
     /**
-     * Monotonic operation id. Incremented only on the main thread (single
-     * writer, in handleTagDiscovered after a successful isProcessing CAS);
-     * volatile for reads in delivery lambdas.
+     * Monotonic operation id. Incremented via AtomicInteger after a successful
+     * isProcessing CAS (handleTagDiscovered may run on a binder thread in reader mode
+     * or on the main thread from handleIntent).
      */
-    private volatile int lastOpId;
+    private final AtomicInteger lastOpId = new AtomicInteger(0);
     private boolean readerModeEnabled = false;
     private final AtomicBoolean isProcessing = new AtomicBoolean(false);
 
@@ -85,15 +86,21 @@ public class NfcUnlockManager {
      * posting: the UI callback re-enables reader mode on delivery, and that
      * re-enable is skipped while isProcessing is still true.
      */
-    private void deliverSuccess(int opId, DoorResponse response) {
-        isProcessing.set(false);
+    private void releaseProcessingIfOwner(int opId, AtomicBoolean opFinished) {
+        if (opFinished.compareAndSet(false, true) && opId == lastOpId.get()) {
+            isProcessing.set(false);
+        }
+    }
+
+    private void deliverSuccess(int opId, AtomicBoolean opFinished, DoorResponse response) {
+        releaseProcessingIfOwner(opId, opFinished);
         mainHandler.post(() -> {
             NfcCallback callback = pendingCallback;
             if (callback == null) {
                 Log.d(TAG, "Dropping NFC result: no callback registered");
                 return;
             }
-            if (opId != lastOpId) {
+            if (opId != lastOpId.get()) {
                 Log.d(TAG, "Dropping stale NFC result: superseded by a newer operation");
                 return;
             }
@@ -102,15 +109,15 @@ public class NfcUnlockManager {
         });
     }
 
-    private void deliverError(int opId, String message) {
-        isProcessing.set(false);
+    private void deliverError(int opId, AtomicBoolean opFinished, String message) {
+        releaseProcessingIfOwner(opId, opFinished);
         mainHandler.post(() -> {
             NfcCallback callback = pendingCallback;
             if (callback == null) {
                 Log.d(TAG, "Dropping NFC result: no callback registered");
                 return;
             }
-            if (opId != lastOpId) {
+            if (opId != lastOpId.get()) {
                 Log.d(TAG, "Dropping stale NFC result: superseded by a newer operation");
                 return;
             }
@@ -119,15 +126,15 @@ public class NfcUnlockManager {
         });
     }
 
-    private void deliverExpired(int opId) {
-        isProcessing.set(false);
+    private void deliverExpired(int opId, AtomicBoolean opFinished) {
+        releaseProcessingIfOwner(opId, opFinished);
         mainHandler.post(() -> {
             NfcCallback callback = pendingCallback;
             if (callback == null) {
                 Log.d(TAG, "Dropping NFC result: no callback registered");
                 return;
             }
-            if (opId != lastOpId) {
+            if (opId != lastOpId.get()) {
                 Log.d(TAG, "Dropping stale NFC result: superseded by a newer operation");
                 return;
             }
@@ -210,11 +217,12 @@ public class NfcUnlockManager {
             Log.d(TAG, "Already processing a tag, skipping");
             return false;
         }
-        final int opId = ++lastOpId;
+        final int opId = lastOpId.incrementAndGet();
+        final AtomicBoolean opFinished = new AtomicBoolean(false);
 
         NfcA nfcA = NfcA.get(tag);
         if (nfcA == null) {
-            deliverError(opId, "Not an NFC-A tag");
+            deliverError(opId, opFinished, "Not an NFC-A tag");
             return true;
         }
 
@@ -230,7 +238,7 @@ public class NfcUnlockManager {
                 int projectId = getEffectiveProjectId();
 
                 if (deviceId == 0) {
-                    deliverError(opId, "NFC tag missing device_id");
+                    deliverError(opId, opFinished, "NFC tag missing device_id");
                     return;
                 }
 
@@ -238,7 +246,7 @@ public class NfcUnlockManager {
                     Log.w(TAG, "NFC tag device_id differs from cache: tag=" + deviceId
                         + " cache=" + cachedDeviceId);
                     if (cache.requiresDigitalCredentialActivation()) {
-                        deliverError(opId, "NFC tag device_id does not match cached door lock");
+                        deliverError(opId, opFinished, "NFC tag device_id does not match cached door lock");
                         return;
                     }
                 }
@@ -246,18 +254,18 @@ public class NfcUnlockManager {
                 if (cache.requiresDigitalCredentialActivation()) {
                     nfcA.close();
                     continuingActivation[0] = true;
-                    activateDigitalCredential(tag, deviceId, opId);
+                    activateDigitalCredential(tag, deviceId, opId, opFinished);
                     return;
                 }
 
                 if (credentialHex.isEmpty()) {
-                    deliverError(opId, "No credentials cached");
+                    deliverError(opId, opFinished, "No credentials cached");
                     return;
                 }
 
                 byte[] command = NfcCommandBuilder.buildCommand(deviceId, credentialHex, projectId);
                 if (command == null) {
-                    deliverError(opId, "Failed to build NFC command");
+                    deliverError(opId, opFinished, "Failed to build NFC command");
                     return;
                 }
 
@@ -277,13 +285,13 @@ public class NfcUnlockManager {
                                         lastResponse.updatedCredentialHex, cache.getCredentialId());
                                 }
                                 final DoorResponse resp = lastResponse;
-                                deliverSuccess(opId, resp);
+                                deliverSuccess(opId, opFinished, resp);
                                 return;
                             }
 
                             if (lastResponse.isExpired()) {
                                 reSyncWithServer();
-                                deliverExpired(opId);
+                                deliverExpired(opId, opFinished);
                                 return;
                             }
                         }
@@ -299,17 +307,17 @@ public class NfcUnlockManager {
                 }
 
                 final DoorResponse resp = lastResponse;
-                deliverError(opId, resp != null ? resp.getErrorMessage() : "NFC communication failed");
+                deliverError(opId, opFinished, resp != null ? resp.getErrorMessage() : "NFC communication failed");
 
             } catch (Exception e) {
                 Log.e(TAG, "NFC error", e);
-                deliverError(opId, "NFC error: " + e.getMessage());
+                deliverError(opId, opFinished, "NFC error: " + e.getMessage());
             } finally {
                 try {
                     nfcA.close();
                 } catch (Exception ignored) {}
                 if (!continuingActivation[0]) {
-                    isProcessing.set(false);
+                    releaseProcessingIfOwner(opId, opFinished);
                 }
             }
         });
@@ -459,7 +467,7 @@ public class NfcUnlockManager {
             || (projectId == ApiClient.PROJECT_ID && appId == ApiClient.APP_ID);
     }
 
-    private void activateDigitalCredential(Tag tag, int deviceId, int opId) {
+    private void activateDigitalCredential(Tag tag, int deviceId, int opId, AtomicBoolean opFinished) {
         int projectId = getEffectiveProjectId();
         int appId = getEffectiveAppId();
         CredentialApi activationApi = new CredentialApi(cache);
@@ -470,21 +478,21 @@ public class NfcUnlockManager {
                 new CredentialApi.ActivationCallback() {
                     @Override
                     public void onSuccess(NfcActivationStep step) {
-                        proceedWithCredentialLookup(tag, deviceId, getEffectiveProjectId(), getEffectiveAppId(), activationApi, opId);
+                        proceedWithCredentialLookup(tag, deviceId, getEffectiveProjectId(), getEffectiveAppId(), activationApi, opId, opFinished);
                     }
                     @Override
                     public void onError(String message) {
                         Log.w(TAG, "fetchProjectByDeviceId failed: " + message + ", using defaults");
-                        proceedWithCredentialLookup(tag, deviceId, projectId, appId, activationApi, opId);
+                        proceedWithCredentialLookup(tag, deviceId, projectId, appId, activationApi, opId, opFinished);
                     }
                 });
         } else {
-            proceedWithCredentialLookup(tag, deviceId, projectId, appId, activationApi, opId);
+            proceedWithCredentialLookup(tag, deviceId, projectId, appId, activationApi, opId, opFinished);
         }
     }
 
     private void proceedWithCredentialLookup(Tag tag, int deviceId, int projectId, int appId,
-                                              CredentialApi activationApi, int opId) {
+                                              CredentialApi activationApi, int opId, AtomicBoolean opFinished) {
         // Step 2: Find or create digital credential
         activationApi.findOrCreateDigitalCredential(deviceId, projectId, appId,
             new CredentialApi.ActivationCallback() {
@@ -492,21 +500,21 @@ public class NfcUnlockManager {
                 public void onSuccess(NfcActivationStep step) {
                     String credentialId = step.credentialId;
                     if (credentialId == null || credentialId.isEmpty()) {
-                        deliverError(opId, "Server did not return credential ID");
+                        deliverError(opId, opFinished, "Server did not return credential ID");
                         return;
                     }
-                    proceedWithNfcActivation(tag, deviceId, credentialId, projectId, appId, activationApi, opId);
+                    proceedWithNfcActivation(tag, deviceId, credentialId, projectId, appId, activationApi, opId, opFinished);
                 }
                 @Override
                 public void onError(String message) {
-                    deliverError(opId, "Credential lookup failed: " + message);
+                    deliverError(opId, opFinished, "Credential lookup failed: " + message);
                 }
             });
     }
 
     private void proceedWithNfcActivation(Tag tag, int deviceId, String credentialId,
                                             int projectId, int appId,
-                                            CredentialApi activationApi, int opId) {
+                                            CredentialApi activationApi, int opId, AtomicBoolean opFinished) {
         executor.execute(() -> {
             NfcA nfcA = null;
             try {
@@ -515,7 +523,7 @@ public class NfcUnlockManager {
 
                 nfcA = NfcA.get(tag);
                 if (nfcA == null) {
-                    deliverError(opId, "Not an NFC-A tag");
+                    deliverError(opId, opFinished, "Not an NFC-A tag");
                     return;
                 }
                 nfcA.connect();
@@ -538,7 +546,7 @@ public class NfcUnlockManager {
                             credentialHex, parseCredentialId(currentStep.credentialId, cache.getCredentialId()),
                             projectId, appId);
                         nfcA.close();
-                        deliverSuccess(opId, null);
+                        deliverSuccess(opId, opFinished, null);
                         return;
                     }
 
@@ -559,12 +567,12 @@ public class NfcUnlockManager {
                 throw new Exception("NFC activation round limit exceeded");
             } catch (Exception e) {
                 Log.e(TAG, "NFC activation error", e);
-                deliverError(opId, "NFC activation error: " + e.getMessage());
+                deliverError(opId, opFinished, "NFC activation error: " + e.getMessage());
             } finally {
                 if (nfcA != null) {
                     try { nfcA.close(); } catch (Exception ignored) {}
                 }
-                isProcessing.set(false);
+                releaseProcessingIfOwner(opId, opFinished);
             }
         });
     }

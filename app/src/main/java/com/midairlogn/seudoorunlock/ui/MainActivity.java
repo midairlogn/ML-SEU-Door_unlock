@@ -457,7 +457,8 @@ public class MainActivity extends AppCompatActivity {
         android.graphics.drawable.LayerDrawable layerBg = (android.graphics.drawable.LayerDrawable) statusIconContainer.getBackground().mutate();
         ((GradientDrawable) layerBg.getDrawable(0)).setColor(ContextCompat.getColor(this, R.color.primary_container));
 
-        if (!hasAllPermissions()) {
+        boolean isNfc = METHOD_NFC.equals(selectedMethod);
+        if (!isNfc && !hasAllPermissions()) {
             ivStatusIcon.setImageResource(R.drawable.ic_warning);
             tvStatusTitle.setText(R.string.permission_required);
             tvStatusDetail.setText(R.string.permission_denied_detail);
@@ -472,7 +473,6 @@ public class MainActivity extends AppCompatActivity {
 
         btnGrantPermissions.setVisibility(View.GONE);
 
-        boolean isNfc = METHOD_NFC.equals(selectedMethod);
         boolean isReady = false;
 
         if (isNfc) {
@@ -581,12 +581,14 @@ public class MainActivity extends AppCompatActivity {
         String message = getString(R.string.credential_info_content, credentialId,
                 credential.isEmpty() ? getString(R.string.activation_pending_detail) : credential);
 
-        new AlertDialog.Builder(this)
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
             .setTitle(R.string.credential_info_title)
             .setMessage(message)
-            .setPositiveButton(android.R.string.ok, null)
-            .setNeutralButton(R.string.btn_copy, (dialog, which) -> copyCredential(credential))
-            .show();
+            .setPositiveButton(android.R.string.ok, null);
+        if (!credential.isEmpty()) {
+            builder.setNeutralButton(R.string.btn_copy, (dialog, which) -> copyCredential(credential));
+        }
+        builder.show();
     }
 
     private void copyCredential(String credential) {
@@ -783,6 +785,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void attemptBleUnlock() {
+        if (!hasAllPermissions()) {
+            requestPermissions();
+            return;
+        }
         if (!getBleManager().isBleSupported()) {
             showToast(R.string.ble_not_supported, Toast.LENGTH_SHORT);
             return;
@@ -876,7 +882,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void enableNfcReaderModeIfIdle() {
         if (!isResumed || isBusy || getNfcManager().isProcessing()) return;
-        if (METHOD_NFC.equals(selectedMethod) && hasAllPermissions()) {
+        if (METHOD_NFC.equals(selectedMethod)) {
             enableNfcReaderMode();
         }
     }

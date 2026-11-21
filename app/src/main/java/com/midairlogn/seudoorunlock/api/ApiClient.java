@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.FormBody;
@@ -208,31 +209,30 @@ public class ApiClient {
         formBuilder.add("timestamp", "" + ts);
         formBuilder.add("noncestr", nonce);
 
-        // Sign the form params
-        HttpUrl.Builder signBuilder = HttpUrl.parse("http://x/?" + formToString(formBuilder)).newBuilder();
+        // Sign the form params without raw string re-parsing (safe for &, =, #, +, %)
+        HttpUrl.Builder signBuilder = new HttpUrl.Builder()
+            .scheme("http")
+            .host("x");
+        FormBody unsignedBody = formBuilder.build();
+        for (int i = 0; i < unsignedBody.size(); i++) {
+            signBuilder.addQueryParameter(unsignedBody.name(i), unsignedBody.value(i));
+        }
         String sign = signParams(signBuilder, sessionSecret);
         formBuilder.add("sign", sign);
 
         RequestBody body = formBuilder.build();
-        HttpUrl cleanUrl = HttpUrl.parse(url.scheme() + "://" + url.host()
-            + (url.port() != HttpUrl.defaultPort(url.scheme()) ? ":" + url.port() : "")
-            + url.encodedPath());
+        HttpUrl cleanUrl = new HttpUrl.Builder()
+            .scheme(url.scheme())
+            .host(url.host())
+            .port(url.port())
+            .encodedPath(url.encodedPath())
+            .build();
 
         Request request = new Request.Builder()
             .url(cleanUrl)
             .post(body)
             .build();
         return executeRequest(request);
-    }
-
-    private static String formToString(FormBody.Builder builder) {
-        FormBody body = builder.build();
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < body.size(); i++) {
-            if (i > 0) sb.append("&");
-            sb.append(body.name(i)).append("=").append(body.value(i));
-        }
-        return sb.toString();
     }
 
     public static String base64Decode(String input) {
@@ -319,7 +319,7 @@ public class ApiClient {
             JSONObject root = new JSONObject(responseJson);
             String msg = extractServerMessage(root);
             if (msg == null) return false;
-            String lower = msg.toLowerCase();
+            String lower = msg.toLowerCase(Locale.ROOT);
             return lower.contains("本次登录需要进行验证")
                 || lower.contains("captcha_required")
                 || lower.contains("验证码输入错误");

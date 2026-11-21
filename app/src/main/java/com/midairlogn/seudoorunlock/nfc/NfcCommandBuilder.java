@@ -89,7 +89,7 @@ public final class NfcCommandBuilder {
                 if (b != 0) { hasNonZero = true; break; }
             }
             if (hasNonZero) {
-                updatedCredentialHex = bytesToHex(credBytes).toUpperCase();
+                updatedCredentialHex = bytesToHex(credBytes).toUpperCase(java.util.Locale.ROOT);
             }
         }
 

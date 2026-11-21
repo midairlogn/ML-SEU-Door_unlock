@@ -34,9 +34,11 @@ import com.midairlogn.seudoorunlock.storage.CredentialCache;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class BleUnlockManager {
 
@@ -76,19 +78,18 @@ public class BleUnlockManager {
     private BluetoothGattCharacteristic readCharacteristic;
     private volatile BleCallback pendingCallback;
     /**
-     * Monotonic operation id. Incremented only on the main thread (single
-     * writer, inside unlock() after a successful isProcessing CAS); volatile
-     * for cross-thread reads in complete()/fail() and delivery lambdas.
+     * Monotonic operation id. Incremented inside unlock() after a successful
+     * isProcessing CAS.
      */
-    private volatile int currentOpId;
-    private BluetoothDevice targetDevice;
+    private final AtomicInteger currentOpId = new AtomicInteger(0);
+    private volatile BluetoothDevice targetDevice;
     private volatile BluetoothLeScanner activeScanner;
     private volatile ScanCallback activeScanCallback;
-    private int connectAttempt;
-    private int activeDeviceId;
-    private boolean unlockFlowStarted;
-    private boolean operationFinished;
-    private boolean scanFallbackOnConnectFailure;
+    private volatile int connectAttempt;
+    private volatile int activeDeviceId;
+    private volatile boolean unlockFlowStarted;
+    private final AtomicBoolean operationFinished = new AtomicBoolean(false);
+    private volatile boolean scanFallbackOnConnectFailure;
 
     private boolean waitingForNotification = false;
     private byte[] lastNotificationData;
@@ -133,7 +134,7 @@ public class BleUnlockManager {
             Log.w(TAG, "BLE unlock already in progress, ignoring re-entrant call");
             return;
         }
-        final int opId = ++currentOpId;
+        final int opId = currentOpId.incrementAndGet();
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
             isProcessing.set(false);
             callback.onError("Bluetooth not available or not enabled");
@@ -144,7 +145,7 @@ public class BleUnlockManager {
         timeoutHandler.removeCallbacksAndMessages(null);
         clearActivationState();
         unlockFlowStarted = false;
-        operationFinished = false;
+        operationFinished.set(false);
         scanFallbackOnConnectFailure = false;
 
         int deviceId = cache.getDeviceId();
@@ -197,7 +198,7 @@ public class BleUnlockManager {
         activeDeviceId = deviceId;
         connectAttempt = 0;
         unlockFlowStarted = false;
-        operationFinished = false;
+        operationFinished.set(false);
         scanFallbackOnConnectFailure = allowScanFallback;
         connectNextAttempt();
     }
@@ -221,7 +222,7 @@ public class BleUnlockManager {
     }
 
     private void retryOrFail(String message) {
-        if (operationFinished) return;
+        if (operationFinished.get()) return;
         timeoutHandler.removeCallbacksAndMessages(null);
         if (targetDevice != null && connectAttempt < CONNECT_RETRY_COUNT) {
             Log.w(TAG, message + ", retrying BLE connection");
@@ -241,7 +242,7 @@ public class BleUnlockManager {
     private void startScanAndConnect() {
         int cachedDeviceId = cache.getDeviceId();
         String targetName = "XN-" + cachedDeviceId;
-        String targetAddress = cache.getBleMac().toUpperCase().replace(":", "").replace("-", "");
+        String targetAddress = cache.getBleMac().toUpperCase(Locale.ROOT).replace(":", "").replace("-", "");
         Log.d(TAG, "Scanning for: " + targetName + " addr=" + targetAddress);
 
         BluetoothLeScanner scanner = bluetoothAdapter.getBluetoothLeScanner();
@@ -264,7 +265,7 @@ public class BleUnlockManager {
                     ? scanRecord.getDeviceName()
                     : safeDeviceName(device);
                 String deviceAddress = safeDeviceAddress(device);
-                String normalizedAddr = deviceAddress.toUpperCase().replace(":", "").replace("-", "");
+                String normalizedAddr = deviceAddress.toUpperCase(Locale.ROOT).replace(":", "").replace("-", "");
                 int advertisedDeviceId = parseDeviceId(deviceName);
 
                 boolean nameMatch = matchesTargetName(deviceName, targetName);
@@ -338,7 +339,7 @@ public class BleUnlockManager {
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.d(TAG, "Disconnected");
                 cleanupGattOnly();
-                if (operationFinished) {
+                if (operationFinished.get()) {
                     return;
                 }
                 if (!unlockFlowStarted) {
@@ -663,7 +664,7 @@ public class BleUnlockManager {
                 Log.d(TAG, "Credential CRC verified OK");
             }
 
-            String hex = CryptoUtils.bytesToHex(credentialBytes).toUpperCase();
+            String hex = CryptoUtils.bytesToHex(credentialBytes).toUpperCase(Locale.ROOT);
             if (!hex.matches("^[0-9A-F]{64}$")) {
                 fail("Door lock returned invalid refreshed credential");
                 return;
@@ -766,7 +767,7 @@ public class BleUnlockManager {
 
     private void scheduleTimeout(int delayMs, String message) {
         timeoutHandler.postDelayed(() -> {
-            if (pendingCallback != null && !operationFinished) {
+            if (pendingCallback != null && !operationFinished.get()) {
                 if (!unlockFlowStarted && targetDevice != null) {
                     cleanupGattOnly();
                     retryOrFail(message);
@@ -794,9 +795,8 @@ public class BleUnlockManager {
         // a successful isProcessing CAS, so the id cannot change while the
         // flag is still true — the capture then can never pick up a
         // successor's id during the cleanupGatt binder calls below.
-        final int opId = currentOpId;
-        if (operationFinished) return;
-        operationFinished = true;
+        final int opId = currentOpId.get();
+        if (!operationFinished.compareAndSet(false, true)) return;
         isProcessing.set(false);
         clearActivationState();
         cleanupGatt();
@@ -811,7 +811,7 @@ public class BleUnlockManager {
                 Log.d(TAG, "Dropping BLE result: no callback registered");
                 return;
             }
-            if (opId != currentOpId) {
+            if (opId != currentOpId.get()) {
                 Log.d(TAG, "Dropping stale BLE result: superseded by a newer operation");
                 return;
             }
@@ -825,9 +825,8 @@ public class BleUnlockManager {
     }
 
     private void fail(String message) {
-        final int opId = currentOpId;
-        if (operationFinished) return;
-        operationFinished = true;
+        final int opId = currentOpId.get();
+        if (!operationFinished.compareAndSet(false, true)) return;
         isProcessing.set(false);
         clearActivationState();
         cleanupGatt();
@@ -837,7 +836,7 @@ public class BleUnlockManager {
                 Log.d(TAG, "Dropping BLE result: no callback registered");
                 return;
             }
-            if (opId != currentOpId) {
+            if (opId != currentOpId.get()) {
                 Log.d(TAG, "Dropping stale BLE result: superseded by a newer operation");
                 return;
             }
@@ -1122,11 +1121,11 @@ public class BleUnlockManager {
     }
 
     // Activation state fields
-    private com.midairlogn.seudoorunlock.model.NfcActivationStep pendingActivationStep;
-    private CredentialApi pendingActivationApi;
-    private int pendingActivationProjectId;
-    private int pendingActivationAppId;
-    private boolean isActivationFlow = false;
+    private volatile com.midairlogn.seudoorunlock.model.NfcActivationStep pendingActivationStep;
+    private volatile CredentialApi pendingActivationApi;
+    private volatile int pendingActivationProjectId;
+    private volatile int pendingActivationAppId;
+    private volatile boolean isActivationFlow = false;
 
     public void onDestroy() {
         cleanupGatt();

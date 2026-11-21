@@ -140,7 +140,7 @@ public class CredentialApi {
                     }
                 }
 
-                String normalizedCredential = credential.toUpperCase();
+                String normalizedCredential = credential.toUpperCase(java.util.Locale.ROOT);
                 if (!normalizedCredential.matches("^[0-9A-F]{64}$")) {
                     Log.d(TAG, "No offline credential returned; caching activation-pending lock");
                     // An incomplete response must not erase a usable credential
@@ -152,7 +152,9 @@ public class CredentialApi {
                     }
                 }
 
-                cache.saveDoorLock(deviceIdInt, bleMac, normalizedCredential, credentialId,
+                String effectiveBleMac = !bleMac.isEmpty() ? bleMac
+                    : (deviceIdInt == cache.getDeviceId() ? cache.getBleMac() : "");
+                cache.saveDoorLock(deviceIdInt, effectiveBleMac, normalizedCredential, credentialId,
                     projectId, appId);
 
                 if (info.accommodation != null) {
@@ -653,7 +655,12 @@ public class CredentialApi {
                     && !"payload".equals(key)
                     && !"type".equals(key)
                     && !"user_id".equals(key)
-                    && !"identitycode".equals(key)) {
+                    && !"identitycode".equals(key)
+                    && !"pid".equals(key)
+                    && !"appid".equals(key)
+                    && !"timestamp".equals(key)
+                    && !"noncestr".equals(key)
+                    && !"sign".equals(key)) {
                 urlBuilder.addQueryParameter(key, String.valueOf(val));
             }
         }
@@ -738,7 +745,7 @@ public class CredentialApi {
 
     private static String normalizeCredentialHex(String value) {
         if (value == null) return null;
-        String upper = value.trim().toUpperCase();
+        String upper = value.trim().toUpperCase(java.util.Locale.ROOT);
         return upper.matches("^[0-9A-F]{64}$") ? upper : null;
     }
 
@@ -767,7 +774,7 @@ public class CredentialApi {
         return new CredentialRecord(
             findString(record, "device_id", "deviceId"),
             findString(record, "ble_mac", "bleMac"),
-            credential != null ? credential.toUpperCase() : "",
+            credential != null ? credential.toUpperCase(java.util.Locale.ROOT) : "",
             credentialId
         );
     }

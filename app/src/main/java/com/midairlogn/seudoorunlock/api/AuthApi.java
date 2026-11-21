@@ -199,7 +199,7 @@ public class AuthApi {
 
         int svgStart = codeImg.indexOf("<svg");
         if (svgStart < 0) throw new Exception("验证码获取失败");
-        int svgEnd = codeImg.toLowerCase().lastIndexOf("</svg>");
+        int svgEnd = codeImg.toLowerCase(java.util.Locale.ROOT).lastIndexOf("</svg>");
         if (svgEnd <= svgStart) throw new Exception("验证码获取失败");
         return codeImg.substring(svgStart, svgEnd + 6);
     }
